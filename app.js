@@ -1,18 +1,3 @@
-অবশ্যই। তুমি যে **পুরো `app.js` code** দিয়েছো, সেটার মধ্যে সব পরিবর্তন করে নিচে **সম্পূর্ণ নতুন code** দিলাম। পুরোনো `app.js` পুরোটা **Ctrl+A → Delete → এই code paste → Commit changes** করবে।
-
-এতে থাকবে:
-
-* **Saturday–Thursday:** 11 AM–7 PM
-* **Friday:** 3 PM–9 PM
-* প্রতি **30 মিনিটে slot**
-* Shop বন্ধ থাকলে আজকের slot দেখাবে না
-* **পরের opening time** থেকে slot শুরু হবে
-* Pizza / Continental / Kacchi → pre-booking
-* Kacchi minimum 2 persons
-* bKash/Nagad payment আগের মতো থাকবে
-* Transaction ID validation থাকবে
-* WhatsApp order-এর সাথে selected delivery time যাবে
-
 # Updated app.js
 
 ```javascript
