@@ -1,5 +1,3 @@
-# Updated app.js
-
 ```javascript
 const SETTINGS={
   whatsapp:'8801792494275',
