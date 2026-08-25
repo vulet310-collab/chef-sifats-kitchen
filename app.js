@@ -1,4 +1,3 @@
-```javascript
 const SETTINGS={
   whatsapp:'8801792494275',
   payment:'01792494275',
@@ -836,4 +835,3 @@ document.getElementById('year').textContent=
 renderMenu();
 
 updateCount();
-```
