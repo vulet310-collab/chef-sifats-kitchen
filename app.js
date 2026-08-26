@@ -10,7 +10,7 @@ const DEFAULT_MENU=[
 {name:'Neapolitan Margherita Pizza',cat:'pizza',image:'assets/pizza-hero.png',prices:{'6″':350,'8″':450,'10″':550,'12″':650}},
 {name:'Emergency BBQ Chicken Pizza',cat:'pizza',image:'assets/pizza-hero.png',prices:{'8″':400,'10″':550,'12″':700}},
 {name:'Emergency Meat Pizza',cat:'pizza',image:'assets/pizza-hero.png',prices:{'8″':450,'10″':600,'12″':750}},
-{name:'Emergency Margherita Pizza',cat:'pizza',image:'assets/pizza-hero.png',prices:{'6″':300,'8″':400,'10″':500,'12″':600}},
+{name:'Emergency Margherita Pizza',cat:'pizza',image:'assets/emergency-margherita-pizza.jpg',prices:{'6″':300,'8″':400,'10″':500,'12″':600}},
 {name:'Chicken Momo',cat:'momo',image:'assets/chicken-momo.jpg',prices:{'6 pcs':120,'10 pcs':200}},
 {name:'Vegetable Momo',cat:'momo',image:'assets/vegetable-momo.jpg',prices:{'6 pcs':100,'10 pcs':160}},
 {name:'BBQ Chicken Momo',cat:'momo',image:'assets/bbq-chicken-momo.jpg',prices:{'6 pcs':160,'10 pcs':250}},
