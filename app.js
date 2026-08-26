@@ -5,7 +5,7 @@ const DEFAULT_MENU=[
 {name:'Flaming Chicken Pizza',cat:'pizza',image:'assets/flaming-chicken-pizza.jpg',prices:{'6″':300,'8″':350,'10″':450,'12″':550}},
 {name:'6 Season Pizza',cat:'pizza',image:'assets/6-season-pizza.jpg',prices:{'6″':350,'8″':420,'10″':500,'12″':600}},
 {name:'Margherita Pizza',cat:'pizza',image:'assets/margherita-pizza.jpg',prices:{'6″':280,'8″':350,'10″':420,'12″':500}},
-{name:'Neapolitan BBQ Chicken Pizza',cat:'pizza',image:'assets/bbq-chicken-pizza.jpg',prices:{'8″':450,'10″':600,'12″':750}},
+{name:'Neapolitan BBQ Chicken Pizza',cat:'pizza',image:'assets/neapolitan-bbq-chicken-pizza.jpg',prices:{'8″':450,'10″':600,'12″':750}},
 {name:'Neapolitan Meat Pizza',cat:'pizza',image:'assets/neapolitan-meat-pizza.jpg',prices:{'8″':500,'10″':650,'12″':800}},
 {name:'Neapolitan Margherita Pizza',cat:'pizza',image:'assets/neapolitan-margherita-pizza.jpg',prices:{'6″':350,'8″':450,'10″':550,'12″':650}},
 {name:'Emergency BBQ Chicken Pizza',cat:'pizza',image:'assets/emergency-bbq-chicken-pizza.jpg',prices:{'8″':400,'10″':550,'12″':700}},
