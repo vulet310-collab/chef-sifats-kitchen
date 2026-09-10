@@ -1,4 +1,190 @@
 const SETTINGS={whatsapp:'8801792494275',payment:'01792494275',facebook:'https://web.facebook.com/ChefSifatsKitchen'};
+/* =========================================================
+   DELIVERY LOCATION / 4 KM RADIUS
+   Base: Kahalthuri Hamidia High School
+   ========================================================= */
+
+const DELIVERY_BASE = {
+  lat: 23.3028443,
+  lng: 90.9223849
+};
+
+const MAX_DELIVERY_DISTANCE_KM = 4;
+
+let customerLocation = null;
+let customerDistanceKm = null;
+
+
+/* Calculate distance between two GPS points */
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+
+  const R = 6371;
+
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+
+  const c = 2 * Math.atan2(
+    Math.sqrt(a),
+    Math.sqrt(1 - a)
+  );
+
+  return R * c;
+}
+
+
+/* Detect customer location */
+function detectCustomerLocation() {
+
+  const status =
+    document.getElementById('locationStatus');
+
+  if (!navigator.geolocation) {
+
+    if (status) {
+      status.innerHTML =
+        '❌ Your browser does not support location detection.';
+    }
+
+    return;
+  }
+
+  if (status) {
+    status.innerHTML =
+      '📍 Detecting your location...';
+  }
+
+  navigator.geolocation.getCurrentPosition(
+
+    function(position) {
+
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      customerLocation = {
+        lat: lat,
+        lng: lng
+      };
+
+      customerDistanceKm = calculateDistanceKm(
+        DELIVERY_BASE.lat,
+        DELIVERY_BASE.lng,
+        lat,
+        lng
+      );
+
+      customerDistanceKm =
+        Number(customerDistanceKm.toFixed(2));
+
+      updateDeliveryStatus();
+
+    },
+
+    function(error) {
+
+      let message =
+        '❌ Unable to detect your location.';
+
+      if (error.code === 1) {
+        message =
+          '❌ Location permission denied. Please allow location access.';
+      }
+
+      if (error.code === 2) {
+        message =
+          '❌ Your location could not be determined.';
+      }
+
+      if (error.code === 3) {
+        message =
+          '❌ Location detection timed out.';
+      }
+
+      if (status) {
+        status.innerHTML = message;
+      }
+
+      customerLocation = null;
+      customerDistanceKm = null;
+
+    },
+
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    }
+  );
+}
+
+
+/* Update delivery status */
+function updateDeliveryStatus() {
+
+  const status =
+    document.getElementById('locationStatus');
+
+  if (
+    customerDistanceKm === null ||
+    !customerLocation
+  ) {
+    return;
+  }
+
+
+  /* More than 4 KM = BLOCK */
+  if (customerDistanceKm > 4) {
+
+    if (status) {
+
+      status.innerHTML = `
+        <div style="
+          padding:12px;
+          margin-top:10px;
+          border-radius:10px;
+          background:#ffe5e5;
+          color:#b00020;
+          font-weight:700;
+        ">
+          ❌ Delivery unavailable<br>
+          Your location is
+          <b>${customerDistanceKm} km</b>
+          away.<br>
+          Maximum delivery distance is
+          <b>4 km</b>.
+        </div>
+      `;
+
+    }
+
+    return;
+  }
+
+
+  /* Within 4 KM = ALLOW */
+  if (status) {
+
+    status.innerHTML = `
+      <div style="
+        padding:12px;
+        margin-top:10px;
+        border-radius:10px;
+        background:#e7f8ed;
+        color:#126b35;
+        font-weight:700;
+      ">
+        ✅ Delivery available<br>
+        Distance:
+        <b>${customerDistanceKm} km</b>
+      </div>
+    `;
+  }
+}
 const DEFAULT_MENU=[
 {name:'BBQ Chicken Pizza',cat:'pizza',image:'assets/bbq-chicken-pizza.jpg',prices:{'6″':300,'8″':380,'10″':480,'12″':580}},
 {name:'Meat Pizza',cat:'pizza',image:'assets/meat-pizza.jpg',prices:{'6″':350,'8″':450,'10″':550,'12″':650}},
