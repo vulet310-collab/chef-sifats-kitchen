@@ -223,6 +223,34 @@ function removeItem(i){cart.splice(i,1);saveCart();}
 function checkout(){if(!cart.length){toast('Add an item first.');return;}const kacchi=cart.some(x=>x.cat==='kacchi');if(kacchi&&cart.find(x=>x.cat==='kacchi'&&x.qty<2)){toast('Kacchi minimum order is 2 persons.');return;}closeCart();document.getElementById('checkout').classList.remove('hidden');buildSlots();const hasPre=cart.some(x=>isPrebook(x.cat));document.getElementById('paymentBlock').innerHTML=hasPre?`<label>Payment method<select id="cPayment"><option>Full Payment — bKash Personal 01792494275</option><option>Full Payment — Nagad Personal 01792494275</option></select></label><div class="payment-note">Pre-booking orders require <b>full payment</b>. Cash on Delivery is not available for pre-booking.</div>`:`<label>Payment method<select id="cPayment"><option>Cash on Delivery — Rahimanagar area</option><option>bKash Personal — 01792494275</option><option>Nagad Personal — 01792494275</option></select></label>`;document.getElementById('checkoutSummary').innerHTML=cart.map(x=>`<div><span>${x.name} • ${x.choice} × ${x.qty}</span><b>${money(x.price*x.qty)}</b></div>`).join('')+`<div><span><strong>Subtotal</strong></span><b>${money(cart.reduce((s,x)=>s+x.price*x.qty,0))}</b></div>`;}
 function buildSlots(){const box=document.getElementById('slotBlock');const needs=cart.some(x=>isPrebook(x.cat));if(!needs){box.innerHTML='';return;}let now=new Date(),start=new Date(now.getTime()+5*3600000),end=new Date(now.getTime()+12*3600000);start.setMinutes(Math.ceil(start.getMinutes()/30)*30,0,0);let opts='';for(let d=new Date(start);d<=end;d.setMinutes(d.getMinutes()+30)){let val=d.toISOString(),label=d.toLocaleString('en-BD',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});opts+=`<option value="${val}">${label}</option>`;}box.innerHTML=`<label>Pre-booking date & time<select id="prebookSlot" required>${opts}</select></label>`;}
 function closeCheckout(){document.getElementById('checkout').classList.add('hidden');}
-function placeOrder(e){e.preventDefault();const name=document.getElementById('cName').value.trim(),phone=document.getElementById('cPhone').value.trim(),address=document.getElementById('cAddress').value.trim(),payment=document.getElementById('cPayment').value,tx=document.getElementById('cTx').value.trim(),note=document.getElementById('cNote').value.trim(),hasPre=cart.some(x=>isPrebook(x.cat));if(!/^01\d{9}$/.test(phone.replace(/[\s-]/g,''))){alert('Please enter a valid Bangladesh mobile number.');return;}if(hasPre&&!tx){alert('Full payment is required. Please enter the bKash/Nagad Transaction ID.');return;}if(!hasPre&&(payment.startsWith('bKash')||payment.startsWith('Nagad'))&&!tx){alert('Please enter the Transaction ID for online payment.');return;}const subtotal=cart.reduce((s,x)=>s+x.price*x.qty,0);const slot=hasPre?document.getElementById('prebookSlot').value:'';let text=`*NEW ORDER — CHEF SIFAT'S KITCHEN*\n\n`;text+=cart.map(x=>`• ${x.name} — ${x.choice} × ${x.qty} = ${money(x.price*x.qty)}`).join('\n');text+=`\n\n*Subtotal:* ${money(subtotal)}\n*Customer:* ${name}\n*Phone:* ${phone}\n*Address:* ${address}\n*Payment:* ${payment}\n*Transaction ID:* ${tx||'N/A'}`;if(slot)text+=`\n*Pre-booking:* ${new Date(slot).toLocaleString('en-BD')}`;text+=`\n*Note:* ${note||'None'}`;window.open(`https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(text)}`,'_blank');closeCheckout();cart=[];saveCart();toast('Order details prepared ✓');}
+function placeOrder(e){e.preventDefault();/* =========================================================
+   DELIVERY LOCATION VALIDATION
+   ========================================================= */
+
+if (!customerLocation || customerDistanceKm === null) {
+
+  alert(
+    'Please detect your delivery location first.'
+  );
+
+  return;
+}
+
+
+/* Block orders outside 4 KM */
+
+if (
+  customerDistanceKm > MAX_DELIVERY_DISTANCE_KM
+) {
+
+  alert(
+    `Sorry, delivery is unavailable at your location.
+
+Your distance: ${customerDistanceKm} km
+Maximum delivery distance: 4 km`
+  );
+
+  return;
+} const name=document.getElementById('cName').value.trim(),phone=document.getElementById('cPhone').value.trim(),address=document.getElementById('cAddress').value.trim(),payment=document.getElementById('cPayment').value,tx=document.getElementById('cTx').value.trim(),note=document.getElementById('cNote').value.trim(),hasPre=cart.some(x=>isPrebook(x.cat));if(!/^01\d{9}$/.test(phone.replace(/[\s-]/g,''))){alert('Please enter a valid Bangladesh mobile number.');return;}if(hasPre&&!tx){alert('Full payment is required. Please enter the bKash/Nagad Transaction ID.');return;}if(!hasPre&&(payment.startsWith('bKash')||payment.startsWith('Nagad'))&&!tx){alert('Please enter the Transaction ID for online payment.');return;}const subtotal=cart.reduce((s,x)=>s+x.price*x.qty,0);const slot=hasPre?document.getElementById('prebookSlot').value:'';let text=`*NEW ORDER — CHEF SIFAT'S KITCHEN*\n\n`;text+=cart.map(x=>`• ${x.name} — ${x.choice} × ${x.qty} = ${money(x.price*x.qty)}`).join('\n');text+=`\n\n*Subtotal:* ${money(subtotal)}\n*Customer:* ${name}\n*Phone:* ${phone}\n*Address:* ${address}\n*Payment:* ${payment}\n*Transaction ID:* ${tx||'N/A'}`;if(slot)text+=`\n*Pre-booking:* ${new Date(slot).toLocaleString('en-BD')}`;text+=`\n*Note:* ${note||'None'}`;window.open(`https://wa.me/${SETTINGS.whatsapp}?text=${encodeURIComponent(text)}`,'_blank');closeCheckout();cart=[];saveCart();toast('Order details prepared ✓');}
 function toast(t){const x=document.createElement('div');x.textContent=t;x.style.cssText='position:fixed;left:50%;bottom:25px;transform:translateX(-50%);z-index:999;background:#e8a323;color:#111;padding:11px 18px;border-radius:999px;font-weight:800;box-shadow:0 10px 30px #000';document.body.appendChild(x);setTimeout(()=>x.remove(),1800);}
 document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');activeFilter=b.dataset.filter;renderMenu();}));document.getElementById('year').textContent=new Date().getFullYear();renderMenu();updateCount();
