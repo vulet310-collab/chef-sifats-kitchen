@@ -941,6 +941,11 @@ function buildPaymentBlock() {
 
   syncFoodpandaPayment();
 }
+```js
+/* =========================================================
+   UPDATE PAYMENT OPTIONS
+========================================================= */
+
 function updatePaymentOptions(codAvailable) {
 
   const box =
@@ -951,10 +956,18 @@ function updatePaymentOptions(codAvailable) {
   const hasPre =
     cart.some(item => isPrebook(item.cat));
 
+  /* =========================
+     PRE-BOOKING
+  ========================= */
+
   if (hasPre) {
     syncFoodpandaPayment();
     return;
   }
+
+  /* =========================
+     COD AVAILABLE
+  ========================= */
 
   if (codAvailable) {
 
@@ -974,19 +987,15 @@ function updatePaymentOptions(codAvailable) {
         </div>
 
         <div class="fp-payment-text">
-
           <strong>Cash on Delivery</strong>
-
           <small>
             Pay cash when your order arrives
           </small>
-
         </div>
 
         <span class="fp-check">✓</span>
 
       </label>
-
 
       <label class="fp-payment-option">
 
@@ -1001,19 +1010,13 @@ function updatePaymentOptions(codAvailable) {
         </div>
 
         <div class="fp-payment-text">
-
           <strong>bKash Personal</strong>
-
-          <small>
-            01792494275
-          </small>
-
+          <small>01792494275</small>
         </div>
 
         <span class="fp-check">✓</span>
 
       </label>
-
 
       <label class="fp-payment-option">
 
@@ -1028,13 +1031,8 @@ function updatePaymentOptions(codAvailable) {
         </div>
 
         <div class="fp-payment-text">
-
           <strong>Nagad Personal</strong>
-
-          <small>
-            01792494275
-          </small>
-
+          <small>01792494275</small>
         </div>
 
         <span class="fp-check">✓</span>
@@ -1043,17 +1041,25 @@ function updatePaymentOptions(codAvailable) {
 
     `;
 
-  } else {
+  }
+
+  /* =========================
+     COD NOT AVAILABLE
+  ========================= */
+
+  else {
 
     box.innerHTML = `
 
       <div class="fp-online-required">
+
         🔒 <strong>Online payment required</strong>
+
         <small>
           COD is not available for this location.
         </small>
-      </div>
 
+      </div>
 
       <label class="fp-payment-option active">
 
@@ -1069,72 +1075,221 @@ function updatePaymentOptions(codAvailable) {
         </div>
 
         <div class="fp-payment-text">
-
           <strong>bKash Personal</strong>
+          <small>01792494275</small>
+        </div>
 
-          <small>
-            01792494275
-         
-  payment.onchange =
-    updateTransactionField;
+        <span class="fp-check">✓</span>
 
-  updateTransactionField();
+      </label>
+
+      <label class="fp-payment-option">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="Nagad Personal — 01792494275"
+        >
+
+        <div class="fp-payment-icon nagad">
+          N
+        </div>
+
+        <div class="fp-payment-text">
+          <strong>Nagad Personal</strong>
+          <small>01792494275</small>
+        </div>
+
+        <span class="fp-check">✓</span>
+
+      </label>
+
+    `;
+  }
+
+  /* =========================
+     PAYMENT CHANGE EVENTS
+  ========================= */
+
+  document
+    .querySelectorAll(
+      'input[name="fpPayment"]'
+    )
+    .forEach(input => {
+
+      input.addEventListener(
+        'change',
+        () => {
+
+          document
+            .querySelectorAll(
+              '.fp-payment-option'
+            )
+            .forEach(option => {
+
+              option.classList.remove(
+                'active'
+              );
+
+            });
+
+          input
+            .closest(
+              '.fp-payment-option'
+            )
+            ?.classList.add(
+              'active'
+            );
+
+          syncFoodpandaPayment();
+
+        }
+      );
+
+    });
+
+  syncFoodpandaPayment();
 }
 
-function disablePaymentForUnavailable() {
-  const payment =
-    document.getElementById('cPayment');
-
-  if (!payment) return;
-
-  payment.innerHTML = `
-    <option value="Delivery unavailable">
-      Delivery unavailable
-    </option>
-  `;
-
-  payment.value =
-    'Delivery unavailable';
-
-  updateTransactionField();
-}
 
 /* =========================================================
-   TRANSACTION FIELD
+   SYNC FOODPANDA PAYMENT
 ========================================================= */
 
-function updateTransactionField() {
-  const payment =
-    document.getElementById('cPayment');
+function syncFoodpandaPayment() {
 
-  const wrap =
-    document.getElementById('cTxWrap');
+  const selected =
+    document.querySelector(
+      'input[name="fpPayment"]:checked'
+    );
+
+  const txBox =
+    document.getElementById(
+      'fpTransactionBox'
+    );
 
   const tx =
-    document.getElementById('cTx');
+    document.getElementById(
+      'cTx'
+    );
 
-  if (!payment || !wrap || !tx) {
+  if (!selected) {
+
+    if (txBox) {
+      txBox.style.display = 'none';
+    }
+
+    if (tx) {
+      tx.required = false;
+    }
+
     return;
   }
 
-  const value =
-    payment.value || '';
+  const payment =
+    selected.value || '';
 
-  const required =
-    value.startsWith('bKash') ||
-    value.startsWith('Nagad') ||
-    value.startsWith('Full Payment');
+  const online =
+    payment.startsWith('bKash') ||
+    payment.startsWith('Nagad') ||
+    payment.startsWith('Full Payment');
 
-  if (required) {
-    wrap.style.display = 'block';
-    tx.required = true;
-  } else {
-    wrap.style.display = 'none';
+  if (txBox) {
+    txBox.style.display =
+      online ? 'block' : 'none';
+  }
+
+  if (tx) {
+    tx.required = online;
+
+    if (!online) {
+      tx.value = '';
+    }
+  }
+}
+
+
+/* =========================================================
+   GET SELECTED PAYMENT
+========================================================= */
+
+function getSelectedPayment() {
+
+  const selected =
+    document.querySelector(
+      'input[name="fpPayment"]:checked'
+    );
+
+  return selected
+    ? selected.value
+    : '';
+}
+
+
+/* =========================================================
+   DISABLE PAYMENT FOR UNAVAILABLE LOCATION
+========================================================= */
+
+function disablePaymentForUnavailable() {
+
+  const box =
+    document.getElementById(
+      'fpPaymentOptions'
+    );
+
+  if (!box) return;
+
+  box.innerHTML = `
+
+    <div class="fp-online-required">
+
+      🚫 <strong>Delivery unavailable</strong>
+
+      <small>
+        This location is outside our 4 km delivery area.
+      </small>
+
+    </div>
+
+  `;
+
+  const txBox =
+    document.getElementById(
+      'fpTransactionBox'
+    );
+
+  if (txBox) {
+    txBox.style.display = 'none';
+  }
+
+  const tx =
+    document.getElementById(
+      'cTx'
+    );
+
+  if (tx) {
     tx.required = false;
     tx.value = '';
   }
 }
 
+
+/* =========================================================
+   GET PAYMENT FOR ORDER
+========================================================= */
+
+function getOrderPayment() {
+
+  const payment =
+    getSelectedPayment();
+
+  if (!payment) {
+    return '';
+  }
+
+  return payment;
+}
+```
 /* =========================================================
    SHOP TIME
 ========================================================= */
@@ -2116,10 +2271,9 @@ function placeOrder(e) {
       'cMapAddress'
     ).value.trim();
 
-  const payment =
-    document.getElementById(
-      'cPayment'
-    )?.value || '';
+```javascript
+const payment = getOrderPayment();
+```
 
   const tx =
     document.getElementById(
