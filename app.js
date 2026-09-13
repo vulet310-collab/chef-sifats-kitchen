@@ -1,11 +1,12 @@
 /* =========================================================
    CHEF SIFAT'S KITCHEN
    COMPLETE APP.JS
-   ========================================================= */
+========================================================= */
 
-/* =========================
+
+/* =========================================================
    SETTINGS
-========================= */
+========================================================= */
 
 const SETTINGS = {
   whatsapp: '8801792494275',
@@ -14,9 +15,9 @@ const SETTINGS = {
 };
 
 
-/* =========================
+/* =========================================================
    DELIVERY SETTINGS
-========================= */
+========================================================= */
 
 const BASE_LOCATION = {
   name: 'Kahalthuri Hamidia High School',
@@ -29,9 +30,9 @@ const MAX_DELIVERY_RADIUS_KM = 4.0;
 const DELIVERY_RATE_PER_KM = 10;
 
 
-/* =========================
+/* =========================================================
    SHOP HOURS
-========================= */
+========================================================= */
 
 const SHOP_HOURS = {
   normal: {
@@ -46,9 +47,9 @@ const SHOP_HOURS = {
 };
 
 
-/* =========================
+/* =========================================================
    DEFAULT MENU
-========================= */
+========================================================= */
 
 const DEFAULT_MENU = [
 
@@ -331,49 +332,144 @@ const DEFAULT_MENU = [
 let savedMenu = [];
 
 try {
-  savedMenu = JSON.parse(
-    localStorage.getItem('chefSifatMenu') || 'null'
-  );
+
+  savedMenu =
+    JSON.parse(
+      localStorage.getItem('chefSifatMenu') || 'null'
+    );
+
 } catch (error) {
+
   savedMenu = [];
+
 }
 
-const savedMenuList = Array.isArray(savedMenu)
-  ? savedMenu
-  : [];
+const savedMenuList =
+  Array.isArray(savedMenu)
+    ? savedMenu
+    : [];
 
-const savedByName = new Map(
-  savedMenuList
-    .filter(item => item && item.name)
-    .map(item => [item.name, item])
-);
 
-const defaultNames = new Set(
-  DEFAULT_MENU.map(item => item.name)
-);
+const savedByName =
+  new Map(
+    savedMenuList
+      .filter(
+        item =>
+          item &&
+          item.name
+      )
+      .map(
+        item =>
+          [
+            item.name,
+            item
+          ]
+      )
+  );
 
-let MENU = [
-  ...DEFAULT_MENU.map(item =>
-    savedByName.get(item.name) || item
-  ),
+
+const defaultNames =
+  new Set(
+    DEFAULT_MENU.map(
+      item =>
+        item.name
+    )
+  );
+
+
+/*
+ * Merge saved admin settings with
+ * the current default menu.
+ *
+ * This prevents old localStorage
+ * data from deleting choices/prices.
+ */
+
+let MENU =
+  DEFAULT_MENU.map(
+    item => {
+
+      const saved =
+        savedByName.get(
+          item.name
+        );
+
+      if (!saved) {
+        return {
+          ...item
+        };
+      }
+
+      return {
+        ...item,
+        ...saved,
+
+        choices:
+          Array.isArray(saved.choices)
+            ? saved.choices
+            : item.choices,
+
+        minQty:
+          saved.minQty ??
+          item.minQty,
+
+        maxQty:
+          saved.maxQty ??
+          item.maxQty,
+
+        prebook:
+          saved.prebook ??
+          item.prebook,
+
+        note:
+          saved.note ??
+          item.note,
+
+        image:
+          saved.image ||
+          item.image
+      };
+
+    }
+  );
+
+
+/*
+ * Keep additional custom admin items.
+ */
+
+MENU = [
+  ...MENU,
 
   ...savedMenuList.filter(
     item =>
       item &&
       item.name &&
-      !defaultNames.has(item.name)
+      !defaultNames.has(
+        item.name
+      )
   )
 ];
 
+
 function saveMenu() {
+
   try {
+
     localStorage.setItem(
       'chefSifatMenu',
       JSON.stringify(MENU)
     );
+
   } catch (error) {
-    console.warn('Could not save menu:', error);
+
+    console.warn(
+      'Could not save menu:',
+      error
+    );
+
   }
+
 }
 
 saveMenu();
@@ -386,22 +482,38 @@ saveMenu();
 let cart = [];
 
 try {
-  const savedCart = JSON.parse(
-    localStorage.getItem('chefSifatCart') || '[]'
-  );
 
-  if (Array.isArray(savedCart)) {
-    cart = savedCart;
+  const savedCart =
+    JSON.parse(
+      localStorage.getItem(
+        'chefSifatCart'
+      ) || '[]'
+    );
+
+  if (
+    Array.isArray(savedCart)
+  ) {
+
+    cart =
+      savedCart;
+
   }
+
 } catch (error) {
+
   cart = [];
+
 }
+
 
 let currentCategory = 'all';
 
 let deliveryMap = null;
+
 let deliveryMarker = null;
+
 let selectedLocation = null;
+
 let reverseGeocodeTimer = null;
 
 
@@ -410,50 +522,108 @@ let reverseGeocodeTimer = null;
 ========================================================= */
 
 function money(value) {
-  return `৳${Number(value || 0).toLocaleString('en-BD')}`;
+
+  return `৳${Number(
+    value || 0
+  ).toLocaleString(
+    'en-BD'
+  )}`;
+
 }
+
 
 function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+
+  return String(
+    value ?? ''
+  )
+    .replace(
+      /&/g,
+      '&amp;'
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    )
+    .replace(
+      /"/g,
+      '&quot;'
+    )
+    .replace(
+      /'/g,
+      '&#039;'
+    );
+
 }
+
 
 function normalizeCategory(cat) {
-  return String(cat || '')
+
+  return String(
+    cat || ''
+  )
     .toLowerCase()
     .trim();
+
 }
 
-function isPrebook(itemOrCategory) {
-  if (typeof itemOrCategory === 'object') {
+
+function isPrebook(
+  itemOrCategory
+) {
+
+  if (
+    typeof itemOrCategory ===
+    'object'
+  ) {
+
     return !!itemOrCategory.prebook;
+
   }
 
   return [
     'kacchi',
     'continental'
   ].includes(
-    normalizeCategory(itemOrCategory)
+    normalizeCategory(
+      itemOrCategory
+    )
   );
+
 }
 
+
 function saveCart() {
+
   try {
+
     localStorage.setItem(
       'chefSifatCart',
       JSON.stringify(cart)
     );
+
   } catch (error) {
-    console.warn('Could not save cart:', error);
+
+    console.warn(
+      'Could not save cart:',
+      error
+    );
+
   }
+
 }
 
+
 function getEl(id) {
-  return document.getElementById(id);
+
+  return document.getElementById(
+    id
+  );
+
 }
 
 
@@ -462,33 +632,65 @@ function getEl(id) {
 ========================================================= */
 
 function renderMenu() {
-  const grid = getEl('menuGrid');
+
+  const grid =
+    getEl(
+      'menuGrid'
+    );
 
   if (!grid) return;
 
-  const searchEl = getEl('search');
 
-  const searchTerm = searchEl
-    ? searchEl.value.trim().toLowerCase()
-    : '';
+  const searchEl =
+    getEl(
+      'search'
+    );
 
-  const filtered = MENU.filter(item => {
 
-    const matchesCategory =
-      currentCategory === 'all' ||
-      normalizeCategory(item.cat) ===
-      normalizeCategory(currentCategory);
+  const searchTerm =
+    searchEl
+      ? searchEl.value
+          .trim()
+          .toLowerCase()
+      : '';
 
-    const matchesSearch =
-      !searchTerm ||
-      String(item.name || '')
-        .toLowerCase()
-        .includes(searchTerm);
 
-    return matchesCategory && matchesSearch;
-  });
+  const filtered =
+    MENU.filter(
+      item => {
+
+        const matchesCategory =
+          currentCategory === 'all' ||
+          normalizeCategory(
+            item.cat
+          ) ===
+          normalizeCategory(
+            currentCategory
+          );
+
+
+        const matchesSearch =
+          !searchTerm ||
+          String(
+            item.name || ''
+          )
+            .toLowerCase()
+            .includes(
+              searchTerm
+            );
+
+
+        return (
+          matchesCategory &&
+          matchesSearch
+        );
+
+      }
+    );
+
 
   if (!filtered.length) {
+
     grid.innerHTML = `
       <div class="empty-menu">
         <h3>No items found</h3>
@@ -499,467 +701,1061 @@ function renderMenu() {
     return;
   }
 
-  grid.innerHTML = filtered.map(item => {
 
-    const choices = Array.isArray(item.choices)
-      ? item.choices
-      : [];
+  grid.innerHTML =
+    filtered.map(
+      (item, index) => {
 
-    const minQty =
-      Number(item.minQty || 1);
+        const choices =
+          Array.isArray(
+            item.choices
+          )
+            ? item.choices
+            : [];
 
-    const maxQty =
-      Number(item.maxQty || 99);
 
-    const choicesHtml = choices.length
-      ? `
-        <div class="food-options">
-          ${choices.map((choice, index) => `
-            <label class="food-option">
-              <input
-                type="radio"
-                name="choice-${encodeURIComponent(item.name)}"
-                value="${index}"
-                ${index === 0 ? 'checked' : ''}
+        const minQty =
+          Number(
+            item.minQty || 1
+          );
+
+
+        const maxQty =
+          Number(
+            item.maxQty || 99
+          );
+
+
+        const choicesHtml =
+          choices.length
+            ? `
+              <div class="food-options">
+
+                ${choices.map(
+                  (
+                    choice,
+                    choiceIndex
+                  ) => `
+
+                    <label class="food-option">
+
+                      <input
+                        type="radio"
+                        name="choice-${index}"
+                        value="${choiceIndex}"
+                        ${
+                          choiceIndex === 0
+                            ? 'checked'
+                            : ''
+                        }
+                      >
+
+                      <span>
+                        ${escapeHtml(
+                          choice.label
+                        )}
+                        —
+                        ${money(
+                          choice.price
+                        )}
+                      </span>
+
+                    </label>
+
+                  `
+                ).join('')}
+
+              </div>
+            `
+            : `
+              <div class="food-price">
+                ${money(
+                  item.price
+                )}
+              </div>
+            `;
+
+
+        const prebookHtml =
+          isPrebook(item)
+            ? `
+              <div class="prebook-note">
+
+                ${escapeHtml(
+                  item.note ||
+                  'Pre-booking required • 5–12 hours ahead • Full payment required'
+                )}
+
+              </div>
+            `
+            : '';
+
+
+        return `
+
+          <article class="food-card">
+
+            <div class="food-image-wrap">
+
+              <img
+                class="food-image"
+                src="${escapeHtml(
+                  item.image || ''
+                )}"
+                alt="${escapeHtml(
+                  item.name
+                )}"
+                loading="lazy"
+                onerror="this.style.display='none'"
               >
-              <span>
-                ${escapeHtml(choice.label)}
-                — ${money(choice.price)}
-              </span>
-            </label>
-          `).join('')}
-        </div>
-      `
-      : `
-        <div class="food-price">
-          ${money(item.price)}
-        </div>
-      `;
-
-    const prebookHtml = isPrebook(item)
-      ? `
-        <div class="prebook-note">
-          ${escapeHtml(
-            item.note ||
-            'Pre-booking required • 5–12 hours ahead • Full payment required'
-          )}
-        </div>
-      `
-      : '';
-
-    return `
-      <article class="food-card">
-
-        <div class="food-image-wrap">
-          <img
-            class="food-image"
-            src="${escapeHtml(item.image || '')}"
-            alt="${escapeHtml(item.name)}"
-            loading="lazy"
-            onerror="this.style.display='none'"
-          >
-        </div>
-
-        <div class="food-card-body">
-
-          <h3 class="food-name">
-            ${escapeHtml(item.name)}
-          </h3>
-
-          ${choicesHtml}
-
-          ${prebookHtml}
-
-          <div class="food-actions">
-
-            <label class="qty-label">
-              Qty
-              <input
-                class="food-qty"
-                type="number"
-                min="${minQty}"
-                max="${maxQty}"
-                value="${minQty}"
-                id="qty-${encodeURIComponent(item.name)}"
-              >
-            </label>
-
-            <button
-              type="button"
-              class="add-btn"
-              onclick="addToCartByName('${encodeURIComponent(item.name)}')"
-            >
-              Add to Cart
-            </button>
-
-          </div>
-
-        </div>
-
-      </article>
-    `;
-  }).join('');
-}
-
-
-/* =========================================================
-   ADD TO CART
-========================================================= */
-
-function addToCartByName(encodedName) {
-  const name = decodeURIComponent(encodedName);
-
-  const item = MENU.find(
-    menuItem => menuItem.name === name
-  );
-
-  if (!item) {
-    toast('Item not found.');
-    return;
-  }
-
-  const qtyInput =
-    getEl(`qty-${encodeURIComponent(item.name)}`);
-
-  const quantity =
-    Math.max(
-      Number(item.minQty || 1),
-      Number(qtyInput?.value || item.minQty || 1)
-    );
-
-  const choices =
-    Array.isArray(item.choices)
-      ? item.choices
-      : [];
-
-  let choiceIndex = 0;
-
-  const radios =
-    document.querySelectorAll(
-      `input[name="choice-${encodeURIComponent(item.name)}"]`
-    );
-
-  radios.forEach(radio => {
-    if (radio.checked) {
-      choiceIndex = Number(radio.value);
-    }
-  });
-
-  const selectedChoice =
-    choices[choiceIndex];
-
-  const price =
-    selectedChoice
-      ? Number(selectedChoice.price)
-      : Number(item.price || 0);
-
-  const choice =
-    selectedChoice
-      ? selectedChoice.label
-      : '';
-
-  if (quantity > Number(item.maxQty || 99)) {
-    toast(
-      `Maximum quantity is ${item.maxQty || 99}.`
-    );
-
-    return;
-  }
-
-  const existing =
-    cart.find(
-      cartItem =>
-        cartItem.name === item.name &&
-        cartItem.choice === choice
-    );
-
-  if (existing) {
-    const newQty =
-      Number(existing.qty || 0) + quantity;
-
-    if (newQty > Number(item.maxQty || 99)) {
-      toast(
-        `Maximum quantity is ${item.maxQty || 99}.`
-      );
-
-      return;
-    }
-
-    existing.qty = newQty;
-
-  } else {
-
-    cart.push({
-      name: item.name,
-      cat: item.cat,
-      choice: choice,
-      price: price,
-      qty: quantity,
-      image: item.image || '',
-      prebook: !!item.prebook
-    });
-  }
-
-  saveCart();
-  updateCount();
-  renderCart();
-
-  toast(`${item.name} added to cart.`);
-}
-
-function addToCart(item, choiceIndex = 0, qty = 1) {
-  const choices =
-    Array.isArray(item.choices)
-      ? item.choices
-      : [];
-
-  const selectedChoice =
-    choices[choiceIndex] || choices[0];
-
-  const price =
-    selectedChoice
-      ? Number(selectedChoice.price)
-      : Number(item.price || 0);
-
-  const choice =
-    selectedChoice
-      ? selectedChoice.label
-      : '';
-
-  const quantity =
-    Math.max(
-      Number(item.minQty || 1),
-      Number(qty || 1)
-    );
-
-  cart.push({
-    name: item.name,
-    cat: item.cat,
-    choice,
-    price,
-    qty: quantity,
-    image: item.image || '',
-    prebook: !!item.prebook
-  });
-
-  saveCart();
-  updateCount();
-  renderCart();
-}
-
-
-/* =========================================================
-   CART
-========================================================= */
-
-function updateCount() {
-  const count =
-    cart.reduce(
-      (sum, item) =>
-        sum + Number(item.qty || 0),
-      0
-    );
-
-  const cartCount =
-    getEl('cartCount');
-
-  if (cartCount) {
-    cartCount.textContent = count;
-  }
-}
-
-function openCart() {
-  const cartEl = getEl('cart');
-
-  if (cartEl) {
-    cartEl.classList.add('open');
-  }
-
-  renderCart();
-}
-
-function closeCart() {
-  const cartEl = getEl('cart');
-
-  if (cartEl) {
-    cartEl.classList.remove('open');
-  }
-}
-
-function renderCart() {
-  const box =
-    getEl('cartItems');
-
-  if (!box) return;
-
-  if (!cart.length) {
-
-    box.innerHTML = `
-      <div class="empty">
-        <h3>Your cart is empty</h3>
-        <p>Add delicious food to continue.</p>
-      </div>
-    `;
-
-    const subtotalEl =
-      getEl('subtotal');
-
-    if (subtotalEl) {
-      subtotalEl.textContent = money(0);
-    }
-
-    return;
-  }
-
-  box.innerHTML = cart.map((item, index) => {
-
-    const lineTotal =
-      Number(item.price || 0) *
-      Number(item.qty || 0);
-
-    return `
-      <div class="cart-row">
-
-        <div class="cart-info">
-
-          ${
-            item.image
-              ? `
-                <img
-                  class="cart-thumb"
-                  src="${escapeHtml(item.image)}"
-                  alt="${escapeHtml(item.name)}"
+
+            </div>
+
+
+            <div class="food-card-body">
+
+              <h3 class="food-name">
+                ${escapeHtml(
+                  item.name
+                )}
+              </h3>
+
+
+              ${choicesHtml}
+
+
+              ${prebookHtml}
+
+
+              <div class="food-actions">
+
+                <label class="qty-label">
+
+                  Qty
+
+                  <input
+                    class="food-qty"
+                    type="number"
+                    min="${minQty}"
+                    max="${maxQty}"
+                    value="${minQty}"
+                    id="qty-${index}"
+                  >
+
+                </label>
+
+
+                <button
+                  type="button"
+                  class="add-btn"
+                  data-menu-index="${MENU.indexOf(item)}"
+                  data-card-index="${index}"
                 >
-              `
-              : ''
-          }
+                  Add to Cart
+                </button>
 
-          <div>
-            <strong>
-              ${escapeHtml(item.name)}
-            </strong>
+              </div>
 
-            ${
-              item.choice
-                ? `
-                  <div class="cart-choice">
-                    ${escapeHtml(item.choice)}
-                  </div>
-                `
-                : ''
+            </div>
+
+          </article>
+
+        `;
+
+      }
+    ).join('');
+
+
+  /*
+   * Add button listeners
+   */
+
+  grid
+    .querySelectorAll(
+      '.add-btn'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          function(event) {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+
+            const menuIndex =
+              Number(
+                this.dataset.menuIndex
+              );
+
+
+            const cardIndex =
+              Number(
+                this.dataset.cardIndex
+              );
+
+
+            const item =
+              MENU[
+                menuIndex
+              ];
+
+
+            if (!item) {
+
+              toast(
+                'Item not found.'
+              );
+
+              return;
+
             }
 
-            <div class="cart-price">
-              ${money(item.price)} × ${item.qty}
-            </div>
-          </div>
 
-        </div>
+            const qtyInput =
+              getEl(
+                `qty-${cardIndex}`
+              );
 
-        <div class="cart-controls">
 
-          <button
-            type="button"
-            onclick="changeQty(${index}, -1)"
-          >
-            −
-          </button>
+            const minQty =
+              Number(
+                item.minQty || 1
+              );
 
-          <span>${item.qty}</span>
 
-          <button
-            type="button"
-            onclick="changeQty(${index}, 1)"
-          >
-            +
-          </button>
+            const maxQty =
+              Number(
+                item.maxQty || 99
+              );
 
-          <button
-            type="button"
-            class="remove-btn"
-            onclick="removeItem(${index})"
-          >
-            Remove
-          </button>
 
-        </div>
+            let quantity =
+              Number(
+                qtyInput?.value ||
+                minQty
+              );
 
-        <div class="cart-line-total">
-          ${money(lineTotal)}
-        </div>
 
-      </div>
-    `;
-  }).join('');
+            if (
+              !Number.isFinite(
+                quantity
+              )
+            ) {
 
-  const subtotal =
-    cart.reduce(
-      (sum, item) =>
-        sum +
-        Number(item.price || 0) *
-        Number(item.qty || 0),
-      0
+              quantity =
+                minQty;
+
+            }
+
+
+            quantity =
+              Math.max(
+                minQty,
+                Math.floor(
+                  quantity
+                )
+              );
+
+
+            if (
+              quantity >
+              maxQty
+            ) {
+
+              toast(
+                `Maximum quantity is ${maxQty}.`
+              );
+
+              return;
+
+            }
+
+
+            const selectedRadio =
+              grid.querySelector(
+                `input[name="choice-${cardIndex}"]:checked`
+              );
+
+
+            const choiceIndex =
+              selectedRadio
+                ? Number(
+                    selectedRadio.value
+                  )
+                : 0;
+
+
+            addItemToCart(
+              item,
+              choiceIndex,
+              quantity
+            );
+
+          }
+        );
+
+      }
     );
 
-  const subtotalEl =
-    getEl('subtotal');
-
-  if (subtotalEl) {
-    subtotalEl.textContent =
-      money(subtotal);
-  }
 }
 
-function changeQty(index, delta) {
-  const item = cart[index];
 
-  if (!item) return;
+/* =========================================================
+   ADD ITEM TO CART
+========================================================= */
+
+function addItemToCart(
+  item,
+  choiceIndex = 0,
+  quantity = 1
+) {
+
+  if (!item) {
+
+    toast(
+      'Item not found.'
+    );
+
+    return;
+
+  }
+
+
+  const choices =
+    Array.isArray(
+      item.choices
+    )
+      ? item.choices
+      : [];
+
+
+  const selectedChoice =
+    choices[
+      choiceIndex
+    ] ||
+    choices[0];
+
+
+  const price =
+    selectedChoice
+      ? Number(
+          selectedChoice.price ||
+          0
+        )
+      : Number(
+          item.price ||
+          0
+        );
+
+
+  const choice =
+    selectedChoice
+      ? selectedChoice.label
+      : '';
+
 
   const minQty =
     Number(
-      MENU.find(menuItem =>
-        menuItem.name === item.name
-      )?.minQty || 1
+      item.minQty || 1
     );
+
 
   const maxQty =
     Number(
-      MENU.find(menuItem =>
-        menuItem.name === item.name
-      )?.maxQty || 99
+      item.maxQty || 99
     );
 
-  const newQty =
-    Number(item.qty || 0) + delta;
 
-  if (newQty < minQty) {
-    removeItem(index);
-    return;
+  quantity =
+    Number(
+      quantity
+    );
+
+
+  if (
+    !Number.isFinite(
+      quantity
+    )
+  ) {
+
+    quantity =
+      minQty;
+
   }
 
-  if (newQty > maxQty) {
+
+  quantity =
+    Math.max(
+      minQty,
+      Math.floor(
+        quantity
+      )
+    );
+
+
+  if (
+    quantity >
+    maxQty
+  ) {
+
     toast(
       `Maximum quantity is ${maxQty}.`
     );
 
     return;
+
   }
 
-  item.qty = newQty;
+
+  const existing =
+    cart.find(
+      cartItem =>
+        cartItem.name ===
+          item.name &&
+        cartItem.choice ===
+          choice
+    );
+
+
+  if (existing) {
+
+    const newQty =
+      Number(
+        existing.qty || 0
+      ) +
+      quantity;
+
+
+    if (
+      newQty >
+      maxQty
+    ) {
+
+      toast(
+        `Maximum quantity is ${maxQty}.`
+      );
+
+      return;
+
+    }
+
+
+    existing.qty =
+      newQty;
+
+  } else {
+
+    cart.push({
+
+      name:
+        item.name,
+
+      cat:
+        item.cat,
+
+      choice:
+        choice,
+
+      price:
+        price,
+
+      qty:
+        quantity,
+
+      image:
+        item.image || '',
+
+      prebook:
+        !!item.prebook
+
+    });
+
+  }
+
 
   saveCart();
+
   updateCount();
+
   renderCart();
+
+
+  toast(
+    `${item.name} added to cart ✓`
+  );
+
 }
 
-function removeItem(index) {
-  if (!cart[index]) return;
 
-  cart.splice(index, 1);
+/* =========================================================
+   COMPATIBLE ADD TO CART
+========================================================= */
+
+function addToCart(
+  item,
+  choiceIndex = 0,
+  qty = 1
+) {
+
+  if (
+    typeof item ===
+    'number'
+  ) {
+
+    const menuItem =
+      MENU[item];
+
+
+    if (!menuItem) {
+
+      toast(
+        'Item not found.'
+      );
+
+      return;
+
+    }
+
+
+    addItemToCart(
+      menuItem,
+      choiceIndex,
+      qty
+    );
+
+    return;
+
+  }
+
+
+  addItemToCart(
+    item,
+    choiceIndex,
+    qty
+  );
+
+}
+
+
+/* =========================================================
+   ADD TO CART BY NAME
+========================================================= */
+
+function addToCartByName(
+  encodedName,
+  choiceIndex = 0,
+  quantity = null
+) {
+
+  let name = '';
+
+
+  try {
+
+    name =
+      decodeURIComponent(
+        encodedName
+      );
+
+  } catch (error) {
+
+    name =
+      String(
+        encodedName || ''
+      );
+
+  }
+
+
+  const item =
+    MENU.find(
+      menuItem =>
+        menuItem.name ===
+        name
+    );
+
+
+  if (!item) {
+
+    toast(
+      'Item not found.'
+    );
+
+    return;
+
+  }
+
+
+  if (
+    quantity === null ||
+    quantity === undefined
+  ) {
+
+    const qtyInput =
+      getEl(
+        `qty-${encodeURIComponent(
+          item.name
+        )}`
+      );
+
+
+    quantity =
+      Number(
+        qtyInput?.value ||
+        item.minQty ||
+        1
+      );
+
+  }
+
+
+  addItemToCart(
+    item,
+    Number(
+      choiceIndex || 0
+    ),
+    Number(
+      quantity || 1
+    )
+  );
+
+}
+
+
+/* =========================================================
+   CART COUNT
+========================================================= */
+
+function updateCount() {
+
+  const count =
+    cart.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.qty || 0
+        ),
+      0
+    );
+
+
+  const cartCount =
+    getEl(
+      'cartCount'
+    );
+
+
+  if (cartCount) {
+
+    cartCount.textContent =
+      count;
+
+  }
+
+}
+
+
+/* =========================================================
+   OPEN CART
+========================================================= */
+
+function openCart() {
+
+  const cartEl =
+    getEl(
+      'cart'
+    );
+
+
+  if (!cartEl) {
+
+    toast(
+      'Cart section not found.'
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * Important:
+   * Remove hidden so cart can actually show.
+   */
+
+  cartEl.classList.remove(
+    'hidden'
+  );
+
+
+  cartEl.classList.add(
+    'open'
+  );
+
+
+  cartEl.style.display =
+    '';
+
+
+  renderCart();
+
+}
+
+
+/* =========================================================
+   CLOSE CART
+========================================================= */
+
+function closeCart() {
+
+  const cartEl =
+    getEl(
+      'cart'
+    );
+
+
+  if (!cartEl) return;
+
+
+  cartEl.classList.remove(
+    'open'
+  );
+
+}
+
+
+/* =========================================================
+   RENDER CART
+========================================================= */
+
+function renderCart() {
+
+  const box =
+    getEl(
+      'cartItems'
+    );
+
+
+  if (!box) return;
+
+
+  if (!cart.length) {
+
+    box.innerHTML = `
+
+      <div class="empty">
+
+        <h3>
+          Your cart is empty
+        </h3>
+
+        <p>
+          Add delicious food to continue.
+        </p>
+
+      </div>
+
+    `;
+
+
+    const subtotalEl =
+      getEl(
+        'subtotal'
+      );
+
+
+    if (subtotalEl) {
+
+      subtotalEl.textContent =
+        money(0);
+
+    }
+
+
+    return;
+
+  }
+
+
+  box.innerHTML =
+    cart.map(
+      (
+        item,
+        index
+      ) => {
+
+        const lineTotal =
+          Number(
+            item.price || 0
+          ) *
+          Number(
+            item.qty || 0
+          );
+
+
+        return `
+
+          <div class="cart-row">
+
+            <div class="cart-info">
+
+              ${
+                item.image
+                  ? `
+                    <img
+                      class="cart-thumb"
+                      src="${escapeHtml(
+                        item.image
+                      )}"
+                      alt="${escapeHtml(
+                        item.name
+                      )}"
+                    >
+                  `
+                  : ''
+              }
+
+
+              <div>
+
+                <strong>
+                  ${escapeHtml(
+                    item.name
+                  )}
+                </strong>
+
+
+                ${
+                  item.choice
+                    ? `
+                      <div class="cart-choice">
+                        ${escapeHtml(
+                          item.choice
+                        )}
+                      </div>
+                    `
+                    : ''
+                }
+
+
+                <div class="cart-price">
+
+                  ${money(
+                    item.price
+                  )}
+
+                  × ${item.qty}
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <div class="cart-controls">
+
+              <button
+                type="button"
+                onclick="changeQty(${index}, -1)"
+              >
+                −
+              </button>
+
+
+              <span>
+                ${item.qty}
+              </span>
+
+
+              <button
+                type="button"
+                onclick="changeQty(${index}, 1)"
+              >
+                +
+              </button>
+
+
+              <button
+                type="button"
+                class="remove-btn"
+                onclick="removeItem(${index})"
+              >
+                Remove
+              </button>
+
+            </div>
+
+
+            <div class="cart-line-total">
+
+              ${money(
+                lineTotal
+              )}
+
+            </div>
+
+          </div>
+
+        `;
+
+      }
+    ).join('');
+
+
+  const subtotal =
+    cart.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.qty || 0
+        ),
+      0
+    );
+
+
+  const subtotalEl =
+    getEl(
+      'subtotal'
+    );
+
+
+  if (subtotalEl) {
+
+    subtotalEl.textContent =
+      money(
+        subtotal
+      );
+
+  }
+
+}
+
+
+/* =========================================================
+   CHANGE CART QUANTITY
+========================================================= */
+
+function changeQty(
+  index,
+  delta
+) {
+
+  const item =
+    cart[index];
+
+
+  if (!item) return;
+
+
+  const menuItem =
+    MENU.find(
+      menuItem =>
+        menuItem.name ===
+        item.name
+    );
+
+
+  const minQty =
+    Number(
+      menuItem?.minQty || 1
+    );
+
+
+  const maxQty =
+    Number(
+      menuItem?.maxQty || 99
+    );
+
+
+  const newQty =
+    Number(
+      item.qty || 0
+    ) +
+    Number(
+      delta || 0
+    );
+
+
+  if (
+    newQty <
+    minQty
+  ) {
+
+    removeItem(
+      index
+    );
+
+    return;
+
+  }
+
+
+  if (
+    newQty >
+    maxQty
+  ) {
+
+    toast(
+      `Maximum quantity is ${maxQty}.`
+    );
+
+    return;
+
+  }
+
+
+  item.qty =
+    newQty;
+
 
   saveCart();
+
   updateCount();
+
   renderCart();
+
+}
+
+
+/* =========================================================
+   REMOVE ITEM
+========================================================= */
+
+function removeItem(
+  index
+) {
+
+  if (
+    !cart[index]
+  ) return;
+
+
+  cart.splice(
+    index,
+    1
+  );
+
+
+  saveCart();
+
+  updateCount();
+
+  renderCart();
+
 }
 
 
@@ -970,87 +1766,176 @@ function removeItem(index) {
 function checkout() {
 
   if (!cart.length) {
-    toast('Your cart is empty.');
+
+    toast(
+      'Your cart is empty.'
+    );
+
     return;
+
   }
+
 
   const checkoutEl =
-    getEl('checkout');
+    getEl(
+      'checkout'
+    );
+
 
   if (checkoutEl) {
-    checkoutEl.classList.add('open');
+
+    checkoutEl.classList.remove(
+      'hidden'
+    );
+
+    checkoutEl.classList.add(
+      'open'
+    );
+
+    checkoutEl.style.display =
+      '';
+
   }
 
+
   buildCheckoutSummary();
+
   buildPaymentBlock();
+
   buildSlots();
 
-  setTimeout(() => {
-    initializeDeliveryMap();
-  }, 100);
+
+  setTimeout(
+    () => {
+
+      initializeDeliveryMap();
+
+    },
+    100
+  );
+
 }
+
+
+/* =========================================================
+   CLOSE CHECKOUT
+========================================================= */
 
 function closeCheckout() {
 
   const checkoutEl =
-    getEl('checkout');
+    getEl(
+      'checkout'
+    );
 
-  if (checkoutEl) {
-    checkoutEl.classList.remove('open');
-  }
+
+  if (!checkoutEl) return;
+
+
+  checkoutEl.classList.remove(
+    'open'
+  );
+
 }
+
+
+/* =========================================================
+   CHECKOUT SUMMARY
+========================================================= */
 
 function buildCheckoutSummary() {
 
   const box =
-    getEl('checkoutSummary');
+    getEl(
+      'checkoutSummary'
+    );
+
 
   if (!box) return;
 
+
   const subtotal =
     cart.reduce(
-      (sum, item) =>
+      (
+        sum,
+        item
+      ) =>
         sum +
-        Number(item.price || 0) *
-        Number(item.qty || 0),
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.qty || 0
+        ),
       0
     );
 
+
   box.innerHTML = `
+
     <div class="checkout-items">
 
-      ${cart.map(item => `
-        <div class="checkout-item">
+      ${cart.map(
+        item => `
 
-          <span>
-            ${escapeHtml(item.name)}
+          <div class="checkout-item">
 
-            ${
-              item.choice
-                ? ` (${escapeHtml(item.choice)})`
-                : ''
-            }
+            <span>
 
-            × ${item.qty}
-          </span>
+              ${escapeHtml(
+                item.name
+              )}
 
-          <strong>
-            ${money(
-              Number(item.price || 0) *
-              Number(item.qty || 0)
-            )}
-          </strong>
+              ${
+                item.choice
+                  ? ` (${escapeHtml(
+                      item.choice
+                    )})`
+                  : ''
+              }
 
-        </div>
-      `).join('')}
+              × ${item.qty}
+
+            </span>
+
+
+            <strong>
+
+              ${money(
+                Number(
+                  item.price || 0
+                ) *
+                Number(
+                  item.qty || 0
+                )
+              )}
+
+            </strong>
+
+          </div>
+
+        `
+      ).join('')}
 
     </div>
+
 
     <div class="checkout-total">
-      <span>Food subtotal</span>
-      <strong>${money(subtotal)}</strong>
+
+      <span>
+        Food subtotal
+      </span>
+
+      <strong>
+        ${money(
+          subtotal
+        )}
+      </strong>
+
     </div>
+
   `;
+
 }
 
 
@@ -1061,25 +1946,42 @@ function buildCheckoutSummary() {
 function buildPaymentBlock() {
 
   const box =
-    getEl('paymentBlock');
+    getEl(
+      'paymentBlock'
+    );
+
 
   if (!box) return;
 
+
   const hasPre =
-    cart.some(item => isPrebook(item));
+    cart.some(
+      item =>
+        isPrebook(
+          item
+        )
+    );
+
 
   if (hasPre) {
 
     box.innerHTML = `
+
       <div class="payment-title">
         Payment method
       </div>
 
+
       <div class="payment-required">
-        Pre-booking items require full payment.
+
+        Pre-booking items require
+        full payment.
+
       </div>
 
+
       <label class="payment-card">
+
         <input
           type="radio"
           name="fpPayment"
@@ -1087,53 +1989,90 @@ function buildPaymentBlock() {
           checked
         >
 
+
         <span>
-          <strong>bKash Personal</strong>
-          <small>${SETTINGS.payment}</small>
+
+          <strong>
+            bKash Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
         </span>
+
       </label>
 
+
       <label class="payment-card">
+
         <input
           type="radio"
           name="fpPayment"
           value="Nagad Personal"
         >
 
+
         <span>
-          <strong>Nagad Personal</strong>
-          <small>${SETTINGS.payment}</small>
+
+          <strong>
+            Nagad Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
         </span>
+
       </label>
 
+
       <div class="payment-instruction">
-        Send the full payment to the selected number,
-        then enter the transaction ID / last 5 digits below.
+
+        Send the full payment to
+        the selected number,
+        then enter the transaction
+        ID / last 5 digits below.
+
       </div>
 
+
       <div id="fpTransactionBox">
+
         <label>
+
           Transaction ID / Last 5 digits
+
           <input
             id="cTx"
             type="text"
             placeholder="Enter transaction ID or last 5 digits"
           >
+
         </label>
+
       </div>
+
     `;
 
     return;
+
   }
 
+
   box.innerHTML = `
+
     <div class="payment-title">
       Payment method
     </div>
 
+
     <div id="paymentOptions">
 
       <label class="payment-card">
+
         <input
           type="radio"
           name="fpPayment"
@@ -1141,12 +2080,22 @@ function buildPaymentBlock() {
         >
 
         <span>
-          <strong>Cash on Delivery</strong>
-          <small>Available based on delivery location</small>
+
+          <strong>
+            Cash on Delivery
+          </strong>
+
+          <small>
+            Available based on delivery location
+          </small>
+
         </span>
+
       </label>
 
+
       <label class="payment-card">
+
         <input
           type="radio"
           name="fpPayment"
@@ -1155,12 +2104,22 @@ function buildPaymentBlock() {
         >
 
         <span>
-          <strong>bKash Personal</strong>
-          <small>${SETTINGS.payment}</small>
+
+          <strong>
+            bKash Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
         </span>
+
       </label>
 
+
       <label class="payment-card">
+
         <input
           type="radio"
           name="fpPayment"
@@ -1168,30 +2127,56 @@ function buildPaymentBlock() {
         >
 
         <span>
-          <strong>Nagad Personal</strong>
-          <small>${SETTINGS.payment}</small>
+
+          <strong>
+            Nagad Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
         </span>
+
       </label>
 
     </div>
 
+
     <div class="payment-instruction">
-      For bKash/Nagad, send payment to
-      <strong>${SETTINGS.payment}</strong>
-      and enter the transaction ID / last 5 digits.
+
+      For bKash/Nagad,
+      send payment to
+
+      <strong>
+        ${SETTINGS.payment}
+      </strong>
+
+      and enter the
+      transaction ID /
+      last 5 digits.
+
     </div>
 
+
     <div id="fpTransactionBox">
+
       <label>
+
         Transaction ID / Last 5 digits
+
         <input
           id="cTx"
           type="text"
           placeholder="Enter transaction ID or last 5 digits"
         >
+
       </label>
+
     </div>
+
   `;
+
 
   updatePaymentOptions(
     selectedLocation
@@ -1199,69 +2184,120 @@ function buildPaymentBlock() {
           selectedLocation.lat,
           selectedLocation.lng,
           false
-        )
+        ).codAvailable
       : null
   );
+
 }
 
-function updatePaymentOptions(codAvailable) {
+
+/* =========================================================
+   UPDATE PAYMENT OPTIONS
+========================================================= */
+
+function updatePaymentOptions(
+  codAvailable
+) {
 
   const options =
     document.querySelectorAll(
       'input[name="fpPayment"]'
     );
 
-  if (!options.length) return;
+
+  if (!options.length)
+    return;
+
 
   const hasPre =
-    cart.some(item => isPrebook(item));
+    cart.some(
+      item =>
+        isPrebook(
+          item
+        )
+    );
+
 
   if (hasPre) {
-    options.forEach(input => {
-      if (
-        input.value ===
-        'Cash on Delivery'
-      ) {
-        input.checked = false;
-        input.disabled = true;
+
+    options.forEach(
+      input => {
+
+        if (
+          input.value ===
+          'Cash on Delivery'
+        ) {
+
+          input.checked =
+            false;
+
+          input.disabled =
+            true;
+
+        }
+
       }
-    });
+    );
+
 
     const firstOnline =
-      Array.from(options).find(
+      Array.from(
+        options
+      ).find(
         input =>
           input.value !==
           'Cash on Delivery'
       );
 
-    if (firstOnline && !firstOnline.checked) {
-      firstOnline.checked = true;
+
+    if (
+      firstOnline &&
+      !firstOnline.checked
+    ) {
+
+      firstOnline.checked =
+        true;
+
     }
+
 
     syncFoodpandaPayment();
 
     return;
+
   }
 
-  options.forEach(input => {
 
-    if (
-      input.value ===
-      'Cash on Delivery'
-    ) {
-      input.disabled =
-        codAvailable !== true;
+  options.forEach(
+    input => {
 
-      if (!codAvailable) {
-        input.checked = false;
+      if (
+        input.value ===
+        'Cash on Delivery'
+      ) {
+
+        input.disabled =
+          codAvailable !== true;
+
+
+        if (!codAvailable) {
+
+          input.checked =
+            false;
+
+        }
+
       }
+
     }
-  });
+  );
+
 
   const checked =
     document.querySelector(
       'input[name="fpPayment"]:checked'
     );
+
 
   if (!checked) {
 
@@ -1270,13 +2306,25 @@ function updatePaymentOptions(codAvailable) {
         'input[name="fpPayment"]:not([value="Cash on Delivery"])'
       );
 
+
     if (online) {
-      online.checked = true;
+
+      online.checked =
+        true;
+
     }
+
   }
 
+
   syncFoodpandaPayment();
+
 }
+
+
+/* =========================================================
+   PAYMENT DISPLAY
+========================================================= */
 
 function syncFoodpandaPayment() {
 
@@ -1285,21 +2333,39 @@ function syncFoodpandaPayment() {
       'input[name="fpPayment"]:checked'
     );
 
-  const txBox =
-    getEl('fpTransactionBox');
 
-  if (!txBox) return;
+  const txBox =
+    getEl(
+      'fpTransactionBox'
+    );
+
+
+  if (!txBox)
+    return;
+
 
   if (
     selected &&
     selected.value ===
     'Cash on Delivery'
   ) {
-    txBox.style.display = 'none';
+
+    txBox.style.display =
+      'none';
+
   } else {
-    txBox.style.display = '';
+
+    txBox.style.display =
+      '';
+
   }
+
 }
+
+
+/* =========================================================
+   GET PAYMENT
+========================================================= */
 
 function getSelectedPayment() {
 
@@ -1308,10 +2374,24 @@ function getSelectedPayment() {
       'input[name="fpPayment"]:checked'
     );
 
+
   return selected
     ? selected.value
     : '';
+
 }
+
+
+function getOrderPayment() {
+
+  return getSelectedPayment();
+
+}
+
+
+/* =========================================================
+   DISABLE PAYMENT
+========================================================= */
 
 function disablePaymentForUnavailable() {
 
@@ -1320,90 +2400,154 @@ function disablePaymentForUnavailable() {
       'input[name="fpPayment"]'
     );
 
-  options.forEach(input => {
-    input.disabled = true;
-    input.checked = false;
-  });
+
+  options.forEach(
+    input => {
+
+      input.disabled =
+        true;
+
+      input.checked =
+        false;
+
+    }
+  );
+
 
   const txBox =
-    getEl('fpTransactionBox');
+    getEl(
+      'fpTransactionBox'
+    );
+
 
   if (txBox) {
-    txBox.style.display = 'none';
-  }
-}
 
-function getOrderPayment() {
+    txBox.style.display =
+      'none';
 
-  const selected =
-    getSelectedPayment();
-
-  if (selected) {
-    return selected;
   }
 
-  return '';
 }
 
 
 /* =========================================================
-   SHOP TIME
+   SHOP HOURS
 ========================================================= */
 
-function getShopHours(date = new Date()) {
+function getShopHours(
+  date = new Date()
+) {
 
   const day =
     date.getDay();
 
+
   if (day === 5) {
+
     return SHOP_HOURS.friday;
+
   }
 
+
   return SHOP_HOURS.normal;
+
 }
 
-function isWithinShopHours(date = new Date()) {
+
+/* =========================================================
+   CHECK SHOP HOURS
+========================================================= */
+
+function isWithinShopHours(
+  date = new Date()
+) {
 
   const hours =
-    getShopHours(date);
+    getShopHours(
+      date
+    );
+
 
   const currentMinutes =
     date.getHours() * 60 +
     date.getMinutes();
 
+
   const openMinutes =
     hours.open * 60;
+
 
   const closeMinutes =
     hours.close * 60;
 
+
   return (
-    currentMinutes >= openMinutes &&
-    currentMinutes <= closeMinutes
+    currentMinutes >=
+      openMinutes &&
+    currentMinutes <=
+      closeMinutes
   );
+
 }
 
-function nextHalfHour(date = new Date()) {
+
+/* =========================================================
+   NEXT HALF HOUR
+========================================================= */
+
+function nextHalfHour(
+  date = new Date()
+) {
 
   const result =
-    new Date(date);
+    new Date(
+      date
+    );
 
-  result.setSeconds(0);
-  result.setMilliseconds(0);
 
-  if (result.getMinutes() < 30) {
-    result.setMinutes(30);
+  result.setSeconds(
+    0
+  );
+
+  result.setMilliseconds(
+    0
+  );
+
+
+  if (
+    result.getMinutes() <
+    30
+  ) {
+
+    result.setMinutes(
+      30
+    );
+
   } else {
-    result.setMinutes(0);
+
+    result.setMinutes(
+      0
+    );
+
     result.setHours(
       result.getHours() + 1
     );
+
   }
 
+
   return result;
+
 }
 
-function formatDateTime(date) {
+
+/* =========================================================
+   FORMAT DATE
+========================================================= */
+
+function formatDateTime(
+  date
+) {
 
   return date.toLocaleString(
     'en-BD',
@@ -1412,34 +2556,62 @@ function formatDateTime(date) {
       timeStyle: 'short'
     }
   );
+
 }
+
+
+/* =========================================================
+   BUILD PREBOOK SLOTS
+========================================================= */
 
 function buildSlots() {
 
   const box =
-    getEl('slotBlock');
+    getEl(
+      'slotBlock'
+    );
 
-  if (!box) return;
+
+  if (!box)
+    return;
+
 
   const hasPre =
-    cart.some(item => isPrebook(item));
+    cart.some(
+      item =>
+        isPrebook(
+          item
+        )
+    );
+
 
   if (!hasPre) {
 
     box.innerHTML = `
+
       <div class="slot-normal">
-        <strong>Delivery time</strong>
+
+        <strong>
+          Delivery time
+        </strong>
+
         <p>
-          Regular orders are accepted during shop hours.
+          Regular orders are accepted
+          during shop hours.
         </p>
+
       </div>
+
     `;
 
     return;
+
   }
+
 
   const now =
     new Date();
+
 
   const start =
     new Date(
@@ -1447,46 +2619,74 @@ function buildSlots() {
       5 * 60 * 60 * 1000
     );
 
+
   const end =
     new Date(
       now.getTime() +
       12 * 60 * 60 * 1000
     );
 
+
   let cursor =
-    nextHalfHour(start);
+    nextHalfHour(
+      start
+    );
+
 
   const slots = [];
 
-  while (cursor <= end) {
 
-    if (isWithinShopHours(cursor)) {
+  while (
+    cursor <= end
+  ) {
+
+    if (
+      isWithinShopHours(
+        cursor
+      )
+    ) {
+
       slots.push(
-        new Date(cursor)
+        new Date(
+          cursor
+        )
       );
+
     }
+
 
     cursor =
       new Date(
         cursor.getTime() +
         30 * 60 * 1000
       );
+
   }
+
 
   if (!slots.length) {
 
     box.innerHTML = `
+
       <div class="slot-error">
-        No pre-booking slots are currently available.
+
+        No pre-booking slots are
+        currently available.
         Please try again later.
+
       </div>
+
     `;
 
     return;
+
   }
 
+
   box.innerHTML = `
+
     <label>
+
       Pre-booking / delivery time
 
       <select id="cSlot">
@@ -1495,22 +2695,38 @@ function buildSlots() {
           Select a time
         </option>
 
-        ${slots.map(slot => `
-          <option value="${slot.toISOString()}">
-            ${escapeHtml(
-              formatDateTime(slot)
-            )}
-          </option>
-        `).join('')}
+        ${slots.map(
+          slot => `
+
+            <option
+              value="${slot.toISOString()}"
+            >
+
+              ${escapeHtml(
+                formatDateTime(
+                  slot
+                )
+              )}
+
+            </option>
+
+          `
+        ).join('')}
 
       </select>
 
     </label>
 
+
     <div class="slot-note">
-      Pre-booking must be made 5–12 hours ahead.
+
+      Pre-booking must be made
+      5–12 hours ahead.
+
     </div>
+
   `;
+
 }
 
 
@@ -1521,36 +2737,64 @@ function buildSlots() {
 function initializeDeliveryMap() {
 
   const mapElement =
-    getEl('deliveryMap');
+    getEl(
+      'deliveryMap'
+    );
 
-  if (!mapElement) return;
+
+  if (!mapElement)
+    return;
+
 
   if (
-    typeof L === 'undefined'
+    typeof L ===
+    'undefined'
   ) {
+
     const status =
-      getEl('locationStatus');
+      getEl(
+        'locationStatus'
+      );
+
 
     if (status) {
+
       status.innerHTML = `
+
         <div class="location-error">
+
           Map library is not loaded.
-          Please make sure Leaflet CSS/JS is included
+          Please make sure Leaflet
+          CSS/JS is included
           in index.html.
+
         </div>
+
       `;
+
     }
 
+
     return;
+
   }
+
 
   if (deliveryMap) {
-    setTimeout(() => {
-      deliveryMap.invalidateSize();
-    }, 200);
+
+    setTimeout(
+      () => {
+
+        deliveryMap.invalidateSize();
+
+      },
+      200
+    );
 
     return;
+
   }
+
 
   deliveryMap =
     L.map(
@@ -1566,6 +2810,7 @@ function initializeDeliveryMap() {
       14
     );
 
+
   L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {
@@ -1573,7 +2818,10 @@ function initializeDeliveryMap() {
       attribution:
         '&copy; OpenStreetMap contributors'
     }
-  ).addTo(deliveryMap);
+  ).addTo(
+    deliveryMap
+  );
+
 
   const baseMarker =
     L.marker(
@@ -1581,11 +2829,17 @@ function initializeDeliveryMap() {
         BASE_LOCATION.lat,
         BASE_LOCATION.lng
       ]
-    ).addTo(deliveryMap);
+    ).addTo(
+      deliveryMap
+    );
+
 
   baseMarker.bindPopup(
-    `<b>${escapeHtml(BASE_LOCATION.name)}</b><br>Chef Sifat's Kitchen delivery base`
+    `<b>${escapeHtml(
+      BASE_LOCATION.name
+    )}</b><br>Chef Sifat's Kitchen delivery base`
   );
+
 
   deliveryMap.on(
     'click',
@@ -1600,10 +2854,15 @@ function initializeDeliveryMap() {
     }
   );
 
+
   if (
     selectedLocation &&
-    selectedLocation.lat &&
-    selectedLocation.lng
+    Number.isFinite(
+      selectedLocation.lat
+    ) &&
+    Number.isFinite(
+      selectedLocation.lng
+    )
   ) {
 
     createOrMoveMarker(
@@ -1611,23 +2870,46 @@ function initializeDeliveryMap() {
       selectedLocation.lng,
       false
     );
+
   }
+
 }
+
+
+/* =========================================================
+   OPEN LOCATION MAP
+========================================================= */
 
 function openLocationMap() {
 
   initializeDeliveryMap();
 
+
   const mapElement =
-    getEl('deliveryMap');
+    getEl(
+      'deliveryMap'
+    );
+
 
   if (mapElement) {
-    mapElement.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
+
+    mapElement.scrollIntoView(
+      {
+        behavior:
+          'smooth',
+        block:
+          'center'
+      }
+    );
+
   }
+
 }
+
+
+/* =========================================================
+   CREATE / MOVE MARKER
+========================================================= */
 
 function createOrMoveMarker(
   lat,
@@ -1635,21 +2917,58 @@ function createOrMoveMarker(
   shouldReverseGeocode = true
 ) {
 
-  if (!deliveryMap) {
-    initializeDeliveryMap();
+  lat =
+    Number(
+      lat
+    );
+
+  lng =
+    Number(
+      lng
+    );
+
+
+  if (
+    !Number.isFinite(
+      lat
+    ) ||
+    !Number.isFinite(
+      lng
+    )
+  ) {
+
+    return;
+
   }
 
-  if (!deliveryMap) return;
+
+  if (!deliveryMap) {
+
+    initializeDeliveryMap();
+
+  }
+
+
+  if (!deliveryMap)
+    return;
+
 
   if (!deliveryMarker) {
 
     deliveryMarker =
       L.marker(
-        [lat, lng],
+        [
+          lat,
+          lng
+        ],
         {
-          draggable: true
+          draggable:
+            true
         }
-      ).addTo(deliveryMap);
+      ).addTo(
+        deliveryMap
+      );
+
 
     deliveryMarker.on(
       'dragend',
@@ -1658,34 +2977,46 @@ function createOrMoveMarker(
         const position =
           event.target.getLatLng();
 
+
         setDeliveryLocation(
           position.lat,
           position.lng,
           true
         );
+
       }
     );
 
   } else {
 
     deliveryMarker.setLatLng(
-      [lat, lng]
+      [
+        lat,
+        lng
+      ]
     );
+
   }
 
+
   deliveryMap.setView(
-    [lat, lng],
+    [
+      lat,
+      lng
+    ],
     Math.max(
       deliveryMap.getZoom(),
       16
     )
   );
 
+
   setDeliveryLocation(
     lat,
     lng,
     shouldReverseGeocode
   );
+
 }
 
 
@@ -1696,44 +3027,77 @@ function createOrMoveMarker(
 function useCurrentLocation() {
 
   const status =
-    getEl('locationStatus');
+    getEl(
+      'locationStatus'
+    );
 
-  if (!navigator.geolocation) {
+
+  if (
+    !navigator.geolocation
+  ) {
 
     if (status) {
+
       status.innerHTML = `
+
         <div class="location-error">
-          Your browser does not support GPS location.
-          Please select your location on the map.
+
+          Your browser does not support
+          GPS location.
+
+          Please select your location
+          on the map.
+
         </div>
+
       `;
+
     }
 
     return;
+
   }
 
+
   if (status) {
+
     status.innerHTML = `
+
       <div class="location-loading">
+
         Detecting your current location...
+
       </div>
+
     `;
+
   }
+
 
   navigator.geolocation.getCurrentPosition(
 
     position => {
 
       const lat =
-        Number(position.coords.latitude);
+        Number(
+          position.coords.latitude
+        );
+
 
       const lng =
-        Number(position.coords.longitude);
+        Number(
+          position.coords.longitude
+        );
+
 
       const accuracy =
-        Number(position.coords.accuracy || 0);
+        Number(
+          position.coords.accuracy || 0
+        );
+
 
       initializeDeliveryMap();
+
 
       createOrMoveMarker(
         lat,
@@ -1741,56 +3105,104 @@ function useCurrentLocation() {
         true
       );
 
+
       if (status) {
 
         let message =
-          `Location detected successfully.`;
+          'Location detected successfully.';
 
-        if (accuracy > 100) {
+
+        if (
+          accuracy > 100
+        ) {
+
           message +=
-            ` GPS accuracy is approximately ${Math.round(accuracy)} metres. You can move the pin if needed.`;
+            ` GPS accuracy is approximately ${Math.round(
+              accuracy
+            )} metres. You can move the pin if needed.`;
+
         }
 
+
         status.innerHTML = `
+
           <div class="location-success">
-            ${escapeHtml(message)}
+
+            ${escapeHtml(
+              message
+            )}
+
           </div>
+
         `;
+
       }
 
     },
+
 
     error => {
 
       let message =
         'Unable to detect your location.';
 
-      if (error.code === 1) {
+
+      if (
+        error.code === 1
+      ) {
+
         message =
           'Location permission was denied. Please allow location access or select your location on the map.';
-      } else if (error.code === 2) {
+
+      } else if (
+        error.code === 2
+      ) {
+
         message =
           'Your location could not be determined. Please select your location on the map.';
-      } else if (error.code === 3) {
+
+      } else if (
+        error.code === 3
+      ) {
+
         message =
           'Location detection timed out. Please try again or select your location on the map.';
+
       }
+
 
       if (status) {
+
         status.innerHTML = `
+
           <div class="location-error">
-            ${escapeHtml(message)}
+
+            ${escapeHtml(
+              message
+            )}
+
           </div>
+
         `;
+
       }
+
     },
 
+
     {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
+      enableHighAccuracy:
+        true,
+
+      timeout:
+        15000,
+
+      maximumAge:
+        0
     }
+
   );
+
 }
 
 
@@ -1805,38 +3217,67 @@ function setDeliveryLocation(
 ) {
 
   lat =
-    Number(lat);
+    Number(
+      lat
+    );
 
   lng =
-    Number(lng);
+    Number(
+      lng
+    );
+
 
   if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng)
+    !Number.isFinite(
+      lat
+    ) ||
+    !Number.isFinite(
+      lng
+    )
   ) {
+
     return;
+
   }
+
 
   selectedLocation = {
     lat,
     lng
   };
 
+
   const latInput =
-    getEl('cLat');
+    getEl(
+      'cLat'
+    );
+
 
   const lngInput =
-    getEl('cLng');
+    getEl(
+      'cLng'
+    );
+
 
   if (latInput) {
+
     latInput.value =
-      lat.toFixed(6);
+      lat.toFixed(
+        6
+      );
+
   }
 
+
   if (lngInput) {
+
     lngInput.value =
-      lng.toFixed(6);
+      lng.toFixed(
+        6
+      );
+
   }
+
 
   calculateDelivery(
     lat,
@@ -1844,17 +3285,21 @@ function setDeliveryLocation(
     true
   );
 
+
   if (reverse) {
+
     reverseGeocode(
       lat,
       lng
     );
+
   }
+
 }
 
 
 /* =========================================================
-   DISTANCE CALCULATION
+   DISTANCE
 ========================================================= */
 
 function calculateDistance(
@@ -1867,39 +3312,69 @@ function calculateDistance(
   const R =
     6371;
 
+
   const dLat =
     (
-      (lat2 - lat1) *
+      (
+        lat2 -
+        lat1
+      ) *
       Math.PI
     ) / 180;
+
 
   const dLng =
     (
-      (lng2 - lng1) *
+      (
+        lng2 -
+        lng1
+      ) *
       Math.PI
     ) / 180;
 
+
   const a =
-    Math.sin(dLat / 2) *
-    Math.sin(dLat / 2) +
+    Math.sin(
+      dLat / 2
+    ) *
+    Math.sin(
+      dLat / 2
+    ) +
 
     Math.cos(
-      lat1 * Math.PI / 180
+      lat1 *
+      Math.PI /
+      180
     ) *
+
     Math.cos(
-      lat2 * Math.PI / 180
+      lat2 *
+      Math.PI /
+      180
     ) *
-    Math.sin(dLng / 2) *
-    Math.sin(dLng / 2);
+
+    Math.sin(
+      dLng / 2
+    ) *
+    Math.sin(
+      dLng / 2
+    );
+
 
   const c =
     2 *
     Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
+      Math.sqrt(
+        a
+      ),
+      Math.sqrt(
+        1 - a
+      )
     );
 
+
   return R * c;
+
 }
 
 
@@ -1921,64 +3396,122 @@ function calculateDelivery(
       lng
     );
 
+
   const codAvailable =
-    distance <= COD_RADIUS_KM;
+    distance <=
+    COD_RADIUS_KM;
+
 
   const deliverable =
-    distance <= MAX_DELIVERY_RADIUS_KM;
+    distance <=
+    MAX_DELIVERY_RADIUS_KM;
 
-  let deliveryCharge = 0;
 
-  if (distance > COD_RADIUS_KM) {
+  let deliveryCharge =
+    0;
+
+
+  if (
+    distance >
+    COD_RADIUS_KM
+  ) {
+
     deliveryCharge =
-      Math.ceil(distance) *
+      Math.ceil(
+        distance
+      ) *
       DELIVERY_RATE_PER_KM;
+
   }
 
-  if (distance > MAX_DELIVERY_RADIUS_KM) {
-    deliveryCharge = 0;
+
+  if (
+    distance >
+    MAX_DELIVERY_RADIUS_KM
+  ) {
+
+    deliveryCharge =
+      0;
+
   }
+
 
   if (updateUI) {
 
     const distanceEl =
-      getEl('locationDistance');
+      getEl(
+        'locationDistance'
+      );
+
 
     if (distanceEl) {
+
       distanceEl.textContent =
-        `${distance.toFixed(2)} km`;
+        `${distance.toFixed(
+          2
+        )} km`;
+
     }
 
+
     const result =
-      getEl('deliveryResult');
+      getEl(
+        'deliveryResult'
+      );
+
 
     if (!deliverable) {
 
       if (result) {
+
         result.innerHTML = `
+
           <div class="delivery-unavailable">
-            <strong>Delivery unavailable</strong>
-
-            <p>
-              Your location is
-              ${distance.toFixed(2)} km
-              from our delivery base.
-            </p>
-
-            <p>
-              We currently deliver only within
-              ${MAX_DELIVERY_RADIUS_KM} km
-              of ${escapeHtml(BASE_LOCATION.name)}.
-            </p>
 
             <strong>
-              This order cannot proceed.
+              Delivery unavailable
             </strong>
+
+
+            <p>
+
+              Your location is
+              ${distance.toFixed(
+                2
+              )} km
+              from our delivery base.
+
+            </p>
+
+
+            <p>
+
+              We currently deliver only
+              within
+              ${MAX_DELIVERY_RADIUS_KM} km
+              of
+              ${escapeHtml(
+                BASE_LOCATION.name
+              )}.
+
+            </p>
+
+
+            <strong>
+
+              This order cannot proceed.
+
+            </strong>
+
           </div>
+
         `;
+
       }
 
+
       disablePaymentForUnavailable();
+
 
     } else {
 
@@ -1987,59 +3520,111 @@ function calculateDelivery(
         if (codAvailable) {
 
           result.innerHTML = `
+
             <div class="delivery-success">
-              <strong>COD Available</strong>
+
+              <strong>
+                COD Available
+              </strong>
+
 
               <p>
+
                 Distance:
-                ${distance.toFixed(2)} km
+                ${distance.toFixed(
+                  2
+                )} km
+
               </p>
 
+
               <p>
+
                 Delivery charge:
-                <strong>${money(0)}</strong>
+
+                <strong>
+                  ${money(0)}
+                </strong>
+
               </p>
+
             </div>
+
           `;
 
         } else {
 
           result.innerHTML = `
+
             <div class="delivery-online">
-              <strong>Online payment required</strong>
+
+              <strong>
+                Online payment required
+              </strong>
+
 
               <p>
+
                 Distance:
-                ${distance.toFixed(2)} km
+                ${distance.toFixed(
+                  2
+                )} km
+
               </p>
 
+
               <p>
+
                 Delivery charge:
-                <strong>${money(deliveryCharge)}</strong>
+
+                <strong>
+                  ${money(
+                    deliveryCharge
+                  )}
+                </strong>
+
               </p>
 
+
               <p>
-                COD is available only within
+
+                COD is available only
+                within
                 ${COD_RADIUS_KM} km
                 of the delivery base.
+
               </p>
+
             </div>
+
           `;
+
         }
+
       }
+
 
       updatePaymentOptions(
         codAvailable
       );
+
     }
+
   }
 
+
   return {
+
     distance,
+
     codAvailable,
+
     deliverable,
+
     deliveryCharge
+
   };
+
 }
 
 
@@ -2053,61 +3638,97 @@ function reverseGeocode(
 ) {
 
   const addressBox =
-    getEl('cMapAddress');
+    getEl(
+      'cMapAddress'
+    );
 
-  if (!addressBox) return;
+
+  if (!addressBox)
+    return;
+
 
   clearTimeout(
     reverseGeocodeTimer
   );
 
+
   addressBox.value =
-    `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    `${lat.toFixed(
+      6
+    )}, ${lng.toFixed(
+      6
+    )}`;
+
 
   reverseGeocodeTimer =
-    setTimeout(async () => {
+    setTimeout(
+      async () => {
 
-      try {
+        try {
 
-        const url =
-          'https://nominatim.openstreetmap.org/reverse' +
-          `?format=jsonv2&lat=${encodeURIComponent(lat)}` +
-          `&lon=${encodeURIComponent(lng)}`;
+          const url =
+            'https://nominatim.openstreetmap.org/reverse' +
+            `?format=jsonv2&lat=${encodeURIComponent(
+              lat
+            )}` +
+            `&lon=${encodeURIComponent(
+              lng
+            )}`;
 
-        const response =
-          await fetch(
-            url,
-            {
-              headers: {
-                'Accept':
-                  'application/json'
+
+          const response =
+            await fetch(
+              url,
+              {
+                headers: {
+                  Accept:
+                    'application/json'
+                }
               }
-            }
-          );
+            );
 
-        if (!response.ok) {
-          throw new Error(
-            'Reverse geocoding failed'
-          );
+
+          if (!response.ok) {
+
+            throw new Error(
+              'Reverse geocoding failed'
+            );
+
+          }
+
+
+          const data =
+            await response.json();
+
+
+          const address =
+            data.display_name ||
+            `${lat.toFixed(
+              6
+            )}, ${lng.toFixed(
+              6
+            )}`;
+
+
+          addressBox.value =
+            address;
+
+
+        } catch (error) {
+
+          addressBox.value =
+            `${lat.toFixed(
+              6
+            )}, ${lng.toFixed(
+              6
+            )}`;
+
         }
 
-        const data =
-          await response.json();
+      },
+      500
+    );
 
-        const address =
-          data.display_name ||
-          `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-        addressBox.value =
-          address;
-
-      } catch (error) {
-
-        addressBox.value =
-          `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      }
-
-    }, 500);
 }
 
 
@@ -2117,65 +3738,120 @@ function reverseGeocode(
 
 function resetLocation() {
 
-  selectedLocation = null;
+  selectedLocation =
+    null;
+
 
   const latInput =
-    getEl('cLat');
+    getEl(
+      'cLat'
+    );
+
 
   const lngInput =
-    getEl('cLng');
+    getEl(
+      'cLng'
+    );
+
 
   const addressBox =
-    getEl('cMapAddress');
+    getEl(
+      'cMapAddress'
+    );
+
 
   const distanceEl =
-    getEl('locationDistance');
+    getEl(
+      'locationDistance'
+    );
+
 
   const result =
-    getEl('deliveryResult');
+    getEl(
+      'deliveryResult'
+    );
+
 
   const status =
-    getEl('locationStatus');
+    getEl(
+      'locationStatus'
+    );
+
 
   if (latInput) {
-    latInput.value = '';
+
+    latInput.value =
+      '';
+
   }
+
 
   if (lngInput) {
-    lngInput.value = '';
+
+    lngInput.value =
+      '';
+
   }
+
 
   if (addressBox) {
-    addressBox.value = '';
+
+    addressBox.value =
+      '';
+
   }
+
 
   if (distanceEl) {
-    distanceEl.textContent = '';
+
+    distanceEl.textContent =
+      '';
+
   }
+
 
   if (result) {
-    result.innerHTML = '';
+
+    result.innerHTML =
+      '';
+
   }
+
 
   if (status) {
+
     status.innerHTML = `
+
       <div class="location-info">
-        Please use your current location or select
-        your delivery point on the map.
+
+        Please use your current
+        location or select your
+        delivery point on the map.
+
       </div>
+
     `;
+
   }
 
-  if (deliveryMarker) {
+
+  if (
+    deliveryMarker &&
+    deliveryMap
+  ) {
 
     deliveryMap.removeLayer(
       deliveryMarker
     );
 
-    deliveryMarker = null;
+    deliveryMarker =
+      null;
+
   }
 
+
   buildPaymentBlock();
+
 }
 
 
@@ -2183,70 +3859,133 @@ function resetLocation() {
    PLACE ORDER
 ========================================================= */
 
-function placeOrder(event) {
+function placeOrder(
+  event
+) {
 
   if (event) {
+
     event.preventDefault();
+
   }
+
 
   if (!cart.length) {
-    toast('Your cart is empty.');
+
+    toast(
+      'Your cart is empty.'
+    );
+
     return false;
+
   }
 
 
-  /* -------------------------
-     CUSTOMER INFO
-  ------------------------- */
+  /* CUSTOMER */
 
   const name =
-    getEl('cName')?.value.trim() || '';
+    getEl(
+      'cName'
+    )?.value.trim() ||
+    '';
+
 
   const phone =
-    getEl('cPhone')?.value.trim() || '';
+    getEl(
+      'cPhone'
+    )?.value.trim() ||
+    '';
+
 
   const house =
-    getEl('cHouse')?.value.trim() || '';
+    getEl(
+      'cHouse'
+    )?.value.trim() ||
+    '';
+
 
   const road =
-    getEl('cRoad')?.value.trim() || '';
+    getEl(
+      'cRoad'
+    )?.value.trim() ||
+    '';
+
 
   const note =
-    getEl('cNote')?.value.trim() || '';
+    getEl(
+      'cNote'
+    )?.value.trim() ||
+    '';
+
 
   const lat =
     Number(
-      getEl('cLat')?.value || 0
+      getEl(
+        'cLat'
+      )?.value ||
+      0
     );
+
 
   const lng =
     Number(
-      getEl('cLng')?.value || 0
+      getEl(
+        'cLng'
+      )?.value ||
+      0
     );
 
+
   const mapAddress =
-    getEl('cMapAddress')?.value.trim() || '';
+    getEl(
+      'cMapAddress'
+    )?.value.trim() ||
+    '';
 
 
   if (!name) {
-    toast('Please enter your name.');
+
+    toast(
+      'Please enter your name.'
+    );
+
     return false;
+
   }
+
 
   if (!phone) {
-    toast('Please enter your phone number.');
+
+    toast(
+      'Please enter your phone number.'
+    );
+
     return false;
+
   }
+
 
   if (!house) {
-    toast('Please enter House / Building.');
+
+    toast(
+      'Please enter House / Building.'
+    );
+
     return false;
+
   }
 
+
   if (!road) {
-    toast('Please enter Road / Area.');
+
+    toast(
+      'Please enter Road / Area.'
+    );
+
     return false;
+
   }
+
 
   if (
     !Number.isFinite(lat) ||
@@ -2254,17 +3993,17 @@ function placeOrder(event) {
     !lat ||
     !lng
   ) {
+
     toast(
       'Please select your delivery location on the map.'
     );
 
     return false;
+
   }
 
 
-  /* -------------------------
-     DELIVERY CHECK
-  ------------------------- */
+  /* DELIVERY */
 
   const delivery =
     calculateDelivery(
@@ -2273,58 +4012,69 @@ function placeOrder(event) {
       true
     );
 
-  if (!delivery.deliverable) {
+
+  if (
+    !delivery.deliverable
+  ) {
 
     toast(
       'Sorry, your location is outside our 4 km delivery area.'
     );
 
     return false;
+
   }
 
 
-  /* -------------------------
-     SHOP HOURS
-  ------------------------- */
+  /* SHOP HOURS */
 
   const hasPre =
-    cart.some(item =>
-      isPrebook(item)
+    cart.some(
+      item =>
+        isPrebook(
+          item
+        )
     );
+
 
   const now =
     new Date();
 
+
   if (!hasPre) {
 
-    if (!isWithinShopHours(now)) {
-
-      const hours =
-        getShopHours(now);
+    if (
+      !isWithinShopHours(
+        now
+      )
+    ) {
 
       const day =
         now.getDay();
+
 
       const hoursText =
         day === 5
           ? 'Friday: 3 PM – 9 PM'
           : 'Regular days: 11 AM – 7 PM';
 
+
       toast(
         `Regular orders are currently closed. ${hoursText}`
       );
 
       return false;
+
     }
+
   }
 
 
-  /* -------------------------
-     PAYMENT
-  ------------------------- */
+  /* PAYMENT */
 
   const payment =
     getOrderPayment();
+
 
   if (!payment) {
 
@@ -2333,10 +4083,16 @@ function placeOrder(event) {
     );
 
     return false;
+
   }
 
+
   const tx =
-    getEl('cTx')?.value.trim() || '';
+    getEl(
+      'cTx'
+    )?.value.trim() ||
+    '';
+
 
   if (
     payment !==
@@ -2350,12 +4106,15 @@ function placeOrder(event) {
       );
 
       return false;
+
     }
+
   }
+
 
   if (
     payment ===
-    'Cash on Delivery' &&
+      'Cash on Delivery' &&
     !delivery.codAvailable
   ) {
 
@@ -2364,22 +4123,28 @@ function placeOrder(event) {
     );
 
     return false;
+
   }
 
 
-  /* -------------------------
-     PRE-BOOKING
-  ------------------------- */
+  /* PREBOOKING */
 
-  let selectedSlot = '';
+  let selectedSlot =
+    '';
+
 
   if (hasPre) {
 
     const slotEl =
-      getEl('cSlot');
+      getEl(
+        'cSlot'
+      );
+
 
     selectedSlot =
-      slotEl?.value || '';
+      slotEl?.value ||
+      '';
+
 
     if (!selectedSlot) {
 
@@ -2388,19 +4153,27 @@ function placeOrder(event) {
       );
 
       return false;
+
     }
+
 
     const selectedDate =
       new Date(
         selectedSlot
       );
 
+
     const diffHours =
       (
         selectedDate.getTime() -
         Date.now()
       ) /
-      (1000 * 60 * 60);
+      (
+        1000 *
+        60 *
+        60
+      );
+
 
     if (
       diffHours < 5 ||
@@ -2414,7 +4187,9 @@ function placeOrder(event) {
       buildSlots();
 
       return false;
+
     }
+
 
     if (
       !isWithinShopHours(
@@ -2427,70 +4202,88 @@ function placeOrder(event) {
       );
 
       return false;
+
     }
+
   }
 
 
-  /* -------------------------
-     SUBTOTAL
-  ------------------------- */
+  /* TOTAL */
 
   const subtotal =
     cart.reduce(
-      (sum, item) =>
+      (
+        sum,
+        item
+      ) =>
         sum +
-        Number(item.price || 0) *
-        Number(item.qty || 0),
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.qty || 0
+        ),
       0
     );
+
 
   const total =
     subtotal +
     Number(
-      delivery.deliveryCharge || 0
+      delivery.deliveryCharge ||
+      0
     );
 
 
-  /* -------------------------
-     MAP URL
-  ------------------------- */
+  /* MAP */
 
   const mapUrl =
     `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
 
 
-  /* -------------------------
-     WHATSAPP ORDER MESSAGE
-  ------------------------- */
+  /* WHATSAPP MESSAGE */
 
   let text =
     `*NEW ORDER — CHEF SIFAT'S KITCHEN*\n\n`;
 
+
   text +=
     `*Customer Information*\n`;
+
 
   text +=
     `Name: ${name}\n`;
 
+
   text +=
     `Phone: ${phone}\n`;
+
 
   text +=
     `House/Building: ${house}\n`;
 
+
   text +=
     `Road/Area: ${road}\n`;
 
+
   if (mapAddress) {
+
     text +=
       `Selected Address: ${mapAddress}\n`;
+
   }
+
 
   text +=
     `Location: ${mapUrl}\n`;
 
+
   text +=
-    `Distance: ${delivery.distance.toFixed(2)} km\n`;
+    `Distance: ${delivery.distance.toFixed(
+      2
+    )} km\n`;
+
 
   text +=
     `COD Available: ${
@@ -2500,56 +4293,76 @@ function placeOrder(event) {
     }\n\n`;
 
 
-  /* -------------------------
-     ORDER ITEMS
-  ------------------------- */
+  /* ITEMS */
 
   text +=
     `*Order Items*\n`;
 
-  cart.forEach(item => {
 
-    text +=
-      `• ${item.name}`;
+  cart.forEach(
+    item => {
 
-    if (item.choice) {
       text +=
-        ` — ${item.choice}`;
+        `• ${item.name}`;
+
+
+      if (item.choice) {
+
+        text +=
+          ` — ${item.choice}`;
+
+      }
+
+
+      text +=
+        ` × ${item.qty} = ${money(
+          Number(
+            item.price || 0
+          ) *
+          Number(
+            item.qty || 0
+          )
+        )}\n`;
+
     }
-
-    text +=
-      ` × ${item.qty} = ${money(
-        Number(item.price || 0) *
-        Number(item.qty || 0)
-      )}\n`;
-  });
+  );
 
 
-  /* -------------------------
-     TOTALS
-  ------------------------- */
+  /* TOTAL */
 
   text +=
     `\n*Payment & Delivery*\n`;
 
+
   text +=
-    `Food subtotal: ${money(subtotal)}\n`;
+    `Food subtotal: ${money(
+      subtotal
+    )}\n`;
+
 
   text +=
     `Delivery charge: ${money(
       delivery.deliveryCharge
     )}\n`;
 
+
   text +=
-    `Total: ${money(total)}\n`;
+    `Total: ${money(
+      total
+    )}\n`;
+
 
   text +=
     `Payment method: ${payment}\n`;
 
+
   if (tx) {
+
     text +=
       `Transaction ID / Last 5 digits: ${tx}\n`;
+
   }
+
 
   if (selectedSlot) {
 
@@ -2558,29 +4371,35 @@ function placeOrder(event) {
         selectedSlot
       );
 
+
     text +=
       `Pre-booking time: ${formatDateTime(
         slotDate
       )}\n`;
+
   }
+
 
   if (note) {
 
     text +=
       `\nCustomer note: ${note}\n`;
+
   }
+
 
   text +=
     `\nThank you for ordering from Chef Sifat's Kitchen.`;
 
 
-  /* -------------------------
-     WHATSAPP
-  ------------------------- */
+  /* WHATSAPP */
 
   const whatsappUrl =
     `https://wa.me/${SETTINGS.whatsapp}?text=` +
-    encodeURIComponent(text);
+    encodeURIComponent(
+      text
+    );
+
 
   try {
 
@@ -2593,26 +4412,30 @@ function placeOrder(event) {
 
     window.location.href =
       whatsappUrl;
+
   }
 
 
-  /* -------------------------
-     CLEAR CART
-  ------------------------- */
+  /* CLEAR */
 
   cart = [];
 
   saveCart();
+
   updateCount();
+
   renderCart();
 
   closeCheckout();
+
 
   toast(
     'Order details prepared successfully.'
   );
 
+
   return true;
+
 }
 
 
@@ -2620,10 +4443,15 @@ function placeOrder(event) {
    TOAST
 ========================================================= */
 
-function toast(message) {
+function toast(
+  message
+) {
 
   let toastEl =
-    getEl('toast');
+    getEl(
+      'toast'
+    );
+
 
   if (!toastEl) {
 
@@ -2632,36 +4460,48 @@ function toast(message) {
         'div'
       );
 
+
     toastEl.id =
       'toast';
+
 
     toastEl.className =
       'toast';
 
+
     document.body.appendChild(
       toastEl
     );
+
   }
+
 
   toastEl.textContent =
     message;
+
 
   toastEl.classList.add(
     'show'
   );
 
+
   clearTimeout(
     toastEl._timer
   );
 
+
   toastEl._timer =
-    setTimeout(() => {
+    setTimeout(
+      () => {
 
-      toastEl.classList.remove(
-        'show'
-      );
+        toastEl.classList.remove(
+          'show'
+        );
 
-    }, 3000);
+      },
+      3000
+    );
+
 }
 
 
@@ -2676,31 +4516,40 @@ function setupCategoryTabs() {
       '[data-category]'
     );
 
-  tabs.forEach(tab => {
 
-    tab.addEventListener(
-      'click',
-      () => {
+  tabs.forEach(
+    tab => {
 
-        currentCategory =
-          tab.dataset.category ||
-          'all';
+      tab.addEventListener(
+        'click',
+        () => {
 
-        tabs.forEach(
-          other =>
-            other.classList.remove(
-              'active'
-            )
-        );
+          currentCategory =
+            tab.dataset.category ||
+            'all';
 
-        tab.classList.add(
-          'active'
-        );
 
-        renderMenu();
-      }
-    );
-  });
+          tabs.forEach(
+            other =>
+              other.classList.remove(
+                'active'
+              )
+          );
+
+
+          tab.classList.add(
+            'active'
+          );
+
+
+          renderMenu();
+
+        }
+      );
+
+    }
+  );
+
 }
 
 
@@ -2711,21 +4560,29 @@ function setupCategoryTabs() {
 function setupSearch() {
 
   const search =
-    getEl('search');
+    getEl(
+      'search'
+    );
 
-  if (!search) return;
+
+  if (!search)
+    return;
+
 
   search.addEventListener(
     'input',
     () => {
+
       renderMenu();
+
     }
   );
+
 }
 
 
 /* =========================================================
-   PAYMENT EVENT LISTENER
+   PAYMENT EVENT
 ========================================================= */
 
 document.addEventListener(
@@ -2735,10 +4592,13 @@ document.addEventListener(
     if (
       event.target &&
       event.target.name ===
-      'fpPayment'
+        'fpPayment'
     ) {
+
       syncFoodpandaPayment();
+
     }
+
   }
 );
 
@@ -2750,12 +4610,19 @@ document.addEventListener(
 function updateYear() {
 
   const year =
-    getEl('year');
+    getEl(
+      'year'
+    );
+
 
   if (year) {
+
     year.textContent =
-      new Date().getFullYear();
+      new Date()
+        .getFullYear();
+
   }
+
 }
 
 
@@ -2789,6 +4656,9 @@ document.addEventListener(
 
 window.renderMenu =
   renderMenu;
+
+window.addItemToCart =
+  addItemToCart;
 
 window.addToCart =
   addToCart;
@@ -2858,5 +4728,5 @@ window.toast =
 
 
 /* =========================================================
-   END
+   END OF APP.JS
 ========================================================= */
