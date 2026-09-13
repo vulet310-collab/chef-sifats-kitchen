@@ -289,10 +289,43 @@ const DEFAULT_MENU = [
    STORAGE
 ========================================================= */
 
-let MENU =
-  JSON.parse(
-    localStorage.getItem('chefSifatMenu') || 'null'
-  ) || DEFAULT_MENU;
+const savedMenu = JSON.parse(
+  localStorage.getItem('chefSifatMenu') || 'null'
+);
+
+const savedMenuList = Array.isArray(savedMenu)
+  ? savedMenu
+  : [];
+
+const savedByName = new Map(
+  savedMenuList
+    .filter(item => item && item.name)
+    .map(item => [item.name, item])
+);
+
+const defaultNames = new Set(
+  DEFAULT_MENU.map(item => item.name)
+);
+
+/*
+  Always keep all current default menu items.
+  If admin has edited an existing item, keep the edited version.
+  Also keep any extra custom items added by admin.
+*/
+let MENU = [
+  ...DEFAULT_MENU.map(item =>
+    savedByName.get(item.name) || item
+  ),
+
+  ...savedMenuList.filter(
+    item =>
+      item &&
+      item.name &&
+      !defaultNames.has(item.name)
+  )
+];
+
+saveMenu();
 
 let activeFilter = 'all';
 
@@ -2271,7 +2304,7 @@ function placeOrder(e) {
       'cMapAddress'
     ).value.trim();
 
-```javascript
+
 const payment = getOrderPayment();
 ```
 
