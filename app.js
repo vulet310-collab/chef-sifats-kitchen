@@ -729,9 +729,7 @@ function closeCheckout() {
 
 function buildCheckoutSummary() {
   const box =
-    document.getElementById(
-      'checkoutSummary'
-    );
+    document.getElementById('checkoutSummary');
 
   if (!box) return;
 
@@ -743,9 +741,52 @@ function buildCheckoutSummary() {
     );
 
   box.innerHTML = `
-    <div class="total">
-      <span>Order Subtotal</span>
-      <b>${money(subtotal)}</b>
+    <div class="fp-order-card">
+
+      <div class="fp-card-title">
+        <span>🛒</span>
+        <div>
+          <strong>Order Summary</strong>
+          <small>${cart.length} item${cart.length > 1 ? 's' : ''}</small>
+        </div>
+      </div>
+
+      <div class="fp-items">
+
+        ${cart.map(item => `
+          <div class="fp-item">
+
+            <div>
+              <strong>${escapeHtml(item.name)}</strong>
+              <small>
+                ${escapeHtml(item.choice)} × ${item.qty}
+              </small>
+            </div>
+
+            <b>
+              ${money(item.price * item.qty)}
+            </b>
+
+          </div>
+        `).join('')}
+
+      </div>
+
+      <div class="fp-price-line">
+        <span>Subtotal</span>
+        <strong id="fpSubtotal">${money(subtotal)}</strong>
+      </div>
+
+      <div class="fp-price-line">
+        <span>Delivery fee</span>
+        <strong id="fpDelivery">Select location</strong>
+      </div>
+
+      <div class="fp-total-line">
+        <span>Total</span>
+        <strong id="fpTotal">${money(subtotal)}</strong>
+      </div>
+
     </div>
   `;
 }
@@ -756,124 +797,284 @@ function buildCheckoutSummary() {
 
 function buildPaymentBlock() {
   const box =
-    document.getElementById(
-      'paymentBlock'
-    );
+    document.getElementById('paymentBlock');
 
   if (!box) return;
 
   const hasPre =
-    cart.some(
-      item => isPrebook(item.cat)
-    );
+    cart.some(item => isPrebook(item.cat));
 
-  if (hasPre) {
-    box.innerHTML = `
-      <label>
-        Payment method
+  box.innerHTML = `
+    <div class="fp-payment-card">
 
-        <select id="cPayment">
-
-          <option value="Full Payment — bKash Personal — 01792494275">
-            Full Payment — bKash Personal 01792494275
-          </option>
-
-          <option value="Full Payment — Nagad Personal — 01792494275">
-            Full Payment — Nagad Personal 01792494275
-          </option>
-
-        </select>
-      </label>
-
-      <div class="payment-note">
-        Pre-booking orders require
-        <b>full payment</b>.
-        Cash on Delivery is not available
-        for pre-booking.
+      <div class="fp-card-title">
+        <span>💳</span>
+        <div>
+          <strong>Payment Method</strong>
+          <small>Choose how you want to pay</small>
+        </div>
       </div>
-    `;
-  } else {
-    box.innerHTML = `
-      <label>
-        Payment method
 
-        <select id="cPayment">
+      ${
+        hasPre
+          ? `
+            <div class="fp-prebook-payment">
 
-          <option value="Select location first">
-            Select location first
-          </option>
+              <label class="fp-payment-option active">
 
-          <option value="bKash Personal — 01792494275">
-            bKash Personal — 01792494275
-          </option>
+                <input
+                  type="radio"
+                  name="fpPayment"
+                  value="Full Payment — bKash Personal — 01792494275"
+                  checked
+                >
 
-          <option value="Nagad Personal — 01792494275">
-            Nagad Personal — 01792494275
-          </option>
+                <div class="fp-payment-icon bkash">
+                  bK
+                </div>
 
-        </select>
-      </label>
-    `;
-  }
+                <div class="fp-payment-text">
+                  <strong>bKash Personal</strong>
+                  <small>01792494275</small>
+                </div>
+
+                <span class="fp-check">✓</span>
+
+              </label>
+
+              <label class="fp-payment-option">
+
+                <input
+                  type="radio"
+                  name="fpPayment"
+                  value="Full Payment — Nagad Personal — 01792494275"
+                >
+
+                <div class="fp-payment-icon nagad">
+                  N
+                </div>
+
+                <div class="fp-payment-text">
+                  <strong>Nagad Personal</strong>
+                  <small>01792494275</small>
+                </div>
+
+                <span class="fp-check">✓</span>
+
+              </label>
+
+              <div class="fp-payment-info">
+                🔒 <strong>Full payment required</strong>
+                <br>
+                Pre-booking orders require full payment.
+                Cash on Delivery is not available.
+              </div>
+
+            </div>
+          `
+          : `
+            <div
+              id="fpPaymentOptions"
+              class="fp-payment-options"
+            >
+
+              <div class="fp-location-first">
+                📍 Please select your delivery location first.
+              </div>
+
+            </div>
+          `
+      }
+
+      <div
+        id="fpTransactionBox"
+        class="fp-transaction-box"
+        style="${hasPre ? '' : 'display:none'}"
+      >
+
+        <label>
+          Transaction ID / Last 5 Digits
+
+          <input
+            id="cTx"
+            type="text"
+            inputmode="numeric"
+            maxlength="20"
+            placeholder="Enter transaction ID or last 5 digits"
+          >
+        </label>
+
+        <small class="fp-tx-help">
+          After payment, enter your transaction ID
+          or the last 5 digits of the transaction number.
+        </small>
+
+      </div>
+
+    </div>
+  `;
 
   document
-    .getElementById('cPayment')
-    ?.addEventListener(
-      'change',
-      updateTransactionField
-    );
+    .querySelectorAll('input[name="fpPayment"]')
+    .forEach(input => {
 
-  updateTransactionField();
+      input.addEventListener(
+        'change',
+        () => {
+
+          document
+            .querySelectorAll('.fp-payment-option')
+            .forEach(option =>
+              option.classList.remove('active')
+            );
+
+          input
+            .closest('.fp-payment-option')
+            ?.classList.add('active');
+
+          syncFoodpandaPayment();
+
+        }
+      );
+
+    });
+
+  syncFoodpandaPayment();
 }
-
 function updatePaymentOptions(codAvailable) {
-  const payment =
-    document.getElementById('cPayment');
 
-  if (!payment) return;
+  const box =
+    document.getElementById('fpPaymentOptions');
+
+  if (!box) return;
 
   const hasPre =
-    cart.some(
-      item => isPrebook(item.cat)
-    );
+    cart.some(item => isPrebook(item.cat));
 
   if (hasPre) {
-    updateTransactionField();
+    syncFoodpandaPayment();
     return;
   }
 
   if (codAvailable) {
-    payment.innerHTML = `
-      <option value="Cash on Delivery">
-        Cash on Delivery
-      </option>
 
-      <option value="bKash Personal — 01792494275">
-        bKash Personal — 01792494275
-      </option>
+    box.innerHTML = `
 
-      <option value="Nagad Personal — 01792494275">
-        Nagad Personal — 01792494275
-      </option>
+      <label class="fp-payment-option active">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="Cash on Delivery"
+          checked
+        >
+
+        <div class="fp-payment-icon cod">
+          💵
+        </div>
+
+        <div class="fp-payment-text">
+
+          <strong>Cash on Delivery</strong>
+
+          <small>
+            Pay cash when your order arrives
+          </small>
+
+        </div>
+
+        <span class="fp-check">✓</span>
+
+      </label>
+
+
+      <label class="fp-payment-option">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="bKash Personal — 01792494275"
+        >
+
+        <div class="fp-payment-icon bkash">
+          bK
+        </div>
+
+        <div class="fp-payment-text">
+
+          <strong>bKash Personal</strong>
+
+          <small>
+            01792494275
+          </small>
+
+        </div>
+
+        <span class="fp-check">✓</span>
+
+      </label>
+
+
+      <label class="fp-payment-option">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="Nagad Personal — 01792494275"
+        >
+
+        <div class="fp-payment-icon nagad">
+          N
+        </div>
+
+        <div class="fp-payment-text">
+
+          <strong>Nagad Personal</strong>
+
+          <small>
+            01792494275
+          </small>
+
+        </div>
+
+        <span class="fp-check">✓</span>
+
+      </label>
+
     `;
 
-    payment.value =
-      'Cash on Delivery';
   } else {
-    payment.innerHTML = `
-      <option value="bKash Personal — 01792494275">
-        bKash Personal — 01792494275
-      </option>
 
-      <option value="Nagad Personal — 01792494275">
-        Nagad Personal — 01792494275
-      </option>
-    `;
+    box.innerHTML = `
 
-    payment.value =
-      'bKash Personal — 01792494275';
-  }
+      <div class="fp-online-required">
+        🔒 <strong>Online payment required</strong>
+        <small>
+          COD is not available for this location.
+        </small>
+      </div>
 
+
+      <label class="fp-payment-option active">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="bKash Personal — 01792494275"
+          checked
+        >
+
+        <div class="fp-payment-icon bkash">
+          bK
+        </div>
+
+        <div class="fp-payment-text">
+
+          <strong>bKash Personal</strong>
+
+          <small>
+            01792494275
+         
   payment.onchange =
     updateTransactionField;
 
