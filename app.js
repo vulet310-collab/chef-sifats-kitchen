@@ -4,6 +4,7 @@ const SETTINGS = {
   facebook: 'https://web.facebook.com/ChefSifatsKitchen'
 };
 
+
 /* =========================================================
    DELIVERY LOCATION SETTINGS
    ========================================================= */
@@ -15,14 +16,24 @@ const BASE_LOCATION = {
 };
 
 /*
-  COD:
-  Kahalthuri zone = COD + ৳0
-  Outside COD zone but within 4 km = COD unavailable + ৳10/km
-  Outside 4 km = order unavailable
+  DELIVERY RULE
 
-  NOTE:
-  1 km is currently used as the provisional Kahalthuri COD zone.
+  Kahalthuri zone:
+  COD Available + ৳0
+
+  Outside Kahalthuri COD zone but within 4 km:
+  COD Not Available
+  Online payment required
+  Delivery charge = ৳10 per started km
+
+  Outside 4 km:
+  Order unavailable
+
+  IMPORTANT:
+  COD_RADIUS_KM represents the current Kahalthuri COD zone.
+  Change this number later if you want a larger/smaller COD zone.
 */
+
 const COD_RADIUS_KM = 1.0;
 const MAX_DELIVERY_RADIUS_KM = 4.0;
 const DELIVERY_RATE_PER_KM = 10;
@@ -1332,7 +1343,16 @@ function buildSlots() {
    GOOGLE MAPS
    ========================================================= */
 
-window.initGoogleMap = function() {
+/*
+  Google Maps JavaScript API callback.
+
+  IMPORTANT:
+  index.html must use:
+
+  callback=initGoogleMap
+*/
+
+window.initGoogleMap = function () {
 
   googleMapsReady = true;
 
@@ -1348,11 +1368,32 @@ window.initGoogleMap = function() {
   }
 
 
+  const status =
+    document.getElementById(
+      'locationStatus'
+    );
+
+
+  if (status) {
+
+    status.className =
+      'location-status';
+
+    status.innerHTML =
+      '🗺️ Map is ready. Select your delivery location.';
+
+  }
+
+
   if (mapOpenRequested) {
 
     mapOpenRequested = false;
 
-    openLocationMap();
+    setTimeout(() => {
+
+      openLocationMap();
+
+    }, 100);
 
   }
 
@@ -1387,7 +1428,7 @@ function waitForGoogleMaps() {
       'location-status warning';
 
     status.innerHTML =
-      '🗺️ Loading map… Please wait a moment.';
+      '🗺️ Loading Google Maps… Please wait a moment.';
 
   }
 
@@ -1396,6 +1437,10 @@ function waitForGoogleMaps() {
 
 }
 
+
+/* =========================================================
+   OPEN MAP
+   ========================================================= */
 
 function openLocationMap() {
 
@@ -1409,7 +1454,9 @@ function openLocationMap() {
 
 
   if (!waitForGoogleMaps()) {
+
     return;
+
   }
 
 
@@ -1417,52 +1464,99 @@ function openLocationMap() {
     'block';
 
 
-  if (!googleMap) {
+  /*
+    If map already exists, simply refresh it.
+  */
 
-    googleMap =
-      new google.maps.Map(
-        mapBox,
-        {
+  if (googleMap) {
 
-          center: {
-            lat: BASE_LOCATION.lat,
-            lng: BASE_LOCATION.lng
-          },
+    setTimeout(() => {
 
-          zoom: 14,
-
-          mapTypeControl: false,
-
-          streetViewControl: false,
-
-          fullscreenControl: true,
-
-          gestureHandling: 'greedy'
-
-        }
+      google.maps.event.trigger(
+        googleMap,
+        'resize'
       );
 
 
-    googleMap.addListener(
-      'click',
-      event => {
+      if (selectedLocation) {
 
-        if (event.latLng) {
+        googleMap.setCenter({
+          lat: selectedLocation.lat,
+          lng: selectedLocation.lng
+        });
 
-          setDeliveryLocation(
-            event.latLng.lat(),
-            event.latLng.lng()
-          );
+      }
 
-        }
+    }, 150);
+
+    return;
+
+  }
+
+
+  googleMap =
+    new google.maps.Map(
+      mapBox,
+      {
+
+        center: {
+          lat: BASE_LOCATION.lat,
+          lng: BASE_LOCATION.lng
+        },
+
+        zoom: 15,
+
+        mapTypeControl: false,
+
+        streetViewControl: false,
+
+        fullscreenControl: true,
+
+        gestureHandling: 'greedy'
 
       }
     );
 
 
-    geocoder =
-      geocoder ||
-      new google.maps.Geocoder();
+  geocoder =
+    geocoder ||
+    new google.maps.Geocoder();
+
+
+  /*
+    Clicking anywhere on the map
+    selects that exact location.
+  */
+
+  googleMap.addListener(
+    'click',
+    event => {
+
+      if (!event.latLng) {
+        return;
+      }
+
+
+      setDeliveryLocation(
+        event.latLng.lat(),
+        event.latLng.lng()
+      );
+
+    }
+  );
+
+
+  /*
+    If location already selected,
+    show marker again.
+  */
+
+  if (selectedLocation) {
+
+    createOrMoveMarker(
+      selectedLocation.lat,
+      selectedLocation.lng
+    );
 
   }
 
@@ -1500,7 +1594,83 @@ function openLocationMap() {
 
 
 /* =========================================================
-   SET LOCATION
+   CREATE / MOVE DELIVERY MARKER
+   ========================================================= */
+
+function createOrMoveMarker(lat, lng) {
+
+  if (
+    !googleMap ||
+    typeof google === 'undefined' ||
+    !google.maps
+  ) {
+
+    return;
+
+  }
+
+
+  const position = {
+    lat: Number(lat),
+    lng: Number(lng)
+  };
+
+
+  if (deliveryMarker) {
+
+    deliveryMarker.setPosition(
+      position
+    );
+
+    deliveryMarker.setMap(
+      googleMap
+    );
+
+    return;
+
+  }
+
+
+  deliveryMarker =
+    new google.maps.Marker({
+
+      position,
+
+      map: googleMap,
+
+      draggable: true,
+
+      title:
+        'Drag this pin to your exact delivery location'
+
+    });
+
+
+  deliveryMarker.addListener(
+    'dragend',
+    event => {
+
+      if (!event.latLng) {
+        return;
+      }
+
+
+      setDeliveryLocation(
+
+        event.latLng.lat(),
+
+        event.latLng.lng()
+
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   SET DELIVERY LOCATION
    ========================================================= */
 
 function setDeliveryLocation(lat, lng) {
@@ -1552,6 +1722,10 @@ function setDeliveryLocation(lat, lng) {
   }
 
 
+  /*
+    Open map if necessary.
+  */
+
   if (!googleMapsReady) {
 
     openLocationMap();
@@ -1564,72 +1738,41 @@ function setDeliveryLocation(lat, lng) {
   openLocationMap();
 
 
-  const position = {
-    lat,
-    lng
-  };
+  setTimeout(() => {
 
-
-  if (deliveryMarker) {
-
-    deliveryMarker.setPosition(
-      position
+    createOrMoveMarker(
+      lat,
+      lng
     );
 
-  } else {
 
-    deliveryMarker =
-      new google.maps.Marker({
+    if (googleMap) {
 
-        position,
-
-        map: googleMap,
-
-        draggable: true,
-
-        title:
-          'Your delivery location'
-
+      googleMap.setCenter({
+        lat,
+        lng
       });
 
+      googleMap.setZoom(17);
 
-    deliveryMarker.addListener(
-      'dragend',
-      event => {
+    }
 
-        if (event.latLng) {
-
-          setDeliveryLocation(
-            event.latLng.lat(),
-            event.latLng.lng()
-          );
-
-        }
-
-      }
-    );
-
-  }
+  }, 50);
 
 
-  googleMap.setCenter(
-    position
-  );
-
-
-  googleMap.setZoom(
-    Math.max(
-      googleMap.getZoom() || 15,
-      15
-    )
-  );
-
+  /*
+    Calculate delivery immediately.
+  */
 
   calculateDelivery(
     lat,
     lng
   );
 
+
+  /*
+    Reverse geocode exact location.
+  */
 
   reverseGeocode(
     lat,
@@ -1682,6 +1825,10 @@ function useCurrentLocation() {
   }
 
 
+  /*
+    Ask for GPS permission.
+  */
+
   navigator.geolocation.getCurrentPosition(
 
     position => {
@@ -1699,18 +1846,25 @@ function useCurrentLocation() {
       );
 
 
-      if (
-        status &&
-        accuracy > 100
-      ) {
+      if (status) {
 
-        status.innerHTML +=
+        status.className =
+          'location-status good';
 
-          `<br><small>
-            GPS accuracy is about
-            ${Math.round(accuracy)} m.
-            You can drag the pin to your exact gate.
-          </small>`;
+        status.innerHTML =
+          '✅ Current location detected.';
+
+        if (accuracy > 100) {
+
+          status.innerHTML +=
+
+            `<br><small>
+              GPS accuracy is about
+              ${Math.round(accuracy)} m.
+              You can drag the pin to your exact gate.
+            </small>`;
+
+        }
 
       }
 
@@ -1728,12 +1882,16 @@ function useCurrentLocation() {
         message =
           'Location permission was denied. Please allow location access, then try again.';
 
-      } else if (error.code === 2) {
+      }
+
+      else if (error.code === 2) {
 
         message =
           'Your location could not be determined. Please select your location on the map.';
 
-      } else if (error.code === 3) {
+      }
+
+      else if (error.code === 3) {
 
         message =
           'Location request timed out. Please try again or select your location on the map.';
@@ -1876,9 +2034,9 @@ function calculateDelivery(lat, lng) {
   }
 
 
-  /* ================================
+  /* =====================================================
      OUTSIDE 4 KM
-     ================================ */
+     ===================================================== */
 
   if (
     distance >
@@ -1958,14 +2116,19 @@ function calculateDelivery(lat, lng) {
     }
 
 
+    /*
+      Do not leave old payment
+      selection active.
+    */
+
     return;
 
   }
 
 
-  /* ================================
+  /* =====================================================
      COD / DELIVERY CHARGE
-     ================================ */
+     ===================================================== */
 
   const codAvailable =
     distance <= COD_RADIUS_KM;
@@ -1978,9 +2141,9 @@ function calculateDelivery(lat, lng) {
         DELIVERY_RATE_PER_KM;
 
 
-  /* ================================
+  /* =====================================================
      STATUS
-     ================================ */
+     ===================================================== */
 
   if (status) {
 
@@ -2011,9 +2174,9 @@ function calculateDelivery(lat, lng) {
   }
 
 
-  /* ================================
+  /* =====================================================
      RESULT
-     ================================ */
+     ===================================================== */
 
   if (result) {
 
@@ -2184,7 +2347,9 @@ function reverseGeocode(lat, lng) {
           old.textContent =
             '📌 ' + address;
 
-        } else if (status) {
+        }
+
+        else if (status) {
 
           const p =
             document.createElement(
@@ -2206,7 +2371,9 @@ function reverseGeocode(lat, lng) {
 
         }
 
-      } else {
+      }
+
+      else {
 
         addressBox.value =
           `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -2374,9 +2541,9 @@ function placeOrder(e) {
   }
 
 
-  /* ================================
+  /* =====================================================
      LOCATION CHECK
-     ================================ */
+     ===================================================== */
 
   if (
 
@@ -2431,9 +2598,9 @@ function placeOrder(e) {
     );
 
 
-  /* ================================
+  /* =====================================================
      4 KM LIMIT
-     ================================ */
+     ===================================================== */
 
   if (
     distance >
@@ -2449,9 +2616,9 @@ function placeOrder(e) {
   }
 
 
-  /* ================================
+  /* =====================================================
      CUSTOMER INFO
-     ================================ */
+     ===================================================== */
 
   const name =
     document.getElementById(
@@ -2506,9 +2673,9 @@ function placeOrder(e) {
     )?.value.trim() || '';
 
 
-  /* ================================
+  /* =====================================================
      VALIDATION
-     ================================ */
+     ===================================================== */
 
   if (
     !name ||
@@ -2553,9 +2720,9 @@ function placeOrder(e) {
   }
 
 
-  /* ================================
+  /* =====================================================
      PREBOOKING
-     ================================ */
+     ===================================================== */
 
   const hasPre =
     cart.some(
@@ -2575,9 +2742,9 @@ function placeOrder(e) {
         DELIVERY_RATE_PER_KM;
 
 
-  /* ================================
+  /* =====================================================
      PAYMENT VALIDATION
-     ================================ */
+     ===================================================== */
 
   if (
     hasPre &&
@@ -2616,7 +2783,9 @@ function placeOrder(e) {
 
     /* COD does not require transaction ID */
 
-  } else if (!tx) {
+  }
+
+  else if (!tx) {
 
     alert(
       'Please enter the transaction ID / last 5 digits for online payment.'
@@ -2627,9 +2796,9 @@ function placeOrder(e) {
   }
 
 
-  /* ================================
+  /* =====================================================
      TOTAL
-     ================================ */
+     ===================================================== */
 
   const subtotal =
     cart.reduce(
@@ -2646,9 +2815,9 @@ function placeOrder(e) {
     deliveryCharge;
 
 
-  /* ================================
+  /* =====================================================
      PREBOOK SLOT
-     ================================ */
+     ===================================================== */
 
   let slot = '';
 
@@ -2719,11 +2888,13 @@ function placeOrder(e) {
 
     }
 
-  } else {
+  }
 
-    /* ================================
+  else {
+
+    /* ===================================================
        REGULAR ORDER SHOP HOURS
-       ================================ */
+       =================================================== */
 
     const now =
       new Date();
@@ -2750,9 +2921,9 @@ function placeOrder(e) {
   }
 
 
-  /* ================================
+  /* =====================================================
      WHATSAPP ORDER MESSAGE
-     ================================ */
+     ===================================================== */
 
   let text =
     `*NEW ORDER — CHEF SIFAT'S KITCHEN*\n\n`;
@@ -2847,9 +3018,9 @@ function placeOrder(e) {
     }`;
 
 
-  /* ================================
+  /* =====================================================
      OPEN WHATSAPP
-     ================================ */
+     ===================================================== */
 
   const whatsappUrl =
 
@@ -2865,9 +3036,9 @@ function placeOrder(e) {
   );
 
 
-  /* ================================
+  /* =====================================================
      CLEAR CART
-     ================================ */
+     ===================================================== */
 
   closeCheckout();
 
@@ -2979,7 +3150,9 @@ document
   });
 
 
-/* SEARCH */
+/* =========================================================
+   SEARCH
+   ========================================================= */
 
 document
   .getElementById('search')
@@ -2989,7 +3162,9 @@ document
   );
 
 
-/* YEAR */
+/* =========================================================
+   YEAR
+   ========================================================= */
 
 const year =
   document.getElementById(
@@ -3005,7 +3180,9 @@ if (year) {
 }
 
 
-/* INITIAL LOAD */
+/* =========================================================
+   INITIAL LOAD
+   ========================================================= */
 
 renderMenu();
 
