@@ -1,942 +1,1258 @@
+html
 <!doctype html>
-
 <html lang="en">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#080808">
-<meta name="description" content="Chef Sifat's Kitchen — premium chef-crafted Pizza, Momo, Continental cuisine and Kacchi Biryani.">
-<title>Chef Sifat's Kitchen — Good Food | Good Mood</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080808">
 
-<link rel="stylesheet" href="styles.css">
+  <meta
+    name="description"
+    content="Chef Sifat's Kitchen — premium chef-crafted Pizza, Momo, Continental cuisine and Kacchi Biryani."
+  >
 
-<!-- Leaflet / OpenStreetMap -->
+  <title>Chef Sifat's Kitchen — Good Food | Good Mood</title>
 
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
+  <link rel="stylesheet" href="styles.css">
 
-<style>
-.location-box{
-  margin:15px 0;
-  padding:16px;
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:16px;
-  background:rgba(255,255,255,.035);
-}
+  <!-- Leaflet / OpenStreetMap -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
 
-.location-title{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:10px;
-  margin-bottom:10px;
-}
+  <style>
+    /* =========================================================
+       LOCATION / MAP
+    ========================================================= */
 
-.location-title strong{
-  font-size:16px;
-}
+    .location-box {
+      margin: 15px 0;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .035);
+    }
 
-.location-buttons{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin-bottom:10px;
-}
+    .location-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
 
-.location-btn{
-  border:1px solid rgba(255,255,255,.15);
-  background:#151515;
-  color:#fff;
-  padding:10px 14px;
-  border-radius:10px;
-  cursor:pointer;
-  font-weight:700;
-}
+    .location-title strong {
+      font-size: 16px;
+    }
 
-.location-btn:hover{
-  background:#222;
-}
+    .location-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
 
-#deliveryMap{
-  width:100%;
-  height:320px;
-  border-radius:14px;
-  overflow:hidden;
-  margin:10px 0;
-  display:none;
-  border:1px solid rgba(255,255,255,.12);
-}
+    .location-btn {
+      border: 1px solid rgba(255, 255, 255, .15);
+      background: #151515;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
 
-#deliveryMap.active{
-  display:block;
-}
+    .location-btn:hover {
+      background: #222;
+    }
 
-.leaflet-container{
-  width:100%;
-  height:100%;
-  font-family:inherit;
-}
+    #deliveryMap {
+      width: 100%;
+      height: 320px;
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 10px 0;
+      display: none;
+      border: 1px solid rgba(255, 255, 255, .12);
+    }
 
-.leaflet-control-attribution{
-  font-size:10px;
-}
+    #deliveryMap.active {
+      display: block;
+    }
 
-.location-status{
-  padding:10px 12px;
-  border-radius:10px;
-  background:#101010;
-  font-size:14px;
-  line-height:1.5;
-}
+    .leaflet-container {
+      width: 100%;
+      height: 100%;
+      font-family: inherit;
+    }
 
-.location-status.good{
-  border:1px solid #287a45;
-}
+    .leaflet-control-attribution {
+      font-size: 10px;
+    }
 
-.location-status.warning{
-  border:1px solid #a47720;
-}
+    .location-status {
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #101010;
+      font-size: 14px;
+      line-height: 1.5;
+    }
 
-.location-status.bad{
-  border:1px solid #9b3030;
-}
+    .location-status.good {
+      border: 1px solid #287a45;
+    }
 
-.delivery-result{
-  margin-top:10px;
-  padding:13px;
-  border-radius:12px;
-  background:#0d0d0d;
-  display:none;
-  border:1px solid rgba(255,255,255,.08);
-}
+    .location-status.warning {
+      border: 1px solid #a47720;
+    }
 
-.delivery-result b{
-  font-size:17px;
-}
+    .location-status.bad {
+      border: 1px solid #9b3030;
+    }
 
-.delivery-result .line{
-  display:flex;
-  justify-content:space-between;
-  gap:10px;
-  margin:5px 0;
-}
+    .delivery-result {
+      margin-top: 10px;
+      padding: 13px;
+      border-radius: 12px;
+      background: #0d0d0d;
+      display: none;
+      border: 1px solid rgba(255, 255, 255, .08);
+    }
 
-.map-address{
-  font-size:13px;
-  color:#bbb;
-  margin-top:9px;
-  line-height:1.5;
-}
+    .delivery-result b {
+      font-size: 17px;
+    }
 
-.payment-note{
-  margin-top:10px;
-}
+    .delivery-result .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 5px 0;
+    }
 
-.disabled-order{
-  opacity:.55;
-  cursor:not-allowed !important;
-}
+    .map-address {
+      font-size: 13px;
+      color: #bbb;
+      margin-top: 9px;
+      line-height: 1.5;
+    }
 
-#cTxWrap{
-  display:block;
-}
+    .payment-note {
+      margin-top: 10px;
+    }
 
-.checkout-location-help{
-  font-size:13px;
-  color:#aaa;
-  margin:8px 0 0;
-}
+    .disabled-order {
+      opacity: .55;
+      cursor: not-allowed !important;
+    }
 
-.location-pin-note{
-  font-size:12px;
-  color:#999;
-  margin-top:6px;
-}
+    .checkout-location-help {
+      font-size: 13px;
+      color: #aaa;
+      margin: 8px 0 0;
+    }
 
-@media(max-width:600px){
+    .location-pin-note {
+      font-size: 12px;
+      color: #999;
+      margin-top: 6px;
+    }
 
-  #deliveryMap{
-    height:270px;
-  }
+    /* Visible selected-address area */
+    .selected-address-box {
+      display: none;
+      margin-top: 10px;
+      padding: 11px 12px;
+      border-radius: 10px;
+      background: #111;
+      border: 1px solid rgba(255, 255, 255, .08);
+      font-size: 13px;
+      line-height: 1.5;
+    }
 
-  .location-buttons{
-    flex-direction:column;
-  }
+    .selected-address-box strong {
+      display: block;
+      margin-bottom: 3px;
+      color: #fff;
+    }
 
-  .location-btn{
-    width:100%;
-  }
-}
-</style>
+    @media(max-width:600px) {
 
+      #deliveryMap {
+        height: 270px;
+      }
+
+      .location-buttons {
+        flex-direction: column;
+      }
+
+      .location-btn {
+        width: 100%;
+      }
+    }
+  </style>
 </head>
+
 
 <body>
 
-<div class="topbar">
-  <div>★ BEACON Certified • Certificate F&B-78006001</div>
-  <div>Home Delivery • Freshly Prepared</div>
-</div>
+  <!-- =========================================================
+       TOP BAR
+  ========================================================= -->
 
-<header class="nav">
-
-  <a class="brand" href="#home">
-    <img src="assets/logo.jpg" alt="Chef Sifat's Kitchen logo">
-    <span>
-      <b>Chef Sifat's</b>
-      <small>Kitchen</small>
-    </span>
-  </a>
-
-  <nav class="navlinks">
-    <a href="#home">Home</a>
-    <a href="#menu">Menu</a>
-    <a href="#about">About</a>
-    <a href="#contact">Contact</a>
-  </nav>
-
-  <button class="cart-trigger" onclick="openCart()">
-    Cart <span id="cartCount">0</span>
-  </button>
-
-</header>
-
-<main>
-
-<section id="home" class="hero">
-
-  <div class="hero-overlay"></div>
-
-  <div class="hero-content">
-
-
-<div class="badge">
-  CHEF-CRAFTED • FRESH • PREMIUM
-</div>
-
-<img
-  class="hero-logo"
-  src="assets/logo.jpg"
-  alt="Chef Sifat's Kitchen"
->
-
-<p class="kicker">
-  GOOD FOOD <i>•</i> GOOD MOOD
-</p>
-
-<h1>
-  Food made with <em>passion.</em><br>
-  Served with <em>pride.</em>
-</h1>
-
-<p class="hero-copy">
-  A premium food experience from Chef Sifat’s Kitchen —
-  thoughtfully prepared, beautifully served and made for every good mood.
-</p>
-
-<div class="hero-actions">
-  <a class="btn gold" href="#menu">
-    Explore Our Menu
-  </a>
-</div>
-
-<div class="trust-row">
-  <span>✓ Quality Ingredients</span>
-  <span>✓ Hygienic Preparation</span>
-  <span>✓ Chef Crafted</span>
-  <span>✓ Home Delivery</span>
-</div>
-
-
-  </div>
-</section>
-
-<section class="signature">
-
-  <div class="signature-card">
-
-
-<div>
-
-  <span class="mini">
-    THE CHEF'S SIGNATURE
-  </span>
-
-  <h2>
-    Good food deserves a great first impression.
-  </h2>
-
-  <p>
-    Discover our signature Pizza, Momo, Continental dishes and
-    Kacchi Biryani — curated for a restaurant-quality experience at home.
-  </p>
-
-</div>
-
-<a class="btn gold" href="#menu">
-  View Menu
-</a>
-
-
+  <div class="topbar">
+    <div>★ BEACON Certified • Certificate F&B-78006001</div>
+    <div>Home Delivery • Freshly Prepared</div>
   </div>
 
-</section>
 
-<section id="menu" class="section">
+  <!-- =========================================================
+       NAVIGATION
+  ========================================================= -->
 
-  <div class="section-head">
+  <header class="nav">
 
+    <a class="brand" href="#home">
 
-<span class="mini">
-  OUR MENU
-</span>
+      <img
+        src="assets/logo.jpg"
+        alt="Chef Sifat's Kitchen logo"
+      >
 
-<h2>
-  Choose your <em>favorite.</em>
-</h2>
+      <span>
+        <b>Chef Sifat's</b>
+        <small>Kitchen</small>
+      </span>
 
-<p>
-  Freshly prepared dishes, presented with the care of a five-star kitchen.
-</p>
+    </a>
 
 
-  </div>
+    <nav class="navlinks">
 
-  <div class="category-tabs">
+      <a href="#home">Home</a>
+      <a href="#menu">Menu</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
 
+    </nav>
 
-<button class="tab active" data-filter="all">
-  All
-</button>
 
-<button class="tab" data-filter="pizza">
-  🍕 Pizza
-</button>
+    <button
+      class="cart-trigger"
+      type="button"
+      onclick="openCart()"
+    >
+      Cart <span id="cartCount">0</span>
+    </button>
 
-<button class="tab" data-filter="momo">
-  🥟 Momo
-</button>
+  </header>
 
-<button class="tab" data-filter="continental">
-  🍽️ Continental
-</button>
 
-<button class="tab" data-filter="kacchi">
-  🍛 Kacchi Biryani
-</button>
+  <!-- =========================================================
+       MAIN
+  ========================================================= -->
 
+  <main>
 
-  </div>
 
-  <div class="search">
+    <!-- =======================================================
+         HERO
+    ======================================================= -->
 
+    <section id="home" class="hero">
 
-<span>⌕</span>
+      <div class="hero-overlay"></div>
 
-<input
-  id="search"
-  placeholder="Search your favorite dish…"
-  oninput="renderMenu()"
->
+      <div class="hero-content">
 
+        <div class="badge">
+          CHEF-CRAFTED • FRESH • PREMIUM
+        </div>
 
-  </div>
 
-  <div id="menuGrid" class="menu-grid"></div>
+        <img
+          class="hero-logo"
+          src="assets/logo.jpg"
+          alt="Chef Sifat's Kitchen"
+        >
 
-</section>
 
-<section class="experience">
+        <p class="kicker">
+          GOOD FOOD <i>•</i> GOOD MOOD
+        </p>
 
-  <div class="experience-image">
 
+        <h1>
+          Food made with <em>passion.</em><br>
+          Served with <em>pride.</em>
+        </h1>
 
-<img
-  src="assets/menu-board.png"
-  alt="Chef Sifat's Kitchen menu"
->
 
+        <p class="hero-copy">
+          A premium food experience from Chef Sifat’s Kitchen —
+          thoughtfully prepared, beautifully served and made for every good mood.
+        </p>
 
-  </div>
 
-  <div class="experience-copy">
+        <div class="hero-actions">
 
+          <a
+            class="btn gold"
+            href="#menu"
+          >
+            Explore Our Menu
+          </a>
 
-<span class="mini">
-  THE EXPERIENCE
-</span>
+        </div>
 
-<h2>
-  Restaurant quality.<br>
-  <em>Right at your door.</em>
-</h2>
 
-<p>
-  We believe great food is about more than taste.
-  It is about ingredients, presentation, consistency and
-  the little details that make every order feel special.
-</p>
+        <div class="trust-row">
 
-<div class="feature-list">
+          <span>✓ Quality Ingredients</span>
+          <span>✓ Hygienic Preparation</span>
+          <span>✓ Chef Crafted</span>
+          <span>✓ Home Delivery</span>
 
-  <div>
-    <b>01</b>
-    <span>
-      <strong>Fresh Ingredients</strong>
-      <small>Selected with quality in mind.</small>
-    </span>
-  </div>
+        </div>
 
-  <div>
-    <b>02</b>
-    <span>
-      <strong>Chef Crafted</strong>
-      <small>Prepared under the direction of MD Sifat Islam.</small>
-    </span>
-  </div>
+      </div>
 
-  <div>
-    <b>03</b>
-    <span>
-      <strong>Fast Home Delivery</strong>
-      <small>Order directly and enjoy at home.</small>
-    </span>
-  </div>
+    </section>
 
-</div>
 
+    <!-- =======================================================
+         SIGNATURE
+    ======================================================= -->
 
-  </div>
+    <section class="signature">
 
-</section>
+      <div class="signature-card">
 
-<section id="about" class="section about">
+        <div>
 
-  <div class="about-photo">
+          <span class="mini">
+            THE CHEF'S SIGNATURE
+          </span>
 
 
-<img
-  src="assets/logo.jpg"
-  alt="MD Sifat Islam — Chef Sifat's Kitchen"
->
+          <h2>
+            Good food deserves a great first impression.
+          </h2>
 
 
-  </div>
+          <p>
+            Discover our signature Pizza, Momo, Continental dishes and
+            Kacchi Biryani — curated for a restaurant-quality experience at home.
+          </p>
 
-  <div class="about-copy">
+        </div>
 
 
-<span class="mini">
-  ABOUT THE BRAND
-</span>
+        <a
+          class="btn gold"
+          href="#menu"
+        >
+          View Menu
+        </a>
 
-<h2>
-  Meet the chef behind <em>the kitchen.</em>
-</h2>
+      </div>
 
-<p>
-  <strong>Chef Sifat’s Kitchen</strong> is a food brand founded,
-  owned and led by <strong>MD Sifat Islam</strong>,
-  Owner & Managing Director and Head Chef of Chef Sifat’s Kitchen.
-</p>
+    </section>
 
-<p>
-  With a strong focus on taste, hygiene, presentation and customer
-  satisfaction, the kitchen is built around a simple promise:
-  <strong>Good Food • Good Mood.</strong>
-</p>
 
-<div class="credential">
+    <!-- =======================================================
+         MENU
+    ======================================================= -->
 
-  <div class="seal">
-    ★
-  </div>
+    <section
+      id="menu"
+      class="section"
+    >
 
-  <div>
+      <div class="section-head">
 
-    <b>
-      BEACON Certified
-    </b>
+        <span class="mini">
+          OUR MENU
+        </span>
 
-    <span>
-      Certified by a Bangladesh Government-approved institution
-    </span>
 
-    <small>
-      Certificate ID:
-      <strong>F&B-78006001</strong>
-    </small>
+        <h2>
+          Choose your <em>favorite.</em>
+        </h2>
 
-  </div>
 
-</div>
+        <p>
+          Freshly prepared dishes, presented with the care of a five-star kitchen.
+        </p>
 
-<a
-  class="facebook"
-  href="https://web.facebook.com/ChefSifatsKitchen"
-  target="_blank"
-  rel="noopener"
->
-  Visit our Facebook Page ↗
-</a>
+      </div>
 
 
-  </div>
+      <!-- CATEGORY TABS -->
 
-</section>
+      <div class="category-tabs">
 
-<section class="info-band">
+        <button
+          type="button"
+          class="tab active"
+          data-category="all"
+        >
+          All
+        </button>
 
-  <div>
-    <span>PAYMENT</span>
-    <b>Cash on Delivery</b>
-    <small>Kahalthuri zone</small>
-  </div>
 
-  <div>
-    <span>OUTSIDE KAHALTHURI</span>
-    <b>bKash / Nagad</b>
-    <small>Personal: 01792494275</small>
-  </div>
+        <button
+          type="button"
+          class="tab"
+          data-category="pizza"
+        >
+          🍕 Pizza
+        </button>
 
-  <div>
-    <span>DELIVERY</span>
-    <b>Location Based</b>
-    <small>Automatically calculated</small>
-  </div>
 
-  <div>
-    <span>ORDER</span>
-    <b>Website Checkout</b>
-    <small>Location-based ordering</small>
-  </div>
+        <button
+          type="button"
+          class="tab"
+          data-category="momo"
+        >
+          🥟 Momo
+        </button>
 
-</section>
 
-<section id="contact" class="section contact">
+        <button
+          type="button"
+          class="tab"
+          data-category="continental"
+        >
+          🍽️ Continental
+        </button>
 
-  <div>
 
+        <button
+          type="button"
+          class="tab"
+          data-category="kacchi"
+        >
+          🍛 Kacchi Biryani
+        </button>
 
-<span class="mini">
-  CONTACT
-</span>
+      </div>
 
-<h2>
-  Let’s make your <em>next meal</em> special.
-</h2>
 
-<p>
-  For orders, reservations, delivery questions or custom requests,
-  contact Chef Sifat’s Kitchen directly.
-</p>
+      <!-- SEARCH -->
 
-<div class="contact-grid">
+      <div class="search">
 
-  <a href="tel:+8801792494275">
-    <small>CALL / WHATSAPP</small>
-    <b>01792494275</b>
-  </a>
+        <span>⌕</span>
 
-  <a href="tel:+8801815905178">
-    <small>SECONDARY CONTACT</small>
-    <b>01815905178</b>
-  </a>
+        <input
+          id="search"
+          type="search"
+          placeholder="Search your favorite dish…"
+          autocomplete="off"
+          oninput="renderMenu()"
+        >
 
-  <a
-    href="https://web.facebook.com/ChefSifatsKitchen"
-    target="_blank"
-    rel="noopener"
-  >
-    <small>FACEBOOK</small>
-    <b>Chef Sifat’s Kitchen ↗</b>
-  </a>
+      </div>
 
-  <div>
-    <small>LOCATION</small>
-    <b>Kahalthuri, Kachua, Chandpur</b>
-  </div>
 
-</div>
+      <!-- MENU GRID -->
 
+      <div
+        id="menuGrid"
+        class="menu-grid"
+      ></div>
 
-  </div>
+    </section>
 
-  <div class="contact-card">
 
+    <!-- =======================================================
+         EXPERIENCE
+    ======================================================= -->
 
-<img
-  src="assets/logo.jpg"
-  alt="Chef Sifat's Kitchen"
->
+    <section class="experience">
 
-<span>
-  GOOD FOOD • GOOD MOOD
-</span>
+      <div class="experience-image">
 
-<a class="btn gold" href="#menu">
-  Start an Order
-</a>
+        <img
+          src="assets/menu-board.png"
+          alt="Chef Sifat's Kitchen menu"
+        >
 
+      </div>
 
-  </div>
 
-</section>
+      <div class="experience-copy">
 
-</main>
+        <span class="mini">
+          THE EXPERIENCE
+        </span>
 
-<footer>
 
-  <div class="footer-brand">
+        <h2>
+          Restaurant quality.<br>
+          <em>Right at your door.</em>
+        </h2>
 
 
-<img
-  src="assets/logo.jpg"
-  alt=""
->
+        <p>
+          We believe great food is about more than taste.
+          It is about ingredients, presentation, consistency and
+          the little details that make every order feel special.
+        </p>
 
-<b>
-  Chef Sifat's Kitchen
-</b>
 
+        <div class="feature-list">
 
-  </div>
+          <div>
 
-  <p>
-    © <span id="year"></span>
-    Chef Sifat's Kitchen. All rights reserved.
-  </p>
+            <b>01</b>
 
-<a
-href="https://web.facebook.com/ChefSifatsKitchen"
-target="_blank"
-rel="noopener"
+            <span>
 
->
+              <strong>Fresh Ingredients</strong>
 
+              <small>
+                Selected with quality in mind.
+              </small>
 
-Facebook ↗
+            </span>
 
+          </div>
 
-  </a>
 
-</footer>
+          <div>
 
-<!-- =========================================================
-     CART
-========================================================= -->
+            <b>02</b>
 
-<div
-  id="cart"
-  class="drawer-backdrop hidden"
-  onclick="if(event.target===this)closeCart()"
->
+            <span>
 
-  <aside class="cart-drawer">
+              <strong>Chef Crafted</strong>
 
+              <small>
+                Prepared under the direction of MD Sifat Islam.
+              </small>
 
-<div class="drawer-head">
+            </span>
 
-  <div>
-    <span class="mini">
-      YOUR ORDER
-    </span>
+          </div>
 
-    <h3>
-      Shopping Cart
-    </h3>
-  </div>
 
-  <button onclick="closeCart()">
-    ×
-  </button>
+          <div>
 
-</div>
+            <b>03</b>
 
-<div id="cartItems"></div>
+            <span>
 
-<div class="cart-bottom">
+              <strong>Fast Home Delivery</strong>
 
-  <div class="total">
+              <small>
+                Order directly and enjoy at home.
+              </small>
 
-    <span>
-      Subtotal
-    </span>
+            </span>
 
-    <b id="subtotal">
-      ৳0
-    </b>
+          </div>
 
-  </div>
+        </div>
 
-  <p class="cart-note">
-    Delivery charge is confirmed based on your location.
-  </p>
+      </div>
 
-  <button
-    class="btn gold full"
-    onclick="checkout()"
-  >
-    Continue to Checkout
-  </button>
+    </section>
 
-</div>
 
+    <!-- =======================================================
+         ABOUT
+    ======================================================= -->
 
-  </aside>
+    <section
+      id="about"
+      class="section about"
+    >
 
-</div>
+      <div class="about-photo">
 
-<!-- =========================================================
-     CHECKOUT
-========================================================= -->
+        <img
+          src="assets/logo.jpg"
+          alt="MD Sifat Islam — Chef Sifat's Kitchen"
+        >
 
-<div id="checkout" class="modal hidden">
+      </div>
 
-  <div class="modal-card">
 
+      <div class="about-copy">
 
-<button
-  class="modal-close"
-  onclick="closeCheckout()"
->
-  ×
-</button>
+        <span class="mini">
+          ABOUT THE BRAND
+        </span>
 
-<span class="mini">
-  CHECKOUT
-</span>
 
-<h2>
-  Complete your order
-</h2>
+        <h2>
+          Meet the chef behind <em>the kitchen.</em>
+        </h2>
 
-<div
-  id="checkoutSummary"
-  class="checkout-summary"
-></div>
 
-<form onsubmit="placeOrder(event)">
+        <p>
+          <strong>Chef Sifat’s Kitchen</strong> is a food brand founded,
+          owned and led by <strong>MD Sifat Islam</strong>,
+          Owner & Managing Director and Head Chef of Chef Sifat’s Kitchen.
+        </p>
 
-  <!-- DELIVERY LOCATION -->
 
-  <div class="location-box">
+        <p>
+          With a strong focus on taste, hygiene, presentation and customer
+          satisfaction, the kitchen is built around a simple promise:
+          <strong>Good Food • Good Mood.</strong>
+        </p>
 
-    <div class="location-title">
 
-      <strong>
-        📍 Delivery Location
-      </strong>
+        <div class="credential">
 
-      <span id="locationDistance"></span>
+          <div class="seal">
+            ★
+          </div>
+
+
+          <div>
+
+            <b>
+              BEACON Certified
+            </b>
+
+
+            <span>
+              Certified by a Bangladesh Government-approved institution
+            </span>
+
+
+            <small>
+              Certificate ID:
+              <strong>F&B-78006001</strong>
+            </small>
+
+          </div>
+
+        </div>
+
+
+        <a
+          class="facebook"
+          href="https://web.facebook.com/ChefSifatsKitchen"
+          target="_blank"
+          rel="noopener"
+        >
+          Visit our Facebook Page ↗
+        </a>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         INFO BAND
+    ======================================================= -->
+
+    <section class="info-band">
+
+      <div>
+
+        <span>PAYMENT</span>
+
+        <b>
+          Cash on Delivery
+        </b>
+
+        <small>
+          Kahalthuri zone
+        </small>
+
+      </div>
+
+
+      <div>
+
+        <span>OUTSIDE KAHALTHURI</span>
+
+        <b>
+          bKash / Nagad
+        </b>
+
+        <small>
+          Personal: 01792494275
+        </small>
+
+      </div>
+
+
+      <div>
+
+        <span>DELIVERY</span>
+
+        <b>
+          Location Based
+        </b>
+
+        <small>
+          Automatically calculated
+        </small>
+
+      </div>
+
+
+      <div>
+
+        <span>ORDER</span>
+
+        <b>
+          Website Checkout
+        </b>
+
+        <small>
+          Location-based ordering
+        </small>
+
+      </div>
+
+    </section>
+
+
+    <!-- =======================================================
+         CONTACT
+    ======================================================= -->
+
+    <section
+      id="contact"
+      class="section contact"
+    >
+
+      <div>
+
+        <span class="mini">
+          CONTACT
+        </span>
+
+
+        <h2>
+          Let’s make your <em>next meal</em> special.
+        </h2>
+
+
+        <p>
+          For orders, reservations, delivery questions or custom requests,
+          contact Chef Sifat’s Kitchen directly.
+        </p>
+
+
+        <div class="contact-grid">
+
+          <a href="tel:+8801792494275">
+
+            <small>
+              CALL / WHATSAPP
+            </small>
+
+            <b>
+              01792494275
+            </b>
+
+          </a>
+
+
+          <a href="tel:+8801815905178">
+
+            <small>
+              SECONDARY CONTACT
+            </small>
+
+            <b>
+              01815905178
+            </b>
+
+          </a>
+
+
+          <a
+            href="https://web.facebook.com/ChefSifatsKitchen"
+            target="_blank"
+            rel="noopener"
+          >
+
+            <small>
+              FACEBOOK
+            </small>
+
+            <b>
+              Chef Sifat’s Kitchen ↗
+            </b>
+
+          </a>
+
+
+          <div>
+
+            <small>
+              LOCATION
+            </small>
+
+            <b>
+              Kahalthuri, Kachua, Chandpur
+            </b>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="contact-card">
+
+        <img
+          src="assets/logo.jpg"
+          alt="Chef Sifat's Kitchen"
+        >
+
+
+        <span>
+          GOOD FOOD • GOOD MOOD
+        </span>
+
+
+        <a
+          class="btn gold"
+          href="#menu"
+        >
+          Start an Order
+        </a>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- =========================================================
+       FOOTER
+  ========================================================= -->
+
+  <footer>
+
+    <div class="footer-brand">
+
+      <img
+        src="assets/logo.jpg"
+        alt=""
+      >
+
+      <b>
+        Chef Sifat's Kitchen
+      </b>
 
     </div>
 
-    <div class="location-buttons">
+
+    <p>
+      © <span id="year"></span>
+      Chef Sifat's Kitchen. All rights reserved.
+    </p>
+
+
+    <a
+      href="https://web.facebook.com/ChefSifatsKitchen"
+      target="_blank"
+      rel="noopener"
+    >
+      Facebook ↗
+    </a>
+
+  </footer>
+
+
+  <!-- =========================================================
+       CART
+  ========================================================= -->
+
+  <div
+    id="cart"
+    class="drawer-backdrop hidden"
+    onclick="if(event.target===this)closeCart()"
+  >
+
+    <aside class="cart-drawer">
+
+      <div class="drawer-head">
+
+        <div>
+
+          <span class="mini">
+            YOUR ORDER
+          </span>
+
+          <h3>
+            Shopping Cart
+          </h3>
+
+        </div>
+
+
+        <button
+          type="button"
+          onclick="closeCart()"
+          aria-label="Close cart"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <div id="cartItems"></div>
+
+
+      <div class="cart-bottom">
+
+        <div class="total">
+
+          <span>
+            Subtotal
+          </span>
+
+          <b id="subtotal">
+            ৳0
+          </b>
+
+        </div>
+
+
+        <p class="cart-note">
+          Delivery charge is confirmed based on your location.
+        </p>
+
+
+        <button
+          type="button"
+          class="btn gold full"
+          onclick="checkout()"
+        >
+          Continue to Checkout
+        </button>
+
+      </div>
+
+    </aside>
+
+  </div>
+
+
+  <!-- =========================================================
+       CHECKOUT
+  ========================================================= -->
+
+  <div
+    id="checkout"
+    class="modal hidden"
+  >
+
+    <div class="modal-card">
 
       <button
         type="button"
-        class="location-btn"
-        onclick="useCurrentLocation()"
+        class="modal-close"
+        onclick="closeCheckout()"
+        aria-label="Close checkout"
       >
-        📍 Use My Current Location
+        ×
       </button>
 
-      <button
-        type="button"
-        class="location-btn"
-        onclick="openLocationMap()"
-      >
-        🗺️ Select on Map
-      </button>
+
+      <span class="mini">
+        CHECKOUT
+      </span>
+
+
+      <h2>
+        Complete your order
+      </h2>
+
+
+      <div
+        id="checkoutSummary"
+        class="checkout-summary"
+      ></div>
+
+
+      <form onsubmit="placeOrder(event)">
+
+
+        <!-- ===================================================
+             DELIVERY LOCATION
+        =================================================== -->
+
+        <div class="location-box">
+
+          <div class="location-title">
+
+            <strong>
+              📍 Delivery Location
+            </strong>
+
+            <span id="locationDistance"></span>
+
+          </div>
+
+
+          <div class="location-buttons">
+
+            <button
+              type="button"
+              class="location-btn"
+              onclick="useCurrentLocation()"
+            >
+              📍 Use My Current Location
+            </button>
+
+
+            <button
+              type="button"
+              class="location-btn"
+              onclick="openLocationMap()"
+            >
+              🗺️ Select on Map
+            </button>
+
+          </div>
+
+
+          <div
+            id="locationStatus"
+            class="location-status"
+          >
+            Please select your delivery location.
+          </div>
+
+
+          <p class="checkout-location-help">
+            Select your exact delivery point on the map.
+            You can drag the pin to your gate/house.
+          </p>
+
+
+          <p class="location-pin-note">
+            💡 Tip: GPS may not be exact. Move the pin to your actual delivery point.
+          </p>
+
+
+          <!-- MAP -->
+
+          <div id="deliveryMap"></div>
+
+
+          <!-- SELECTED ADDRESS -->
+
+          <div
+            id="selectedAddress"
+            class="selected-address-box"
+          >
+
+            <strong>
+              📌 Selected location
+            </strong>
+
+            <span id="selectedAddressText">
+              Location not selected yet.
+            </span>
+
+          </div>
+
+
+          <!-- DELIVERY RESULT -->
+
+          <div
+            id="deliveryResult"
+            class="delivery-result"
+          ></div>
+
+
+          <!-- HIDDEN LOCATION DATA -->
+
+          <input
+            type="hidden"
+            id="cLat"
+          >
+
+          <input
+            type="hidden"
+            id="cLng"
+          >
+
+          <input
+            type="hidden"
+            id="cMapAddress"
+          >
+
+        </div>
+
+
+        <!-- ===================================================
+             ADDRESS
+        =================================================== -->
+
+        <label>
+
+          House / Building
+
+          <input
+            id="cHouse"
+            required
+            autocomplete="address-line1"
+            placeholder="House / Building name or number"
+          >
+
+        </label>
+
+
+        <label>
+
+          Road / Area
+
+          <input
+            id="cRoad"
+            required
+            autocomplete="address-line2"
+            placeholder="Road / Area / Village"
+          >
+
+        </label>
+
+
+        <div class="two">
+
+          <label>
+
+            Customer Name
+
+            <input
+              id="cName"
+              required
+              autocomplete="name"
+              placeholder="Your full name"
+            >
+
+          </label>
+
+
+          <label>
+
+            Phone
+
+            <input
+              id="cPhone"
+              required
+              type="tel"
+              inputmode="numeric"
+              maxlength="11"
+              autocomplete="tel"
+              placeholder="01XXXXXXXXX"
+            >
+
+          </label>
+
+        </div>
+
+
+        <!-- ===================================================
+             PAYMENT
+             
+             IMPORTANT:
+             app.js dynamically creates the payment section
+             and transaction field.
+        =================================================== -->
+
+        <div id="paymentBlock"></div>
+
+
+        <!-- ===================================================
+             PREBOOK SLOT
+        =================================================== -->
+
+        <div id="slotBlock"></div>
+
+
+        <!-- ===================================================
+             ORDER NOTE
+        =================================================== -->
+
+        <label>
+
+          Order note
+
+          <textarea
+            id="cNote"
+            placeholder="Less spicy, extra sauce, etc."
+          ></textarea>
+
+        </label>
+
+
+        <!-- ===================================================
+             PAYMENT NOTE
+        =================================================== -->
+
+        <div class="payment-note">
+
+          bKash Personal:
+          <b>01792494275</b>
+
+          <br>
+
+          Nagad Personal:
+          <b>01792494275</b>
+
+          <br>
+
+          For online payment, enter the Transaction ID / last 5 digits.
+
+        </div>
+
+
+        <!-- ===================================================
+             PLACE ORDER
+        =================================================== -->
+
+        <button
+          id="placeOrderBtn"
+          class="btn gold full"
+          type="submit"
+        >
+          Place Order via WhatsApp
+        </button>
+
+      </form>
 
     </div>
 
-    <div
-      id="locationStatus"
-      class="location-status"
-    >
-      Please select your delivery location.
-    </div>
-
-    <p class="checkout-location-help">
-      Select your exact delivery point on the map.
-      You can drag the pin to your gate/house.
-    </p>
-
-    <p class="location-pin-note">
-      💡 Tip: GPS may not be exact. Move the pin to your actual delivery point.
-    </p>
-
-    <div id="deliveryMap"></div>
-
-    <div
-      id="deliveryResult"
-      class="delivery-result"
-    ></div>
-
-    <input
-      type="hidden"
-      id="cLat"
-    >
-
-    <input
-      type="hidden"
-      id="cLng"
-    >
-
-    <input
-      type="hidden"
-      id="cMapAddress"
-    >
-
   </div>
 
 
-  <!-- ADDRESS -->
+  <!-- =========================================================
+       LEAFLET JAVASCRIPT
+  ========================================================= -->
 
-  <label>
-    House / Building
-
-    <input
-      id="cHouse"
-      required
-      placeholder="House / Building name or number"
-    >
-
-  </label>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
 
 
-  <label>
-    Road / Area
+  <!-- =========================================================
+       APPLICATION JAVASCRIPT
+  ========================================================= -->
 
-    <input
-      id="cRoad"
-      required
-      placeholder="Road / Area / Village"
-    >
-
-  </label>
-
-
-  <div class="two">
-
-    <label>
-      Customer Name
-
-      <input
-        id="cName"
-        required
-        placeholder="Your full name"
-      >
-
-    </label>
-
-    <label>
-      Phone
-
-      <input
-        id="cPhone"
-        required
-        inputmode="numeric"
-        maxlength="11"
-        placeholder="01XXXXXXXXX"
-      >
-
-    </label>
-
-  </div>
-
-
-  <!-- PAYMENT -->
-
-  <div id="paymentBlock"></div>
-
-
-  <!-- PREBOOK SLOT -->
-
-  <div id="slotBlock"></div>
-
-
-  <!-- TRANSACTION -->
-
-  <div id="cTxWrap">
-
-    <label>
-
-      Transaction ID
-
-      <small>
-        (for online/full payment, enter the last 5 digits)
-      </small>
-
-      <input
-        id="cTx"
-        inputmode="numeric"
-        maxlength="30"
-        placeholder="Enter transaction ID / last 5 digits"
-      >
-
-    </label>
-
-  </div>
-
-
-  <!-- NOTE -->
-
-  <label>
-
-    Order note
-
-    <textarea
-      id="cNote"
-      placeholder="Less spicy, extra sauce, etc."
-    ></textarea>
-
-  </label>
-
-
-  <div class="payment-note">
-
-    bKash Personal:
-    <b>01792494275</b>
-    <br>
-
-    Nagad Personal:
-    <b>01792494275</b>
-    <br>
-
-    For online payment, enter the Transaction ID / last 5 digits.
-
-  </div>
-
-
-  <button
-    id="placeOrderBtn"
-    class="btn gold full"
-    type="submit"
-  >
-    Place Order via WhatsApp
-  </button>
-
-</form>
-
-
-  </div>
-
-</div>
-
-<!-- Leaflet JavaScript -->
-
-<script
-  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
-</script>
-
-<!-- Your application JavaScript -->
-
-<script src="app.js"></script>
+  <script src="app.js"></script>
 
 </body>
 </html>
+
