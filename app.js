@@ -1,7 +1,12 @@
 /* =========================================================
    CHEF SIFAT'S KITCHEN
-   MAIN APP.JS
-   ========================================================= */
+   COMPLETE APP.JS
+========================================================= */
+
+
+/* =========================================================
+   SETTINGS
+========================================================= */
 
 const SETTINGS = {
   whatsapp: '8801792494275',
@@ -11,30 +16,14 @@ const SETTINGS = {
 
 
 /* =========================================================
-   DELIVERY LOCATION SETTINGS
-   ========================================================= */
+   DELIVERY SETTINGS
+========================================================= */
 
 const BASE_LOCATION = {
+  name: 'Kahalthuri Hamidia High School',
   lat: 23.3022494,
-  lng: 90.9187528,
-  name: 'Kahalthuri Hamidia High School'
+  lng: 90.9187528
 };
-
-/*
-  DELIVERY RULE
-
-  0–1 km:
-  COD Available
-  Delivery Charge = ৳0
-
-  Above 1 km and up to 4 km:
-  COD Not Available
-  Online payment required
-  Delivery Charge = ৳10 per started km
-
-  Above 4 km:
-  Order unavailable
-*/
 
 const COD_RADIUS_KM = 1.0;
 const MAX_DELIVERY_RADIUS_KM = 4.0;
@@ -43,7 +32,7 @@ const DELIVERY_RATE_PER_KM = 10;
 
 /* =========================================================
    SHOP HOURS
-   ========================================================= */
+========================================================= */
 
 const SHOP_HOURS = {
   normal: {
@@ -60,529 +49,1128 @@ const SHOP_HOURS = {
 
 /* =========================================================
    DEFAULT MENU
-   ========================================================= */
+========================================================= */
 
 const DEFAULT_MENU = [
 
-  /* ================= PIZZA ================= */
+  /* =========================
+     PIZZA
+  ========================= */
 
   {
     name: 'BBQ Chicken Pizza',
     cat: 'pizza',
     image: 'assets/bbq-chicken-pizza.jpg',
-    prices: {
-      '6″': 300,
-      '8″': 380,
-      '10″': 480,
-      '12″': 580
-    }
+    choices: [
+      { label: '6"', price: 300 },
+      { label: '8"', price: 380 },
+      { label: '10"', price: 480 },
+      { label: '12"', price: 580 }
+    ]
   },
 
   {
     name: 'Meat Pizza',
     cat: 'pizza',
     image: 'assets/meat-pizza.jpg',
-    prices: {
-      '6″': 350,
-      '8″': 450,
-      '10″': 550,
-      '12″': 650
-    }
+    choices: [
+      { label: '6"', price: 350 },
+      { label: '8"', price: 450 },
+      { label: '10"', price: 550 },
+      { label: '12"', price: 650 }
+    ]
   },
 
   {
     name: 'Flaming Chicken Pizza',
     cat: 'pizza',
     image: 'assets/flaming-chicken-pizza.jpg',
-    prices: {
-      '6″': 300,
-      '8″': 350,
-      '10″': 450,
-      '12″': 550
-    }
+    choices: [
+      { label: '6"', price: 300 },
+      { label: '8"', price: 350 },
+      { label: '10"', price: 450 },
+      { label: '12"', price: 550 }
+    ]
   },
 
   {
     name: '6 Season Pizza',
     cat: 'pizza',
     image: 'assets/6-season-pizza.jpg',
-    prices: {
-      '6″': 350,
-      '8″': 420,
-      '10″': 500,
-      '12″': 600
-    }
+    choices: [
+      { label: '6"', price: 350 },
+      { label: '8"', price: 420 },
+      { label: '10"', price: 500 },
+      { label: '12"', price: 600 }
+    ]
   },
 
   {
     name: 'Margherita Pizza',
     cat: 'pizza',
     image: 'assets/margherita-pizza.jpg',
-    prices: {
-      '6″': 280,
-      '8″': 350,
-      '10″': 420,
-      '12″': 500
-    }
+    choices: [
+      { label: '6"', price: 280 },
+      { label: '8"', price: 350 },
+      { label: '10"', price: 420 },
+      { label: '12"', price: 500 }
+    ]
   },
 
   {
     name: 'Neapolitan BBQ Chicken Pizza',
     cat: 'pizza',
     image: 'assets/neapolitan-bbq-chicken-pizza.jpg',
-    prices: {
-      '8″': 450,
-      '10″': 600,
-      '12″': 750
-    }
+    choices: [
+      { label: '8"', price: 450 },
+      { label: '10"', price: 600 },
+      { label: '12"', price: 750 }
+    ]
   },
 
   {
     name: 'Neapolitan Meat Pizza',
     cat: 'pizza',
     image: 'assets/neapolitan-meat-pizza.jpg',
-    prices: {
-      '8″': 500,
-      '10″': 650,
-      '12″': 800
-    }
+    choices: [
+      { label: '8"', price: 500 },
+      { label: '10"', price: 650 },
+      { label: '12"', price: 800 }
+    ]
   },
 
   {
     name: 'Neapolitan Margherita Pizza',
     cat: 'pizza',
     image: 'assets/neapolitan-margherita-pizza.jpg',
-    prices: {
-      '6″': 350,
-      '8″': 450,
-      '10″': 550,
-      '12″': 650
-    }
+    choices: [
+      { label: '6"', price: 350 },
+      { label: '8"', price: 450 },
+      { label: '10"', price: 550 },
+      { label: '12"', price: 650 }
+    ]
   },
 
   {
     name: 'Emergency BBQ Chicken Pizza',
     cat: 'pizza',
     image: 'assets/emergency-bbq-chicken-pizza.jpg',
-    prices: {
-      '8″': 400,
-      '10″': 550,
-      '12″': 700
-    }
+    choices: [
+      { label: '8"', price: 400 },
+      { label: '10"', price: 550 },
+      { label: '12"', price: 700 }
+    ]
   },
 
   {
     name: 'Emergency Meat Pizza',
     cat: 'pizza',
     image: 'assets/emergency-meat-pizza.jpg',
-    prices: {
-      '8″': 450,
-      '10″': 600,
-      '12″': 750
-    }
+    choices: [
+      { label: '8"', price: 450 },
+      { label: '10"', price: 600 },
+      { label: '12"', price: 750 }
+    ]
   },
 
   {
     name: 'Emergency Margherita Pizza',
     cat: 'pizza',
     image: 'assets/emergency-margherita-pizza.jpg',
-    prices: {
-      '6″': 300,
-      '8″': 400,
-      '10″': 500,
-      '12″': 600
-    }
+    choices: [
+      { label: '6"', price: 300 },
+      { label: '8"', price: 400 },
+      { label: '10"', price: 500 },
+      { label: '12"', price: 600 }
+    ]
   },
 
 
-  /* ================= MOMO ================= */
+  /* =========================
+     MOMO
+  ========================= */
 
   {
     name: 'Chicken Momo',
     cat: 'momo',
     image: 'assets/chicken-momo.jpg',
-    prices: {
-      '6 pcs': 120,
-      '10 pcs': 200
-    }
+    choices: [
+      { label: '6 pcs', price: 120 },
+      { label: '10 pcs', price: 200 }
+    ]
   },
 
   {
     name: 'Vegetable Momo',
     cat: 'momo',
     image: 'assets/vegetable-momo.jpg',
-    prices: {
-      '6 pcs': 100,
-      '10 pcs': 160
-    }
+    choices: [
+      { label: '6 pcs', price: 100 },
+      { label: '10 pcs', price: 160 }
+    ]
   },
 
   {
     name: 'BBQ Chicken Momo',
     cat: 'momo',
     image: 'assets/bbq-chicken-momo.jpg',
-    prices: {
-      '6 pcs': 160,
-      '10 pcs': 250
-    }
+    choices: [
+      { label: '6 pcs', price: 160 },
+      { label: '10 pcs', price: 250 }
+    ]
   },
 
   {
     name: 'Cheese Chicken Momo',
     cat: 'momo',
     image: 'assets/cheese-chicken-momo.jpg',
-    prices: {
-      '6 pcs': 180,
-      '10 pcs': 300
-    }
+    choices: [
+      { label: '6 pcs', price: 180 },
+      { label: '10 pcs', price: 300 }
+    ]
   },
 
 
-  /* ================= CONTINENTAL ================= */
+  /* =========================
+     CONTINENTAL
+  ========================= */
 
   {
     name: 'Prawns Cocktail',
     cat: 'continental',
     image: 'assets/prawns-cocktail.png',
-    prices: {
-      '5–6 pcs / 1 person': 350,
-      '10–12 pcs / 2 persons': 700
-    }
+    prebook: true,
+    note: 'Pre-booking required • 5–12 hours ahead • Full payment required',
+    choices: [
+      {
+        label: '5–6 pcs / 1 person',
+        price: 350
+      },
+      {
+        label: '10–12 pcs / 2 persons',
+        price: 700
+      }
+    ]
   },
 
   {
     name: 'Grilled Fish with Special Fried Potato',
     cat: 'continental',
     image: 'assets/grilled-fish.png',
-    prices: {
-      '1 person': 380,
-      '2 persons': 700
-    }
+    prebook: true,
+    note: 'Pre-booking required • 5–12 hours ahead • Full payment required',
+    choices: [
+      {
+        label: '1 person',
+        price: 380
+      },
+      {
+        label: '2 persons',
+        price: 700
+      }
+    ]
   },
 
   {
     name: 'Coleslaw Salad',
     cat: 'continental',
     image: 'assets/coleslaw.png',
-    prices: {
-      '1 serving': 80
-    }
+    prebook: true,
+    note: 'Pre-booking required • 5–12 hours ahead • Full payment required',
+    choices: [
+      {
+        label: '1 serving',
+        price: 80
+      }
+    ]
   },
 
 
-  /* ================= KACCHI ================= */
+  /* =========================
+     KACCHI
+  ========================= */
 
   {
     name: 'Authentic Kacchi Biryani (Full)',
     cat: 'kacchi',
     image: 'assets/authentic-kacchi.jpg',
-    prices: {
-      '1 person': 399
-    },
+    prebook: true,
     minQty: 2,
     maxQty: 20,
-    note: 'Minimum order: 2 persons • Pre-booking required'
+    note: 'Minimum order: 2 persons • Pre-booking required',
+    choices: [
+      {
+        label: 'Per person',
+        price: 399
+      }
+    ]
   },
 
   {
     name: 'Beef Kacchi Biryani',
     cat: 'kacchi',
     image: 'assets/beef-kacchi.jpg',
-    prices: {
-      '1 person': 349
-    },
+    prebook: true,
     minQty: 2,
     maxQty: 20,
-    note: 'Minimum order: 2 persons • Pre-booking required'
+    note: 'Minimum order: 2 persons • Pre-booking required',
+    choices: [
+      {
+        label: 'Per person',
+        price: 349
+      }
+    ]
   }
 
 ];
 
 
 /* =========================================================
-   STORAGE
-   ========================================================= */
+   MENU STORAGE
+========================================================= */
 
-let MENU =
-  JSON.parse(
-    localStorage.getItem('chefSifatMenu') || 'null'
-  ) || DEFAULT_MENU;
+let savedMenu = [];
 
-let activeFilter = 'all';
+try {
 
-let cart =
-  JSON.parse(
-    localStorage.getItem('chefSifatCart5') || '[]'
+  savedMenu =
+    JSON.parse(
+      localStorage.getItem('chefSifatMenu') || 'null'
+    );
+
+} catch (error) {
+
+  savedMenu = [];
+
+}
+
+const savedMenuList =
+  Array.isArray(savedMenu)
+    ? savedMenu
+    : [];
+
+
+const savedByName =
+  new Map(
+    savedMenuList
+      .filter(
+        item =>
+          item &&
+          item.name
+      )
+      .map(
+        item =>
+          [
+            item.name,
+            item
+          ]
+      )
   );
 
 
+const defaultNames =
+  new Set(
+    DEFAULT_MENU.map(
+      item =>
+        item.name
+    )
+  );
+
+
+/*
+ * Merge saved admin settings with
+ * the current default menu.
+ *
+ * This prevents old localStorage
+ * data from deleting choices/prices.
+ */
+
+let MENU =
+  DEFAULT_MENU.map(
+    item => {
+
+      const saved =
+        savedByName.get(
+          item.name
+        );
+
+      if (!saved) {
+        return {
+          ...item
+        };
+      }
+
+      return {
+        ...item,
+        ...saved,
+
+        choices:
+          Array.isArray(saved.choices)
+            ? saved.choices
+            : item.choices,
+
+        minQty:
+          saved.minQty ??
+          item.minQty,
+
+        maxQty:
+          saved.maxQty ??
+          item.maxQty,
+
+        prebook:
+          saved.prebook ??
+          item.prebook,
+
+        note:
+          saved.note ??
+          item.note,
+
+        image:
+          saved.image ||
+          item.image
+      };
+
+    }
+  );
+
+
+/*
+ * Keep additional custom admin items.
+ */
+
+MENU = [
+  ...MENU,
+
+  ...savedMenuList.filter(
+    item =>
+      item &&
+      item.name &&
+      !defaultNames.has(
+        item.name
+      )
+  )
+];
+
+
+function saveMenu() {
+
+  try {
+
+    localStorage.setItem(
+      'chefSifatMenu',
+      JSON.stringify(MENU)
+    );
+
+  } catch (error) {
+
+    console.warn(
+      'Could not save menu:',
+      error
+    );
+
+  }
+
+}
+
+saveMenu();
+
+
 /* =========================================================
-   MAP VARIABLES
-   ========================================================= */
+   GLOBAL STATE
+========================================================= */
+
+let cart = [];
+
+try {
+
+  const savedCart =
+    JSON.parse(
+      localStorage.getItem(
+        'chefSifatCart'
+      ) || '[]'
+    );
+
+  if (
+    Array.isArray(savedCart)
+  ) {
+
+    cart =
+      savedCart;
+
+  }
+
+} catch (error) {
+
+  cart = [];
+
+}
+
+
+let currentCategory = 'all';
 
 let deliveryMap = null;
+
 let deliveryMarker = null;
+
 let selectedLocation = null;
+
 let reverseGeocodeTimer = null;
 
 
 /* =========================================================
    HELPERS
-   ========================================================= */
+========================================================= */
 
-function money(n) {
-  return '৳' + Number(n || 0).toLocaleString('en-BD');
-}
+function money(value) {
 
+  return `৳${Number(
+    value || 0
+  ).toLocaleString(
+    'en-BD'
+  )}`;
 
-function isPrebook(cat) {
-  return ['continental', 'kacchi'].includes(cat);
-}
-
-
-function saveMenu() {
-  localStorage.setItem(
-    'chefSifatMenu',
-    JSON.stringify(MENU)
-  );
-}
-
-
-function saveCart() {
-  localStorage.setItem(
-    'chefSifatCart5',
-    JSON.stringify(cart)
-  );
-
-  updateCount();
-  renderCart();
 }
 
 
 function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+
+  return String(
+    value ?? ''
+  )
+    .replace(
+      /&/g,
+      '&amp;'
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    )
+    .replace(
+      /"/g,
+      '&quot;'
+    )
+    .replace(
+      /'/g,
+      '&#039;'
+    );
+
 }
 
 
-function setLocationStatus(message, type = '') {
+function normalizeCategory(cat) {
 
-  const status =
-    document.getElementById('locationStatus');
+  return String(
+    cat || ''
+  )
+    .toLowerCase()
+    .trim();
 
-  if (!status) return;
+}
 
-  status.className =
-    'location-status' +
-    (type ? ' ' + type : '');
 
-  status.innerHTML = message;
+function isPrebook(
+  itemOrCategory
+) {
+
+  if (
+    typeof itemOrCategory ===
+    'object'
+  ) {
+
+    return !!itemOrCategory.prebook;
+
+  }
+
+  return [
+    'kacchi',
+    'continental'
+  ].includes(
+    normalizeCategory(
+      itemOrCategory
+    )
+  );
+
+}
+
+
+function saveCart() {
+
+  try {
+
+    localStorage.setItem(
+      'chefSifatCart',
+      JSON.stringify(cart)
+    );
+
+  } catch (error) {
+
+    console.warn(
+      'Could not save cart:',
+      error
+    );
+
+  }
+
+}
+
+
+function getEl(id) {
+
+  return document.getElementById(
+    id
+  );
+
 }
 
 
 /* =========================================================
-   MENU
-   ========================================================= */
+   MENU RENDER
+========================================================= */
 
 function renderMenu() {
 
-  const searchInput =
-    document.getElementById('search');
-
   const grid =
-    document.getElementById('menuGrid');
+    getEl(
+      'menuGrid'
+    );
 
   if (!grid) return;
 
-  const q =
-    (searchInput?.value || '')
-      .toLowerCase()
-      .trim();
 
-  const list =
-    MENU.filter(item => {
+  const searchEl =
+    getEl(
+      'search'
+    );
 
-      const categoryOK =
-        activeFilter === 'all' ||
-        item.cat === activeFilter;
 
-      const searchOK =
-        !q ||
-        item.name
+  const searchTerm =
+    searchEl
+      ? searchEl.value
+          .trim()
           .toLowerCase()
-          .includes(q);
-
-      return categoryOK && searchOK;
-    });
+      : '';
 
 
-  if (!list.length) {
+  const filtered =
+    MENU.filter(
+      item => {
 
-    grid.innerHTML =
-      '<div class="empty">No dishes found. Try another search.</div>';
+        const matchesCategory =
+          currentCategory === 'all' ||
+          normalizeCategory(
+            item.cat
+          ) ===
+          normalizeCategory(
+            currentCategory
+          );
+
+
+        const matchesSearch =
+          !searchTerm ||
+          String(
+            item.name || ''
+          )
+            .toLowerCase()
+            .includes(
+              searchTerm
+            );
+
+
+        return (
+          matchesCategory &&
+          matchesSearch
+        );
+
+      }
+    );
+
+
+  if (!filtered.length) {
+
+    grid.innerHTML = `
+      <div class="empty-menu">
+        <h3>No items found</h3>
+        <p>Try another search or category.</p>
+      </div>
+    `;
 
     return;
   }
 
 
   grid.innerHTML =
-    list.map((p, i) => {
+    filtered.map(
+      (item, index) => {
 
-      const choices =
-        Object.entries(p.prices);
-
-      const menuIndex =
-        MENU.indexOf(p);
-
-      return `
-
-        <article class="food-card">
-
-          <div class="food-photo">
-
-            <img
-              src="${escapeHtml(p.image)}"
-              alt="${escapeHtml(p.name)}"
-              loading="lazy"
-            >
-
-            <span class="tag">
-              ${escapeHtml(p.cat.toUpperCase())}
-            </span>
-
-          </div>
+        const choices =
+          Array.isArray(
+            item.choices
+          )
+            ? item.choices
+            : [];
 
 
-          <div class="food-body">
-
-            <h3>
-              ${escapeHtml(p.name)}
-            </h3>
-
-            <p>
-              ${escapeHtml(
-                p.note ||
-                'Chef-crafted with quality ingredients and prepared fresh to order.'
-              )}
-            </p>
+        const minQty =
+          Number(
+            item.minQty || 1
+          );
 
 
-            <div class="price-list">
+        const maxQty =
+          Number(
+            item.maxQty || 99
+          );
 
-              ${choices.map(([key, value]) => `
 
-                <span class="price-pill">
+        const choicesHtml =
+          choices.length
+            ? `
+              <div class="food-options">
 
-                  ${escapeHtml(key)}
+                ${choices.map(
+                  (
+                    choice,
+                    choiceIndex
+                  ) => `
 
-                  <b>
-                    ${money(value)}
-                  </b>
+                    <label class="food-option">
 
-                </span>
+                      <input
+                        type="radio"
+                        name="choice-${index}"
+                        value="${choiceIndex}"
+                        ${
+                          choiceIndex === 0
+                            ? 'checked'
+                            : ''
+                        }
+                      >
 
-              `).join('')}
+                      <span>
+                        ${escapeHtml(
+                          choice.label
+                        )}
+                        —
+                        ${money(
+                          choice.price
+                        )}
+                      </span>
+
+                    </label>
+
+                  `
+                ).join('')}
+
+              </div>
+            `
+            : `
+              <div class="food-price">
+                ${money(
+                  item.price
+                )}
+              </div>
+            `;
+
+
+        const prebookHtml =
+          isPrebook(item)
+            ? `
+              <div class="prebook-note">
+
+                ${escapeHtml(
+                  item.note ||
+                  'Pre-booking required • 5–12 hours ahead • Full payment required'
+                )}
+
+              </div>
+            `
+            : '';
+
+
+        return `
+
+          <article class="food-card">
+
+            <div class="food-image-wrap">
+
+              <img
+                class="food-image"
+                src="${escapeHtml(
+                  item.image || ''
+                )}"
+                alt="${escapeHtml(
+                  item.name
+                )}"
+                loading="lazy"
+                onerror="this.style.display='none'"
+              >
 
             </div>
 
 
-            <div class="add-row">
+            <div class="food-card-body">
 
-              <select
-                class="select-size"
-                id="size-${i}"
-              >
-
-                ${choices.map(([key, value]) => `
-
-                  <option value="${escapeHtml(key)}">
-                    ${escapeHtml(key)} — ${money(value)}
-                  </option>
-
-                `).join('')}
-
-              </select>
+              <h3 class="food-name">
+                ${escapeHtml(
+                  item.name
+                )}
+              </h3>
 
 
-              <button
-                class="add"
-                onclick="
-                  addToCart(
-                    ${menuIndex},
-                    document.getElementById('size-${i}').value
+              ${choicesHtml}
+
+
+              ${prebookHtml}
+
+
+              <div class="food-actions">
+
+                <label class="qty-label">
+
+                  Qty
+
+                  <input
+                    class="food-qty"
+                    type="number"
+                    min="${minQty}"
+                    max="${maxQty}"
+                    value="${minQty}"
+                    id="qty-${index}"
+                  >
+
+                </label>
+
+
+                <button
+                  type="button"
+                  class="add-btn"
+                  data-menu-index="${MENU.indexOf(item)}"
+                  data-card-index="${index}"
+                >
+                  Add to Cart
+                </button>
+
+              </div>
+
+            </div>
+
+          </article>
+
+        `;
+
+      }
+    ).join('');
+
+
+  /*
+   * Add button listeners
+   */
+
+  grid
+    .querySelectorAll(
+      '.add-btn'
+    )
+    .forEach(
+      button => {
+
+        button.addEventListener(
+          'click',
+          function(event) {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+
+            const menuIndex =
+              Number(
+                this.dataset.menuIndex
+              );
+
+
+            const cardIndex =
+              Number(
+                this.dataset.cardIndex
+              );
+
+
+            const item =
+              MENU[
+                menuIndex
+              ];
+
+
+            if (!item) {
+
+              toast(
+                'Item not found.'
+              );
+
+              return;
+
+            }
+
+
+            const qtyInput =
+              getEl(
+                `qty-${cardIndex}`
+              );
+
+
+            const minQty =
+              Number(
+                item.minQty || 1
+              );
+
+
+            const maxQty =
+              Number(
+                item.maxQty || 99
+              );
+
+
+            let quantity =
+              Number(
+                qtyInput?.value ||
+                minQty
+              );
+
+
+            if (
+              !Number.isFinite(
+                quantity
+              )
+            ) {
+
+              quantity =
+                minQty;
+
+            }
+
+
+            quantity =
+              Math.max(
+                minQty,
+                Math.floor(
+                  quantity
+                )
+              );
+
+
+            if (
+              quantity >
+              maxQty
+            ) {
+
+              toast(
+                `Maximum quantity is ${maxQty}.`
+              );
+
+              return;
+
+            }
+
+
+            const selectedRadio =
+              grid.querySelector(
+                `input[name="choice-${cardIndex}"]:checked`
+              );
+
+
+            const choiceIndex =
+              selectedRadio
+                ? Number(
+                    selectedRadio.value
                   )
-                "
-              >
-                Add
-              </button>
+                : 0;
 
-            </div>
 
-          </div>
+            addItemToCart(
+              item,
+              choiceIndex,
+              quantity
+            );
 
-        </article>
+          }
+        );
 
-      `;
+      }
+    );
 
-    }).join('');
 }
 
 
 /* =========================================================
-   CART
-   ========================================================= */
+   ADD ITEM TO CART
+========================================================= */
 
-function addToCart(index, choice) {
+function addItemToCart(
+  item,
+  choiceIndex = 0,
+  quantity = 1
+) {
 
-  const product =
-    MENU[index];
+  if (!item) {
 
-  if (
-    !product ||
-    !product.prices ||
-    product.prices[choice] === undefined
-  ) {
+    toast(
+      'Item not found.'
+    );
+
     return;
+
   }
 
 
-  const key =
-    product.name + '|' + choice;
+  const choices =
+    Array.isArray(
+      item.choices
+    )
+      ? item.choices
+      : [];
 
 
-  const found =
-    cart.find(
-      item => item.key === key
+  const selectedChoice =
+    choices[
+      choiceIndex
+    ] ||
+    choices[0];
+
+
+  const price =
+    selectedChoice
+      ? Number(
+          selectedChoice.price ||
+          0
+        )
+      : Number(
+          item.price ||
+          0
+        );
+
+
+  const choice =
+    selectedChoice
+      ? selectedChoice.label
+      : '';
+
+
+  const minQty =
+    Number(
+      item.minQty || 1
     );
 
 
-  if (found) {
+  const maxQty =
+    Number(
+      item.maxQty || 99
+    );
 
-    found.qty++;
+
+  quantity =
+    Number(
+      quantity
+    );
+
+
+  if (
+    !Number.isFinite(
+      quantity
+    )
+  ) {
+
+    quantity =
+      minQty;
+
+  }
+
+
+  quantity =
+    Math.max(
+      minQty,
+      Math.floor(
+        quantity
+      )
+    );
+
+
+  if (
+    quantity >
+    maxQty
+  ) {
+
+    toast(
+      `Maximum quantity is ${maxQty}.`
+    );
+
+    return;
+
+  }
+
+
+  const existing =
+    cart.find(
+      cartItem =>
+        cartItem.name ===
+          item.name &&
+        cartItem.choice ===
+          choice
+    );
+
+
+  if (existing) {
+
+    const newQty =
+      Number(
+        existing.qty || 0
+      ) +
+      quantity;
+
+
+    if (
+      newQty >
+      maxQty
+    ) {
+
+      toast(
+        `Maximum quantity is ${maxQty}.`
+      );
+
+      return;
+
+    }
+
+
+    existing.qty =
+      newQty;
 
   } else {
 
     cart.push({
 
-      key,
+      name:
+        item.name,
 
-      name: product.name,
+      cat:
+        item.cat,
 
-      cat: product.cat,
+      choice:
+        choice,
 
-      choice,
+      price:
+        price,
 
-      price: product.prices[choice],
+      qty:
+        quantity,
 
-      qty: 1,
+      image:
+        item.image || '',
 
-      minQty: product.minQty || 1,
-
-      maxQty: product.maxQty || 99
+      prebook:
+        !!item.prebook
 
     });
 
@@ -591,53 +1179,269 @@ function addToCart(index, choice) {
 
   saveCart();
 
-  toast('Added to cart ✓');
+  updateCount();
 
-  openCart();
+  renderCart();
+
+
+  toast(
+    `${item.name} added to cart ✓`
+  );
+
 }
 
+
+/* =========================================================
+   COMPATIBLE ADD TO CART
+========================================================= */
+
+function addToCart(
+  item,
+  choiceIndex = 0,
+  qty = 1
+) {
+
+  if (
+    typeof item ===
+    'number'
+  ) {
+
+    const menuItem =
+      MENU[item];
+
+
+    if (!menuItem) {
+
+      toast(
+        'Item not found.'
+      );
+
+      return;
+
+    }
+
+
+    addItemToCart(
+      menuItem,
+      choiceIndex,
+      qty
+    );
+
+    return;
+
+  }
+
+
+  addItemToCart(
+    item,
+    choiceIndex,
+    qty
+  );
+
+}
+
+
+/* =========================================================
+   ADD TO CART BY NAME
+========================================================= */
+
+function addToCartByName(
+  encodedName,
+  choiceIndex = 0,
+  quantity = null
+) {
+
+  let name = '';
+
+
+  try {
+
+    name =
+      decodeURIComponent(
+        encodedName
+      );
+
+  } catch (error) {
+
+    name =
+      String(
+        encodedName || ''
+      );
+
+  }
+
+
+  const item =
+    MENU.find(
+      menuItem =>
+        menuItem.name ===
+        name
+    );
+
+
+  if (!item) {
+
+    toast(
+      'Item not found.'
+    );
+
+    return;
+
+  }
+
+
+  if (
+    quantity === null ||
+    quantity === undefined
+  ) {
+
+    const qtyInput =
+      getEl(
+        `qty-${encodeURIComponent(
+          item.name
+        )}`
+      );
+
+
+    quantity =
+      Number(
+        qtyInput?.value ||
+        item.minQty ||
+        1
+      );
+
+  }
+
+
+  addItemToCart(
+    item,
+    Number(
+      choiceIndex || 0
+    ),
+    Number(
+      quantity || 1
+    )
+  );
+
+}
+
+
+/* =========================================================
+   CART COUNT
+========================================================= */
 
 function updateCount() {
 
-  const el =
-    document.getElementById('cartCount');
-
-  if (!el) return;
-
-  el.textContent =
+  const count =
     cart.reduce(
-      (sum, item) =>
-        sum + item.qty,
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.qty || 0
+        ),
       0
     );
+
+
+  const cartCount =
+    getEl(
+      'cartCount'
+    );
+
+
+  if (cartCount) {
+
+    cartCount.textContent =
+      count;
+
+  }
+
 }
 
+
+/* =========================================================
+   OPEN CART
+========================================================= */
 
 function openCart() {
 
-  document
-    .getElementById('cart')
-    ?.classList.remove('hidden');
+  const cartEl =
+    getEl(
+      'cart'
+    );
+
+
+  if (!cartEl) {
+
+    toast(
+      'Cart section not found.'
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * Important:
+   * Remove hidden so cart can actually show.
+   */
+
+  cartEl.classList.remove(
+    'hidden'
+  );
+
+
+  cartEl.classList.add(
+    'open'
+  );
+
+
+  cartEl.style.display =
+    '';
+
 
   renderCart();
+
 }
 
+
+/* =========================================================
+   CLOSE CART
+========================================================= */
 
 function closeCart() {
 
-  document
-    .getElementById('cart')
-    ?.classList.add('hidden');
+  const cartEl =
+    getEl(
+      'cart'
+    );
+
+
+  if (!cartEl) return;
+
+
+  cartEl.classList.remove(
+    'open'
+  );
+
 }
 
+
+/* =========================================================
+   RENDER CART
+========================================================= */
 
 function renderCart() {
 
   const box =
-    document.getElementById('cartItems');
+    getEl(
+      'cartItems'
+    );
 
-  const subtotalBox =
-    document.getElementById('subtotal');
 
   if (!box) return;
 
@@ -648,284 +1452,504 @@ function renderCart() {
 
       <div class="empty">
 
-        Your cart is empty.<br>
+        <h3>
+          Your cart is empty
+        </h3>
 
-        <span class="muted">
-          Choose something delicious from the menu.
-        </span>
+        <p>
+          Add delicious food to continue.
+        </p>
 
       </div>
 
     `;
 
-    if (subtotalBox) {
-      subtotalBox.textContent = '৳0';
+
+    const subtotalEl =
+      getEl(
+        'subtotal'
+      );
+
+
+    if (subtotalEl) {
+
+      subtotalEl.textContent =
+        money(0);
+
     }
 
+
     return;
+
   }
 
 
-  box.innerHTML = `
+  box.innerHTML =
+    cart.map(
+      (
+        item,
+        index
+      ) => {
 
-    <div class="cart-lines">
+        const lineTotal =
+          Number(
+            item.price || 0
+          ) *
+          Number(
+            item.qty || 0
+          );
 
-      ${cart.map((item, index) => `
 
-        <div class="cart-line">
+        return `
 
-          <div>
+          <div class="cart-row">
 
-            <h4>
-              ${escapeHtml(item.name)}
-            </h4>
-
-            <small>
-
-              ${escapeHtml(item.choice)}
-              •
-              ${money(item.price)} each
+            <div class="cart-info">
 
               ${
-                isPrebook(item.cat)
-                  ? ' • Pre-booking'
+                item.image
+                  ? `
+                    <img
+                      class="cart-thumb"
+                      src="${escapeHtml(
+                        item.image
+                      )}"
+                      alt="${escapeHtml(
+                        item.name
+                      )}"
+                    >
+                  `
                   : ''
               }
 
-            </small>
+
+              <div>
+
+                <strong>
+                  ${escapeHtml(
+                    item.name
+                  )}
+                </strong>
+
+
+                ${
+                  item.choice
+                    ? `
+                      <div class="cart-choice">
+                        ${escapeHtml(
+                          item.choice
+                        )}
+                      </div>
+                    `
+                    : ''
+                }
+
+
+                <div class="cart-price">
+
+                  ${money(
+                    item.price
+                  )}
+
+                  × ${item.qty}
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <div class="cart-controls">
+
+              <button
+                type="button"
+                onclick="changeQty(${index}, -1)"
+              >
+                −
+              </button>
+
+
+              <span>
+                ${item.qty}
+              </span>
+
+
+              <button
+                type="button"
+                onclick="changeQty(${index}, 1)"
+              >
+                +
+              </button>
+
+
+              <button
+                type="button"
+                class="remove-btn"
+                onclick="removeItem(${index})"
+              >
+                Remove
+              </button>
+
+            </div>
+
+
+            <div class="cart-line-total">
+
+              ${money(
+                lineTotal
+              )}
+
+            </div>
 
           </div>
 
+        `;
 
-          <div class="qty">
-
-            <button
-              onclick="changeQty(${index}, -1)"
-            >
-              −
-            </button>
-
-            <b>
-              ${item.qty}
-            </b>
-
-            <button
-              onclick="changeQty(${index}, 1)"
-            >
-              +
-            </button>
-
-          </div>
-
-
-          <button
-            class="remove"
-            onclick="removeItem(${index})"
-          >
-            Remove
-          </button>
-
-        </div>
-
-      `).join('')}
-
-    </div>
-
-  `;
+      }
+    ).join('');
 
 
   const subtotal =
     cart.reduce(
-      (sum, item) =>
+      (
+        sum,
+        item
+      ) =>
         sum +
-        item.price *
-        item.qty,
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.qty || 0
+        ),
       0
     );
 
 
-  if (subtotalBox) {
-    subtotalBox.textContent =
-      money(subtotal);
+  const subtotalEl =
+    getEl(
+      'subtotal'
+    );
+
+
+  if (subtotalEl) {
+
+    subtotalEl.textContent =
+      money(
+        subtotal
+      );
+
   }
+
 }
 
 
-function changeQty(index, amount) {
+/* =========================================================
+   CHANGE CART QUANTITY
+========================================================= */
+
+function changeQty(
+  index,
+  delta
+) {
 
   const item =
     cart[index];
 
+
   if (!item) return;
 
 
-  const next =
-    item.qty + amount;
+  const menuItem =
+    MENU.find(
+      menuItem =>
+        menuItem.name ===
+        item.name
+    );
 
 
-  if (next < 0) return;
+  const minQty =
+    Number(
+      menuItem?.minQty || 1
+    );
 
 
-  if (next === 0) {
+  const maxQty =
+    Number(
+      menuItem?.maxQty || 99
+    );
 
-    cart.splice(index, 1);
 
-    saveCart();
+  const newQty =
+    Number(
+      item.qty || 0
+    ) +
+    Number(
+      delta || 0
+    );
+
+
+  if (
+    newQty <
+    minQty
+  ) {
+
+    removeItem(
+      index
+    );
 
     return;
+
   }
 
 
   if (
-    item.cat === 'kacchi' &&
-    next < 2
+    newQty >
+    maxQty
   ) {
 
     toast(
-      'Kacchi minimum order is 2 persons.'
+      `Maximum quantity is ${maxQty}.`
     );
 
     return;
+
   }
 
 
-  if (
-    next >
-    (item.maxQty || 99)
-  ) {
+  item.qty =
+    newQty;
 
-    toast(
-      `Maximum quantity is ${item.maxQty || 99}.`
-    );
-
-    return;
-  }
-
-
-  item.qty = next;
 
   saveCart();
+
+  updateCount();
+
+  renderCart();
+
 }
 
 
-function removeItem(index) {
+/* =========================================================
+   REMOVE ITEM
+========================================================= */
 
-  cart.splice(index, 1);
+function removeItem(
+  index
+) {
+
+  if (
+    !cart[index]
+  ) return;
+
+
+  cart.splice(
+    index,
+    1
+  );
+
 
   saveCart();
+
+  updateCount();
+
+  renderCart();
+
 }
 
 
 /* =========================================================
    CHECKOUT
-   ========================================================= */
+========================================================= */
 
 function checkout() {
 
   if (!cart.length) {
 
-    toast('Add an item first.');
-
-    return;
-  }
-
-
-  const badKacchi =
-    cart.find(
-      item =>
-        item.cat === 'kacchi' &&
-        item.qty < 2
-    );
-
-
-  if (badKacchi) {
-
     toast(
-      'Kacchi minimum order is 2 persons.'
+      'Your cart is empty.'
     );
 
     return;
+
   }
 
 
-  closeCart();
+  const checkoutEl =
+    getEl(
+      'checkout'
+    );
 
 
-  document
-    .getElementById('checkout')
-    ?.classList.remove('hidden');
+  if (checkoutEl) {
 
+    checkoutEl.classList.remove(
+      'hidden'
+    );
 
-  resetLocation();
+    checkoutEl.classList.add(
+      'open'
+    );
+
+    checkoutEl.style.display =
+      '';
+
+  }
+
 
   buildCheckoutSummary();
 
+  buildPaymentBlock();
+
   buildSlots();
 
-  buildPaymentBlock();
+
+  setTimeout(
+    () => {
+
+      initializeDeliveryMap();
+
+    },
+    100
+  );
+
 }
 
 
+/* =========================================================
+   CLOSE CHECKOUT
+========================================================= */
+
 function closeCheckout() {
 
-  document
-    .getElementById('checkout')
-    ?.classList.add('hidden');
+  const checkoutEl =
+    getEl(
+      'checkout'
+    );
+
+
+  if (!checkoutEl) return;
+
+
+  checkoutEl.classList.remove(
+    'open'
+  );
+
 }
 
 
 /* =========================================================
    CHECKOUT SUMMARY
-   ========================================================= */
+========================================================= */
 
 function buildCheckoutSummary() {
 
   const box =
-    document.getElementById(
+    getEl(
       'checkoutSummary'
     );
+
 
   if (!box) return;
 
 
   const subtotal =
     cart.reduce(
-      (sum, item) =>
+      (
+        sum,
+        item
+      ) =>
         sum +
-        item.price *
-        item.qty,
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.qty || 0
+        ),
       0
     );
 
 
   box.innerHTML = `
 
-    <div class="total">
+    <div class="checkout-items">
+
+      ${cart.map(
+        item => `
+
+          <div class="checkout-item">
+
+            <span>
+
+              ${escapeHtml(
+                item.name
+              )}
+
+              ${
+                item.choice
+                  ? ` (${escapeHtml(
+                      item.choice
+                    )})`
+                  : ''
+              }
+
+              × ${item.qty}
+
+            </span>
+
+
+            <strong>
+
+              ${money(
+                Number(
+                  item.price || 0
+                ) *
+                Number(
+                  item.qty || 0
+                )
+              )}
+
+            </strong>
+
+          </div>
+
+        `
+      ).join('')}
+
+    </div>
+
+
+    <div class="checkout-total">
 
       <span>
-        Order Subtotal
+        Food subtotal
       </span>
 
-      <b>
-        ${money(subtotal)}
-      </b>
+      <strong>
+        ${money(
+          subtotal
+        )}
+      </strong>
 
     </div>
 
   `;
+
 }
 
 
 /* =========================================================
    PAYMENT
-   ========================================================= */
+========================================================= */
 
 function buildPaymentBlock() {
 
   const box =
-    document.getElementById(
+    getEl(
       'paymentBlock'
     );
+
 
   if (!box) return;
 
@@ -933,7 +1957,9 @@ function buildPaymentBlock() {
   const hasPre =
     cart.some(
       item =>
-        isPrebook(item.cat)
+        isPrebook(
+          item
+        )
     );
 
 
@@ -941,306 +1967,645 @@ function buildPaymentBlock() {
 
     box.innerHTML = `
 
-      <label>
-
+      <div class="payment-title">
         Payment method
+      </div>
 
-        <select id="cPayment">
 
-          <option value="Full Payment — bKash Personal — 01792494275">
-            Full Payment — bKash Personal 01792494275
-          </option>
+      <div class="payment-required">
 
-          <option value="Full Payment — Nagad Personal — 01792494275">
-            Full Payment — Nagad Personal 01792494275
-          </option>
+        Pre-booking items require
+        full payment.
 
-        </select>
+      </div>
+
+
+      <label class="payment-card">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="bKash Personal"
+          checked
+        >
+
+
+        <span>
+
+          <strong>
+            bKash Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
+        </span>
 
       </label>
 
 
-      <div class="payment-note">
+      <label class="payment-card">
 
-        Pre-booking orders require
-        <b>full payment</b>.
+        <input
+          type="radio"
+          name="fpPayment"
+          value="Nagad Personal"
+        >
 
-        Cash on Delivery is not available
-        for pre-booking.
+
+        <span>
+
+          <strong>
+            Nagad Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
+        </span>
+
+      </label>
+
+
+      <div class="payment-instruction">
+
+        Send the full payment to
+        the selected number,
+        then enter the transaction
+        ID / last 5 digits below.
+
+      </div>
+
+
+      <div id="fpTransactionBox">
+
+        <label>
+
+          Transaction ID / Last 5 digits
+
+          <input
+            id="cTx"
+            type="text"
+            placeholder="Enter transaction ID or last 5 digits"
+          >
+
+        </label>
 
       </div>
 
     `;
 
-  } else {
+    return;
 
-    box.innerHTML = `
-
-      <label>
-
-        Payment method
-
-        <select id="cPayment">
-
-          <option value="Select location first">
-            Select location first
-          </option>
-
-          <option value="bKash Personal — 01792494275">
-            bKash Personal — 01792494275
-          </option>
-
-          <option value="Nagad Personal — 01792494275">
-            Nagad Personal — 01792494275
-          </option>
-
-        </select>
-
-      </label>
-
-    `;
   }
 
 
-  document
-    .getElementById('cPayment')
-    ?.addEventListener(
-      'change',
-      updateTransactionField
-    );
+  box.innerHTML = `
+
+    <div class="payment-title">
+      Payment method
+    </div>
 
 
-  updateTransactionField();
+    <div id="paymentOptions">
+
+      <label class="payment-card">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="Cash on Delivery"
+        >
+
+        <span>
+
+          <strong>
+            Cash on Delivery
+          </strong>
+
+          <small>
+            Available based on delivery location
+          </small>
+
+        </span>
+
+      </label>
+
+
+      <label class="payment-card">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="bKash Personal"
+          checked
+        >
+
+        <span>
+
+          <strong>
+            bKash Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
+        </span>
+
+      </label>
+
+
+      <label class="payment-card">
+
+        <input
+          type="radio"
+          name="fpPayment"
+          value="Nagad Personal"
+        >
+
+        <span>
+
+          <strong>
+            Nagad Personal
+          </strong>
+
+          <small>
+            ${SETTINGS.payment}
+          </small>
+
+        </span>
+
+      </label>
+
+    </div>
+
+
+    <div class="payment-instruction">
+
+      For bKash/Nagad,
+      send payment to
+
+      <strong>
+        ${SETTINGS.payment}
+      </strong>
+
+      and enter the
+      transaction ID /
+      last 5 digits.
+
+    </div>
+
+
+    <div id="fpTransactionBox">
+
+      <label>
+
+        Transaction ID / Last 5 digits
+
+        <input
+          id="cTx"
+          type="text"
+          placeholder="Enter transaction ID or last 5 digits"
+        >
+
+      </label>
+
+    </div>
+
+  `;
+
+
+  updatePaymentOptions(
+    selectedLocation
+      ? calculateDelivery(
+          selectedLocation.lat,
+          selectedLocation.lng,
+          false
+        ).codAvailable
+      : null
+  );
+
 }
 
+
+/* =========================================================
+   UPDATE PAYMENT OPTIONS
+========================================================= */
 
 function updatePaymentOptions(
   codAvailable
 ) {
 
-  const payment =
-    document.getElementById(
-      'cPayment'
+  const options =
+    document.querySelectorAll(
+      'input[name="fpPayment"]'
     );
 
-  if (!payment) return;
+
+  if (!options.length)
+    return;
 
 
   const hasPre =
     cart.some(
       item =>
-        isPrebook(item.cat)
+        isPrebook(
+          item
+        )
     );
 
 
   if (hasPre) {
 
-    updateTransactionField();
+    options.forEach(
+      input => {
+
+        if (
+          input.value ===
+          'Cash on Delivery'
+        ) {
+
+          input.checked =
+            false;
+
+          input.disabled =
+            true;
+
+        }
+
+      }
+    );
+
+
+    const firstOnline =
+      Array.from(
+        options
+      ).find(
+        input =>
+          input.value !==
+          'Cash on Delivery'
+      );
+
+
+    if (
+      firstOnline &&
+      !firstOnline.checked
+    ) {
+
+      firstOnline.checked =
+        true;
+
+    }
+
+
+    syncFoodpandaPayment();
 
     return;
+
   }
 
 
-  if (codAvailable) {
+  options.forEach(
+    input => {
 
-    payment.innerHTML = `
+      if (
+        input.value ===
+        'Cash on Delivery'
+      ) {
 
-      <option value="Cash on Delivery">
-        Cash on Delivery
-      </option>
-
-      <option value="bKash Personal — 01792494275">
-        bKash Personal — 01792494275
-      </option>
-
-      <option value="Nagad Personal — 01792494275">
-        Nagad Personal — 01792494275
-      </option>
-
-    `;
-
-    payment.value =
-      'Cash on Delivery';
-
-  } else {
-
-    payment.innerHTML = `
-
-      <option value="bKash Personal — 01792494275">
-        bKash Personal — 01792494275
-      </option>
-
-      <option value="Nagad Personal — 01792494275">
-        Nagad Personal — 01792494275
-      </option>
-
-    `;
-
-    payment.value =
-      'bKash Personal — 01792494275';
-  }
+        input.disabled =
+          codAvailable !== true;
 
 
-  payment.onchange =
-    updateTransactionField;
+        if (!codAvailable) {
+
+          input.checked =
+            false;
+
+        }
+
+      }
+
+    }
+  );
 
 
-  updateTransactionField();
-}
-
-
-function updateTransactionField() {
-
-  const payment =
-    document.getElementById(
-      'cPayment'
-    );
-
-  const wrap =
-    document.getElementById(
-      'cTxWrap'
-    );
-
-  const tx =
-    document.getElementById(
-      'cTx'
+  const checked =
+    document.querySelector(
+      'input[name="fpPayment"]:checked'
     );
 
 
-  if (
-    !payment ||
-    !wrap ||
-    !tx
-  ) {
-    return;
+  if (!checked) {
+
+    const online =
+      document.querySelector(
+        'input[name="fpPayment"]:not([value="Cash on Delivery"])'
+      );
+
+
+    if (online) {
+
+      online.checked =
+        true;
+
+    }
+
   }
 
 
-  const value =
-    payment.value || '';
+  syncFoodpandaPayment();
 
-
-  const required =
-    value.startsWith('bKash') ||
-    value.startsWith('Nagad') ||
-    value.startsWith('Full Payment');
-
-
-  if (required) {
-
-    wrap.style.display =
-      'block';
-
-    tx.required =
-      true;
-
-  } else {
-
-    wrap.style.display =
-      'none';
-
-    tx.required =
-      false;
-
-    tx.value =
-      '';
-  }
 }
 
 
 /* =========================================================
-   SHOP TIME
-   ========================================================= */
+   PAYMENT DISPLAY
+========================================================= */
 
-function getShopHours(date) {
+function syncFoodpandaPayment() {
 
-  return date.getDay() === 5
-    ? SHOP_HOURS.friday
-    : SHOP_HOURS.normal;
+  const selected =
+    document.querySelector(
+      'input[name="fpPayment"]:checked'
+    );
+
+
+  const txBox =
+    getEl(
+      'fpTransactionBox'
+    );
+
+
+  if (!txBox)
+    return;
+
+
+  if (
+    selected &&
+    selected.value ===
+    'Cash on Delivery'
+  ) {
+
+    txBox.style.display =
+      'none';
+
+  } else {
+
+    txBox.style.display =
+      '';
+
+  }
+
 }
 
 
-function isWithinShopHours(date) {
+/* =========================================================
+   GET PAYMENT
+========================================================= */
+
+function getSelectedPayment() {
+
+  const selected =
+    document.querySelector(
+      'input[name="fpPayment"]:checked'
+    );
+
+
+  return selected
+    ? selected.value
+    : '';
+
+}
+
+
+function getOrderPayment() {
+
+  return getSelectedPayment();
+
+}
+
+
+/* =========================================================
+   DISABLE PAYMENT
+========================================================= */
+
+function disablePaymentForUnavailable() {
+
+  const options =
+    document.querySelectorAll(
+      'input[name="fpPayment"]'
+    );
+
+
+  options.forEach(
+    input => {
+
+      input.disabled =
+        true;
+
+      input.checked =
+        false;
+
+    }
+  );
+
+
+  const txBox =
+    getEl(
+      'fpTransactionBox'
+    );
+
+
+  if (txBox) {
+
+    txBox.style.display =
+      'none';
+
+  }
+
+}
+
+
+/* =========================================================
+   SHOP HOURS
+========================================================= */
+
+function getShopHours(
+  date = new Date()
+) {
+
+  const day =
+    date.getDay();
+
+
+  if (day === 5) {
+
+    return SHOP_HOURS.friday;
+
+  }
+
+
+  return SHOP_HOURS.normal;
+
+}
+
+
+/* =========================================================
+   CHECK SHOP HOURS
+========================================================= */
+
+function isWithinShopHours(
+  date = new Date()
+) {
 
   const hours =
-    getShopHours(date);
+    getShopHours(
+      date
+    );
 
-  const minutes =
+
+  const currentMinutes =
     date.getHours() * 60 +
     date.getMinutes();
 
 
+  const openMinutes =
+    hours.open * 60;
+
+
+  const closeMinutes =
+    hours.close * 60;
+
+
   return (
-    minutes >=
-      hours.open * 60 &&
-    minutes <
-      hours.close * 60
-  );
-}
-
-
-function nextHalfHour(date) {
-
-  const d =
-    new Date(date);
-
-  d.setSeconds(0, 0);
-
-
-  const minutes =
-    d.getMinutes();
-
-
-  const add =
-    minutes === 0
-      ? 0
-      : 30 - (minutes % 30);
-
-
-  d.setMinutes(
-    minutes + add
+    currentMinutes >=
+      openMinutes &&
+    currentMinutes <=
+      closeMinutes
   );
 
-
-  if (d <= date) {
-
-    d.setMinutes(
-      d.getMinutes() + 30
-    );
-  }
-
-
-  return d;
 }
 
 
 /* =========================================================
-   PRE-BOOKING SLOTS
-   ========================================================= */
+   NEXT HALF HOUR
+========================================================= */
+
+function nextHalfHour(
+  date = new Date()
+) {
+
+  const result =
+    new Date(
+      date
+    );
+
+
+  result.setSeconds(
+    0
+  );
+
+  result.setMilliseconds(
+    0
+  );
+
+
+  if (
+    result.getMinutes() <
+    30
+  ) {
+
+    result.setMinutes(
+      30
+    );
+
+  } else {
+
+    result.setMinutes(
+      0
+    );
+
+    result.setHours(
+      result.getHours() + 1
+    );
+
+  }
+
+
+  return result;
+
+}
+
+
+/* =========================================================
+   FORMAT DATE
+========================================================= */
+
+function formatDateTime(
+  date
+) {
+
+  return date.toLocaleString(
+    'en-BD',
+    {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }
+  );
+
+}
+
+
+/* =========================================================
+   BUILD PREBOOK SLOTS
+========================================================= */
 
 function buildSlots() {
 
   const box =
-    document.getElementById(
+    getEl(
       'slotBlock'
     );
 
-  if (!box) return;
+
+  if (!box)
+    return;
 
 
-  const needs =
+  const hasPre =
     cart.some(
       item =>
-        isPrebook(item.cat)
+        isPrebook(
+          item
+        )
     );
 
 
-  if (!needs) {
+  if (!hasPre) {
 
-    box.innerHTML =
-      '';
+    box.innerHTML = `
+
+      <div class="slot-normal">
+
+        <strong>
+          Delivery time
+        </strong>
+
+        <p>
+          Regular orders are accepted
+          during shop hours.
+        </p>
+
+      </div>
+
+    `;
 
     return;
+
   }
 
 
@@ -1262,30 +2627,40 @@ function buildSlots() {
     );
 
 
-  let current =
-    nextHalfHour(start);
+  let cursor =
+    nextHalfHour(
+      start
+    );
 
 
   const slots = [];
 
 
-  while (current <= end) {
+  while (
+    cursor <= end
+  ) {
 
     if (
-      isWithinShopHours(current)
+      isWithinShopHours(
+        cursor
+      )
     ) {
 
       slots.push(
-        new Date(current)
+        new Date(
+          cursor
+        )
       );
+
     }
 
 
-    current =
+    cursor =
       new Date(
-        current.getTime() +
+        cursor.getTime() +
         30 * 60 * 1000
       );
+
   }
 
 
@@ -1293,17 +2668,18 @@ function buildSlots() {
 
     box.innerHTML = `
 
-      <div class="payment-note">
+      <div class="slot-error">
 
-        No pre-booking slot is currently
-        available within the required
-        5–12 hour window.
+        No pre-booking slots are
+        currently available.
+        Please try again later.
 
       </div>
 
     `;
 
     return;
+
   }
 
 
@@ -1311,110 +2687,127 @@ function buildSlots() {
 
     <label>
 
-      Pre-booking date & time
+      Pre-booking / delivery time
 
-      <select
-        id="prebookSlot"
-        required
-      >
+      <select id="cSlot">
 
-        ${slots.map((slot, index) => `
+        <option value="">
+          Select a time
+        </option>
 
-          <option
-            value="${slot.toISOString()}"
-            ${index === 0 ? 'selected' : ''}
-          >
+        ${slots.map(
+          slot => `
 
-            ${slot.toLocaleString(
-              'en-BD',
-              {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit'
-              }
-            )}
+            <option
+              value="${slot.toISOString()}"
+            >
 
-          </option>
+              ${escapeHtml(
+                formatDateTime(
+                  slot
+                )
+              )}
 
-        `).join('')}
+            </option>
+
+          `
+        ).join('')}
 
       </select>
 
     </label>
 
+
+    <div class="slot-note">
+
+      Pre-booking must be made
+      5–12 hours ahead.
+
+    </div>
+
   `;
+
 }
 
 
 /* =========================================================
-   LEAFLET / OPENSTREETMAP
-   ========================================================= */
+   LEAFLET MAP
+========================================================= */
 
-function openLocationMap() {
+function initializeDeliveryMap() {
 
-  const mapBox =
-    document.getElementById(
+  const mapElement =
+    getEl(
       'deliveryMap'
     );
 
-  if (!mapBox) return;
+
+  if (!mapElement)
+    return;
 
 
   if (
-    typeof L === 'undefined'
+    typeof L ===
+    'undefined'
   ) {
 
-    setLocationStatus(
-      '❌ Map could not load. Please refresh the page and try again.',
-      'bad'
-    );
+    const status =
+      getEl(
+        'locationStatus'
+      );
+
+
+    if (status) {
+
+      status.innerHTML = `
+
+        <div class="location-error">
+
+          Map library is not loaded.
+          Please make sure Leaflet
+          CSS/JS is included
+          in index.html.
+
+        </div>
+
+      `;
+
+    }
+
 
     return;
+
   }
-
-
-  mapBox.classList.add(
-    'active'
-  );
 
 
   if (deliveryMap) {
 
-    setTimeout(() => {
+    setTimeout(
+      () => {
 
-      deliveryMap.invalidateSize();
+        deliveryMap.invalidateSize();
 
-
-      if (selectedLocation) {
-
-        deliveryMap.setView(
-          [
-            selectedLocation.lat,
-            selectedLocation.lng
-          ],
-          17
-        );
-      }
-
-    }, 150);
+      },
+      200
+    );
 
     return;
+
   }
 
 
   deliveryMap =
     L.map(
-      mapBox,
+      mapElement,
       {
-        center: [
-          BASE_LOCATION.lat,
-          BASE_LOCATION.lng
-        ],
-        zoom: 15,
         zoomControl: true
       }
+    ).setView(
+      [
+        BASE_LOCATION.lat,
+        BASE_LOCATION.lng
+      ],
+      14
     );
 
 
@@ -1442,7 +2835,9 @@ function openLocationMap() {
 
 
   baseMarker.bindPopup(
-    `<b>${escapeHtml(BASE_LOCATION.name)}</b><br>Chef Sifat's Kitchen delivery base`
+    `<b>${escapeHtml(
+      BASE_LOCATION.name
+    )}</b><br>Chef Sifat's Kitchen delivery base`
   );
 
 
@@ -1450,129 +2845,399 @@ function openLocationMap() {
     'click',
     event => {
 
-      if (!event.latlng) return;
-
-      setDeliveryLocation(
+      createOrMoveMarker(
         event.latlng.lat,
         event.latlng.lng,
         true
       );
+
     }
   );
 
 
-  if (selectedLocation) {
+  if (
+    selectedLocation &&
+    Number.isFinite(
+      selectedLocation.lat
+    ) &&
+    Number.isFinite(
+      selectedLocation.lng
+    )
+  ) {
 
     createOrMoveMarker(
       selectedLocation.lat,
-      selectedLocation.lng
+      selectedLocation.lng,
+      false
     );
+
   }
 
-
-  setTimeout(() => {
-
-    if (deliveryMap) {
-      deliveryMap.invalidateSize();
-    }
-
-  }, 250);
 }
 
 
 /* =========================================================
-   DELIVERY MARKER
-   ========================================================= */
+   OPEN LOCATION MAP
+========================================================= */
+
+function openLocationMap() {
+
+  initializeDeliveryMap();
+
+
+  const mapElement =
+    getEl(
+      'deliveryMap'
+    );
+
+
+  if (mapElement) {
+
+    mapElement.scrollIntoView(
+      {
+        behavior:
+          'smooth',
+        block:
+          'center'
+      }
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   CREATE / MOVE MARKER
+========================================================= */
 
 function createOrMoveMarker(
   lat,
-  lng
+  lng,
+  shouldReverseGeocode = true
 ) {
 
-  if (!deliveryMap) return;
-
-
-  const position = [
-    Number(lat),
-    Number(lng)
-  ];
-
-
-  if (deliveryMarker) {
-
-    deliveryMarker.setLatLng(
-      position
+  lat =
+    Number(
+      lat
     );
 
+  lng =
+    Number(
+      lng
+    );
+
+
+  if (
+    !Number.isFinite(
+      lat
+    ) ||
+    !Number.isFinite(
+      lng
+    )
+  ) {
+
     return;
+
   }
 
 
-  deliveryMarker =
-    L.marker(
-      position,
-      {
-        draggable: true,
-        title:
-          'Drag this pin to your exact delivery location'
+  if (!deliveryMap) {
+
+    initializeDeliveryMap();
+
+  }
+
+
+  if (!deliveryMap)
+    return;
+
+
+  if (!deliveryMarker) {
+
+    deliveryMarker =
+      L.marker(
+        [
+          lat,
+          lng
+        ],
+        {
+          draggable:
+            true
+        }
+      ).addTo(
+        deliveryMap
+      );
+
+
+    deliveryMarker.on(
+      'dragend',
+      event => {
+
+        const position =
+          event.target.getLatLng();
+
+
+        setDeliveryLocation(
+          position.lat,
+          position.lng,
+          true
+        );
+
       }
-    ).addTo(
-      deliveryMap
+    );
+
+  } else {
+
+    deliveryMarker.setLatLng(
+      [
+        lat,
+        lng
+      ]
+    );
+
+  }
+
+
+  deliveryMap.setView(
+    [
+      lat,
+      lng
+    ],
+    Math.max(
+      deliveryMap.getZoom(),
+      16
+    )
+  );
+
+
+  setDeliveryLocation(
+    lat,
+    lng,
+    shouldReverseGeocode
+  );
+
+}
+
+
+/* =========================================================
+   CURRENT LOCATION
+========================================================= */
+
+function useCurrentLocation() {
+
+  const status =
+    getEl(
+      'locationStatus'
     );
 
 
-  deliveryMarker.bindTooltip(
-    'Drag this pin to your exact delivery location',
-    {
-      direction: 'top',
-      offset: [
-        0,
-        -10
-      ]
+  if (
+    !navigator.geolocation
+  ) {
+
+    if (status) {
+
+      status.innerHTML = `
+
+        <div class="location-error">
+
+          Your browser does not support
+          GPS location.
+
+          Please select your location
+          on the map.
+
+        </div>
+
+      `;
+
     }
-  );
+
+    return;
+
+  }
 
 
-  deliveryMarker.on(
-    'dragend',
-    event => {
+  if (status) {
 
-      const marker =
-        event.target;
+    status.innerHTML = `
 
-      const position =
-        marker.getLatLng();
+      <div class="location-loading">
+
+        Detecting your current location...
+
+      </div>
+
+    `;
+
+  }
 
 
-      setDeliveryLocation(
-        position.lat,
-        position.lng,
-        false
+  navigator.geolocation.getCurrentPosition(
+
+    position => {
+
+      const lat =
+        Number(
+          position.coords.latitude
+        );
+
+
+      const lng =
+        Number(
+          position.coords.longitude
+        );
+
+
+      const accuracy =
+        Number(
+          position.coords.accuracy || 0
+        );
+
+
+      initializeDeliveryMap();
+
+
+      createOrMoveMarker(
+        lat,
+        lng,
+        true
       );
+
+
+      if (status) {
+
+        let message =
+          'Location detected successfully.';
+
+
+        if (
+          accuracy > 100
+        ) {
+
+          message +=
+            ` GPS accuracy is approximately ${Math.round(
+              accuracy
+            )} metres. You can move the pin if needed.`;
+
+        }
+
+
+        status.innerHTML = `
+
+          <div class="location-success">
+
+            ${escapeHtml(
+              message
+            )}
+
+          </div>
+
+        `;
+
+      }
+
+    },
+
+
+    error => {
+
+      let message =
+        'Unable to detect your location.';
+
+
+      if (
+        error.code === 1
+      ) {
+
+        message =
+          'Location permission was denied. Please allow location access or select your location on the map.';
+
+      } else if (
+        error.code === 2
+      ) {
+
+        message =
+          'Your location could not be determined. Please select your location on the map.';
+
+      } else if (
+        error.code === 3
+      ) {
+
+        message =
+          'Location detection timed out. Please try again or select your location on the map.';
+
+      }
+
+
+      if (status) {
+
+        status.innerHTML = `
+
+          <div class="location-error">
+
+            ${escapeHtml(
+              message
+            )}
+
+          </div>
+
+        `;
+
+      }
+
+    },
+
+
+    {
+      enableHighAccuracy:
+        true,
+
+      timeout:
+        15000,
+
+      maximumAge:
+        0
     }
+
   );
+
 }
 
 
 /* =========================================================
    SET DELIVERY LOCATION
-   ========================================================= */
+========================================================= */
 
 function setDeliveryLocation(
   lat,
   lng,
-  centerMap = true
+  reverse = true
 ) {
 
-  lat = Number(lat);
-  lng = Number(lng);
+  lat =
+    Number(
+      lat
+    );
+
+  lng =
+    Number(
+      lng
+    );
 
 
   if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng)
+    !Number.isFinite(
+      lat
+    ) ||
+    !Number.isFinite(
+      lng
+    )
   ) {
+
     return;
+
   }
 
 
@@ -1582,239 +3247,145 @@ function setDeliveryLocation(
   };
 
 
-  const latEl =
-    document.getElementById(
+  const latInput =
+    getEl(
       'cLat'
     );
 
-  const lngEl =
-    document.getElementById(
+
+  const lngInput =
+    getEl(
       'cLng'
     );
 
 
-  if (latEl) {
-    latEl.value =
-      lat.toFixed(7);
-  }
+  if (latInput) {
 
-
-  if (lngEl) {
-    lngEl.value =
-      lng.toFixed(7);
-  }
-
-
-  openLocationMap();
-
-
-  setTimeout(() => {
-
-    if (!deliveryMap) return;
-
-
-    createOrMoveMarker(
-      lat,
-      lng
-    );
-
-
-    if (centerMap) {
-
-      deliveryMap.setView(
-        [
-          lat,
-          lng
-        ],
-        17
+    latInput.value =
+      lat.toFixed(
+        6
       );
-    }
 
-  }, 50);
+  }
+
+
+  if (lngInput) {
+
+    lngInput.value =
+      lng.toFixed(
+        6
+      );
+
+  }
 
 
   calculateDelivery(
     lat,
-    lng
+    lng,
+    true
   );
 
 
-  reverseGeocode(
-    lat,
-    lng
-  );
-}
+  if (reverse) {
 
-
-/* =========================================================
-   CURRENT GPS LOCATION
-   ========================================================= */
-
-function useCurrentLocation() {
-
-  setLocationStatus(
-    '📍 Detecting your current location…'
-  );
-
-
-  if (
-    !navigator.geolocation
-  ) {
-
-    setLocationStatus(
-      '❌ Your browser does not support GPS. Please select your location on the map.',
-      'bad'
+    reverseGeocode(
+      lat,
+      lng
     );
 
-    openLocationMap();
-
-    return;
   }
 
-
-  navigator.geolocation.getCurrentPosition(
-
-    position => {
-
-      const accuracy =
-        position.coords.accuracy || 0;
-
-
-      setDeliveryLocation(
-        position.coords.latitude,
-        position.coords.longitude,
-        true
-      );
-
-
-      let message =
-        '✅ Current location detected.';
-
-
-      if (accuracy > 100) {
-
-        message +=
-          `<br><small>
-            GPS accuracy is about
-            ${Math.round(accuracy)} m.
-            You can drag the pin to your exact gate.
-          </small>`;
-      }
-
-
-      setLocationStatus(
-        message,
-        'good'
-      );
-    },
-
-
-    error => {
-
-      let message =
-        'Unable to get your location.';
-
-
-      if (error.code === 1) {
-
-        message =
-          'Location permission was denied. Please allow location access, then try again.';
-      }
-
-      else if (
-        error.code === 2
-      ) {
-
-        message =
-          'Your location could not be determined. Please select your location on the map.';
-      }
-
-      else if (
-        error.code === 3
-      ) {
-
-        message =
-          'Location request timed out. Please try again or select your location on the map.';
-      }
-
-
-      setLocationStatus(
-        '❌ ' + message,
-        'bad'
-      );
-
-
-      openLocationMap();
-    },
-
-
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    }
-  );
 }
 
 
 /* =========================================================
-   DISTANCE CALCULATION
-   ========================================================= */
+   DISTANCE
+========================================================= */
 
 function calculateDistance(
   lat1,
-  lon1,
+  lng1,
   lat2,
-  lon2
+  lng2
 ) {
 
-  const R = 6371;
+  const R =
+    6371;
 
 
   const dLat =
-    (lat2 - lat1) *
-    Math.PI / 180;
+    (
+      (
+        lat2 -
+        lat1
+      ) *
+      Math.PI
+    ) / 180;
 
 
-  const dLon =
-    (lon2 - lon1) *
-    Math.PI / 180;
+  const dLng =
+    (
+      (
+        lng2 -
+        lng1
+      ) *
+      Math.PI
+    ) / 180;
 
 
   const a =
-    Math.sin(dLat / 2) ** 2 +
+    Math.sin(
+      dLat / 2
+    ) *
+    Math.sin(
+      dLat / 2
+    ) +
 
     Math.cos(
       lat1 *
-      Math.PI / 180
+      Math.PI /
+      180
     ) *
 
     Math.cos(
       lat2 *
-      Math.PI / 180
+      Math.PI /
+      180
     ) *
 
-    Math.sin(dLon / 2) ** 2;
+    Math.sin(
+      dLng / 2
+    ) *
+    Math.sin(
+      dLng / 2
+    );
 
 
-  return (
-    R *
+  const c =
     2 *
     Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
-    )
-  );
+      Math.sqrt(
+        a
+      ),
+      Math.sqrt(
+        1 - a
+      )
+    );
+
+
+  return R * c;
+
 }
 
 
 /* =========================================================
    DELIVERY CALCULATION
-   ========================================================= */
+========================================================= */
 
 function calculateDelivery(
   lat,
-  lng
+  lng,
+  updateUI = true
 ) {
 
   const distance =
@@ -1826,252 +3397,240 @@ function calculateDelivery(
     );
 
 
-  const distanceEl =
-    document.getElementById(
-      'locationDistance'
-    );
-
-  const status =
-    document.getElementById(
-      'locationStatus'
-    );
-
-  const result =
-    document.getElementById(
-      'deliveryResult'
-    );
-
-  const button =
-    document.getElementById(
-      'placeOrderBtn'
-    );
+  const codAvailable =
+    distance <=
+    COD_RADIUS_KM;
 
 
-  if (distanceEl) {
+  const deliverable =
+    distance <=
+    MAX_DELIVERY_RADIUS_KM;
 
-    distanceEl.textContent =
-      `${distance.toFixed(2)} km`;
+
+  let deliveryCharge =
+    0;
+
+
+  if (
+    distance >
+    COD_RADIUS_KM
+  ) {
+
+    deliveryCharge =
+      Math.ceil(
+        distance
+      ) *
+      DELIVERY_RATE_PER_KM;
+
   }
 
-
-  /* =========================
-     OUTSIDE 4 KM
-     ========================= */
 
   if (
     distance >
     MAX_DELIVERY_RADIUS_KM
   ) {
 
-    setLocationStatus(
-      '🚫 This location is outside our 4 km delivery area.',
-      'bad'
-    );
+    deliveryCharge =
+      0;
 
-
-    if (result) {
-
-      result.style.display =
-        'block';
-
-
-      result.innerHTML = `
-
-        <div class="line">
-          <span>Distance</span>
-          <b>${distance.toFixed(2)} km</b>
-        </div>
-
-        <div class="line">
-          <span>Delivery</span>
-          <b>Not available</b>
-        </div>
-
-        <div class="line">
-          <span>Order</span>
-          <b>Cannot proceed</b>
-        </div>
-
-        <div class="map-address">
-          🚫 Please choose a delivery location within 4 km of
-          ${escapeHtml(BASE_LOCATION.name)}.
-        </div>
-
-      `;
-    }
-
-
-    if (button) {
-
-      button.disabled =
-        true;
-
-      button.classList.add(
-        'disabled-order'
-      );
-    }
-
-
-    const payment =
-      document.getElementById(
-        'cPayment'
-      );
-
-    if (payment) {
-
-      payment.innerHTML = `
-        <option value="Delivery unavailable">
-          Delivery unavailable
-        </option>
-      `;
-
-      payment.disabled = true;
-    }
-
-
-    updateTransactionField();
-
-    return;
   }
 
 
-  /* =========================
-     AVAILABLE DELIVERY
-     ========================= */
+  if (updateUI) {
 
-  const codAvailable =
-    distance <=
-    COD_RADIUS_KM;
-
-
-  const deliveryCharge =
-    codAvailable
-      ? 0
-      : Math.ceil(distance) *
-        DELIVERY_RATE_PER_KM;
+    const distanceEl =
+      getEl(
+        'locationDistance'
+      );
 
 
-  /* =========================
-     STATUS
-     ========================= */
+    if (distanceEl) {
 
-  if (status) {
+      distanceEl.textContent =
+        `${distance.toFixed(
+          2
+        )} km`;
 
-    status.className =
-      codAvailable
-        ? 'location-status good'
-        : 'location-status warning';
+    }
 
 
-    status.innerHTML =
-      codAvailable
+    const result =
+      getEl(
+        'deliveryResult'
+      );
 
-        ? `
-          ✅ <b>COD Available</b>
-          — Kahalthuri delivery zone
-        `
 
-        : `
-          ℹ️ <b>COD Not Available</b>
-          — Online payment required
+    if (!deliverable) {
+
+      if (result) {
+
+        result.innerHTML = `
+
+          <div class="delivery-unavailable">
+
+            <strong>
+              Delivery unavailable
+            </strong>
+
+
+            <p>
+
+              Your location is
+              ${distance.toFixed(
+                2
+              )} km
+              from our delivery base.
+
+            </p>
+
+
+            <p>
+
+              We currently deliver only
+              within
+              ${MAX_DELIVERY_RADIUS_KM} km
+              of
+              ${escapeHtml(
+                BASE_LOCATION.name
+              )}.
+
+            </p>
+
+
+            <strong>
+
+              This order cannot proceed.
+
+            </strong>
+
+          </div>
+
         `;
+
+      }
+
+
+      disablePaymentForUnavailable();
+
+
+    } else {
+
+      if (result) {
+
+        if (codAvailable) {
+
+          result.innerHTML = `
+
+            <div class="delivery-success">
+
+              <strong>
+                COD Available
+              </strong>
+
+
+              <p>
+
+                Distance:
+                ${distance.toFixed(
+                  2
+                )} km
+
+              </p>
+
+
+              <p>
+
+                Delivery charge:
+
+                <strong>
+                  ${money(0)}
+                </strong>
+
+              </p>
+
+            </div>
+
+          `;
+
+        } else {
+
+          result.innerHTML = `
+
+            <div class="delivery-online">
+
+              <strong>
+                Online payment required
+              </strong>
+
+
+              <p>
+
+                Distance:
+                ${distance.toFixed(
+                  2
+                )} km
+
+              </p>
+
+
+              <p>
+
+                Delivery charge:
+
+                <strong>
+                  ${money(
+                    deliveryCharge
+                  )}
+                </strong>
+
+              </p>
+
+
+              <p>
+
+                COD is available only
+                within
+                ${COD_RADIUS_KM} km
+                of the delivery base.
+
+              </p>
+
+            </div>
+
+          `;
+
+        }
+
+      }
+
+
+      updatePaymentOptions(
+        codAvailable
+      );
+
+    }
+
   }
 
 
-  /* =========================
-     RESULT
-     ========================= */
+  return {
 
-  if (result) {
+    distance,
 
-    result.style.display =
-      'block';
+    codAvailable,
 
+    deliverable,
 
-    const currentAddress =
-      document.getElementById(
-        'cMapAddress'
-      )?.value || 'Selected on map';
+    deliveryCharge
 
+  };
 
-    result.innerHTML = `
-
-      <div class="line">
-        <span>Distance</span>
-        <b>${distance.toFixed(2)} km</b>
-      </div>
-
-      <div class="line">
-        <span>COD</span>
-        <b>
-          ${
-            codAvailable
-              ? 'Available'
-              : 'Not Available'
-          }
-        </b>
-      </div>
-
-      <div class="line">
-        <span>Delivery charge</span>
-        <b>${money(deliveryCharge)}</b>
-      </div>
-
-      <div class="line">
-        <span>Payment</span>
-        <b>
-          ${
-            codAvailable
-              ? 'COD / Online'
-              : 'Online only'
-          }
-        </b>
-      </div>
-
-      <div class="map-address" id="selectedMapAddress">
-        📌 ${escapeHtml(currentAddress)}
-      </div>
-
-    `;
-  }
-
-
-  /* =========================
-     ENABLE ORDER
-     ========================= */
-
-  if (button) {
-
-    button.disabled =
-      false;
-
-    button.classList.remove(
-      'disabled-order'
-    );
-  }
-
-
-  const payment =
-    document.getElementById(
-      'cPayment'
-    );
-
-
-  if (payment) {
-    payment.disabled =
-      false;
-  }
-
-
-  updatePaymentOptions(
-    codAvailable
-  );
 }
 
 
 /* =========================================================
    REVERSE GEOCODING
-   ========================================================= */
+========================================================= */
 
 function reverseGeocode(
   lat,
@@ -2079,24 +3638,26 @@ function reverseGeocode(
 ) {
 
   const addressBox =
-    document.getElementById(
+    getEl(
       'cMapAddress'
     );
 
 
-  if (!addressBox) return;
+  if (!addressBox)
+    return;
+
+
+  clearTimeout(
+    reverseGeocodeTimer
+  );
 
 
   addressBox.value =
-    `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-
-
-  if (reverseGeocodeTimer) {
-
-    clearTimeout(
-      reverseGeocodeTimer
-    );
-  }
+    `${lat.toFixed(
+      6
+    )}, ${lng.toFixed(
+      6
+    )}`;
 
 
   reverseGeocodeTimer =
@@ -2107,13 +3668,12 @@ function reverseGeocode(
 
           const url =
             'https://nominatim.openstreetmap.org/reverse' +
-            '?format=jsonv2' +
-            '&lat=' +
-            encodeURIComponent(lat) +
-            '&lon=' +
-            encodeURIComponent(lng) +
-            '&zoom=18' +
-            '&addressdetails=1';
+            `?format=jsonv2&lat=${encodeURIComponent(
+              lat
+            )}` +
+            `&lon=${encodeURIComponent(
+              lng
+            )}`;
 
 
           const response =
@@ -2121,7 +3681,7 @@ function reverseGeocode(
               url,
               {
                 headers: {
-                  'Accept':
+                  Accept:
                     'application/json'
                 }
               }
@@ -2129,9 +3689,11 @@ function reverseGeocode(
 
 
           if (!response.ok) {
+
             throw new Error(
               'Reverse geocoding failed'
             );
+
           }
 
 
@@ -2141,42 +3703,38 @@ function reverseGeocode(
 
           const address =
             data.display_name ||
-            `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            `${lat.toFixed(
+              6
+            )}, ${lng.toFixed(
+              6
+            )}`;
 
 
           addressBox.value =
             address;
 
 
-          const selectedAddress =
-            document.getElementById(
-              'selectedMapAddress'
-            );
-
-
-          if (selectedAddress) {
-
-            selectedAddress.textContent =
-              '📌 ' + address;
-          }
-
-        }
-
-        catch (error) {
+        } catch (error) {
 
           addressBox.value =
-            `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            `${lat.toFixed(
+              6
+            )}, ${lng.toFixed(
+              6
+            )}`;
+
         }
 
       },
       500
     );
+
 }
 
 
 /* =========================================================
    RESET LOCATION
-   ========================================================= */
+========================================================= */
 
 function resetLocation() {
 
@@ -2184,768 +3742,991 @@ function resetLocation() {
     null;
 
 
-  const lat =
-    document.getElementById(
+  const latInput =
+    getEl(
       'cLat'
     );
 
-  const lng =
-    document.getElementById(
+
+  const lngInput =
+    getEl(
       'cLng'
     );
 
-  const address =
-    document.getElementById(
+
+  const addressBox =
+    getEl(
       'cMapAddress'
     );
 
-  const distance =
-    document.getElementById(
+
+  const distanceEl =
+    getEl(
       'locationDistance'
     );
 
-  const status =
-    document.getElementById(
-      'locationStatus'
-    );
 
   const result =
-    document.getElementById(
+    getEl(
       'deliveryResult'
     );
 
-  const button =
-    document.getElementById(
-      'placeOrderBtn'
-    );
 
-  const mapBox =
-    document.getElementById(
-      'deliveryMap'
+  const status =
+    getEl(
+      'locationStatus'
     );
 
 
-  if (lat) {
-    lat.value = '';
-  }
+  if (latInput) {
 
-  if (lng) {
-    lng.value = '';
-  }
+    latInput.value =
+      '';
 
-  if (address) {
-    address.value = '';
-  }
-
-  if (distance) {
-    distance.textContent = '';
   }
 
 
-  if (status) {
+  if (lngInput) {
 
-    status.className =
-      'location-status';
+    lngInput.value =
+      '';
 
-    status.innerHTML =
-      'Please select your delivery location.';
+  }
+
+
+  if (addressBox) {
+
+    addressBox.value =
+      '';
+
+  }
+
+
+  if (distanceEl) {
+
+    distanceEl.textContent =
+      '';
+
   }
 
 
   if (result) {
 
-    result.style.display =
-      'none';
-
     result.innerHTML =
       '';
+
   }
 
 
-  if (button) {
+  if (status) {
 
-    button.disabled =
-      true;
+    status.innerHTML = `
 
-    button.classList.add(
-      'disabled-order'
+      <div class="location-info">
+
+        Please use your current
+        location or select your
+        delivery point on the map.
+
+      </div>
+
+    `;
+
+  }
+
+
+  if (
+    deliveryMarker &&
+    deliveryMap
+  ) {
+
+    deliveryMap.removeLayer(
+      deliveryMarker
     );
-  }
-
-
-  if (mapBox) {
-
-    mapBox.classList.remove(
-      'active'
-    );
-  }
-
-
-  if (deliveryMarker) {
-
-    deliveryMarker.remove();
 
     deliveryMarker =
       null;
+
   }
 
 
-  const payment =
-    document.getElementById(
-      'cPayment'
-    );
+  buildPaymentBlock();
 
-
-  if (payment) {
-
-    payment.disabled =
-      false;
-  }
 }
 
 
 /* =========================================================
    PLACE ORDER
-   ========================================================= */
+========================================================= */
 
-function placeOrder(e) {
+function placeOrder(
+  event
+) {
 
-  e.preventDefault();
+  if (event) {
+
+    event.preventDefault();
+
+  }
 
 
   if (!cart.length) {
 
-    alert(
+    toast(
       'Your cart is empty.'
     );
 
-    return;
+    return false;
+
   }
 
 
-  /* =========================
-     LOCATION CHECK
-     ========================= */
+  /* CUSTOMER */
 
-  if (
-    !selectedLocation ||
-    !document.getElementById(
-      'cLat'
-    )?.value ||
-    !document.getElementById(
-      'cLng'
-    )?.value
-  ) {
+  const name =
+    getEl(
+      'cName'
+    )?.value.trim() ||
+    '';
 
-    alert(
-      'Please select your delivery location first.'
-    );
 
-    return;
-  }
+  const phone =
+    getEl(
+      'cPhone'
+    )?.value.trim() ||
+    '';
+
+
+  const house =
+    getEl(
+      'cHouse'
+    )?.value.trim() ||
+    '';
+
+
+  const road =
+    getEl(
+      'cRoad'
+    )?.value.trim() ||
+    '';
+
+
+  const note =
+    getEl(
+      'cNote'
+    )?.value.trim() ||
+    '';
 
 
   const lat =
     Number(
-      document.getElementById(
+      getEl(
         'cLat'
-      ).value
+      )?.value ||
+      0
     );
 
 
   const lng =
     Number(
-      document.getElementById(
+      getEl(
         'cLng'
-      ).value
+      )?.value ||
+      0
     );
-
-
-  const distance =
-    calculateDistance(
-      BASE_LOCATION.lat,
-      BASE_LOCATION.lng,
-      lat,
-      lng
-    );
-
-
-  /* =========================
-     4 KM LIMIT
-     ========================= */
-
-  if (
-    distance >
-    MAX_DELIVERY_RADIUS_KM
-  ) {
-
-    alert(
-      'Sorry. Your delivery location is outside our 4 km delivery area.'
-    );
-
-    return;
-  }
-
-
-  /* =========================
-     CUSTOMER INFO
-     ========================= */
-
-  const name =
-    document.getElementById(
-      'cName'
-    ).value.trim();
-
-
-  const phone =
-    document.getElementById(
-      'cPhone'
-    ).value
-      .trim()
-      .replace(
-        /[\s-]/g,
-        ''
-      );
-
-
-  const house =
-    document.getElementById(
-      'cHouse'
-    ).value.trim();
-
-
-  const road =
-    document.getElementById(
-      'cRoad'
-    ).value.trim();
 
 
   const mapAddress =
-    document.getElementById(
+    getEl(
       'cMapAddress'
-    ).value.trim();
+    )?.value.trim() ||
+    '';
 
 
-  const payment =
-    document.getElementById(
-      'cPayment'
-    )?.value || '';
+  if (!name) {
 
-
-  const tx =
-    document.getElementById(
-      'cTx'
-    )?.value.trim() || '';
-
-
-  const note =
-    document.getElementById(
-      'cNote'
-    )?.value.trim() || '';
-
-
-  /* =========================
-     VALIDATION
-     ========================= */
-
-  if (
-    !name ||
-    !house ||
-    !road
-  ) {
-
-    alert(
-      'Please complete your name, house/building and road/area.'
+    toast(
+      'Please enter your name.'
     );
 
-    return;
+    return false;
+
+  }
+
+
+  if (!phone) {
+
+    toast(
+      'Please enter your phone number.'
+    );
+
+    return false;
+
+  }
+
+
+  if (!house) {
+
+    toast(
+      'Please enter House / Building.'
+    );
+
+    return false;
+
+  }
+
+
+  if (!road) {
+
+    toast(
+      'Please enter Road / Area.'
+    );
+
+    return false;
+
   }
 
 
   if (
-    !/^01\d{9}$/.test(phone)
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    !lat ||
+    !lng
   ) {
 
-    alert(
-      'Please enter a valid Bangladesh mobile number.'
+    toast(
+      'Please select your delivery location on the map.'
     );
 
-    return;
+    return false;
+
   }
+
+
+  /* DELIVERY */
+
+  const delivery =
+    calculateDelivery(
+      lat,
+      lng,
+      true
+    );
 
 
   if (
-    !payment ||
-    payment ===
-      'Select location first' ||
-    payment ===
-      'Delivery unavailable'
+    !delivery.deliverable
   ) {
 
-    alert(
-      'Please select a valid payment method.'
+    toast(
+      'Sorry, your location is outside our 4 km delivery area.'
     );
 
-    return;
+    return false;
+
   }
 
 
-  /* =========================
-     PREBOOKING
-     ========================= */
+  /* SHOP HOURS */
 
   const hasPre =
     cart.some(
       item =>
-        isPrebook(item.cat)
+        isPrebook(
+          item
+        )
     );
 
 
-  const codAvailable =
-    distance <=
-    COD_RADIUS_KM;
+  const now =
+    new Date();
 
 
-  const deliveryCharge =
-    codAvailable
-      ? 0
-      : Math.ceil(distance) *
-        DELIVERY_RATE_PER_KM;
+  if (!hasPre) {
+
+    if (
+      !isWithinShopHours(
+        now
+      )
+    ) {
+
+      const day =
+        now.getDay();
 
 
-  /* =========================
-     PAYMENT VALIDATION
-     ========================= */
+      const hoursText =
+        day === 5
+          ? 'Friday: 3 PM – 9 PM'
+          : 'Regular days: 11 AM – 7 PM';
+
+
+      toast(
+        `Regular orders are currently closed. ${hoursText}`
+      );
+
+      return false;
+
+    }
+
+  }
+
+
+  /* PAYMENT */
+
+  const payment =
+    getOrderPayment();
+
+
+  if (!payment) {
+
+    toast(
+      'Please select a payment method.'
+    );
+
+    return false;
+
+  }
+
+
+  const tx =
+    getEl(
+      'cTx'
+    )?.value.trim() ||
+    '';
+
 
   if (
-    hasPre &&
-    !tx
+    payment !==
+    'Cash on Delivery'
   ) {
 
-    alert(
-      'Full payment is required for pre-booking orders. Please enter the transaction ID.'
-    );
+    if (!tx) {
 
-    return;
+      toast(
+        'Please enter the transaction ID or last 5 digits.'
+      );
+
+      return false;
+
+    }
+
   }
 
 
   if (
-    !hasPre &&
-    !codAvailable &&
-    !tx
-  ) {
-
-    alert(
-      'This location does not support COD. Please complete bKash/Nagad payment and enter the transaction ID.'
-    );
-
-    return;
-  }
-
-
-  if (
-    codAvailable &&
     payment ===
-      'Cash on Delivery'
+      'Cash on Delivery' &&
+    !delivery.codAvailable
   ) {
 
-    /* COD does not require transaction ID */
-
-  }
-
-  else if (!tx) {
-
-    alert(
-      'Please enter the transaction ID / last 5 digits for online payment.'
+    toast(
+      'Cash on Delivery is not available for this location.'
     );
 
-    return;
+    return false;
+
   }
 
 
-  /* =========================
-     TOTAL
-     ========================= */
+  /* PREBOOKING */
+
+  let selectedSlot =
+    '';
+
+
+  if (hasPre) {
+
+    const slotEl =
+      getEl(
+        'cSlot'
+      );
+
+
+    selectedSlot =
+      slotEl?.value ||
+      '';
+
+
+    if (!selectedSlot) {
+
+      toast(
+        'Please select a pre-booking time.'
+      );
+
+      return false;
+
+    }
+
+
+    const selectedDate =
+      new Date(
+        selectedSlot
+      );
+
+
+    const diffHours =
+      (
+        selectedDate.getTime() -
+        Date.now()
+      ) /
+      (
+        1000 *
+        60 *
+        60
+      );
+
+
+    if (
+      diffHours < 5 ||
+      diffHours > 12
+    ) {
+
+      toast(
+        'Pre-booking time must be 5–12 hours ahead.'
+      );
+
+      buildSlots();
+
+      return false;
+
+    }
+
+
+    if (
+      !isWithinShopHours(
+        selectedDate
+      )
+    ) {
+
+      toast(
+        'The selected time is outside shop hours.'
+      );
+
+      return false;
+
+    }
+
+  }
+
+
+  /* TOTAL */
 
   const subtotal =
     cart.reduce(
-      (sum, item) =>
+      (
+        sum,
+        item
+      ) =>
         sum +
-        item.price *
-        item.qty,
+        Number(
+          item.price || 0
+        ) *
+        Number(
+          item.qty || 0
+        ),
       0
     );
 
 
   const total =
     subtotal +
-    deliveryCharge;
+    Number(
+      delivery.deliveryCharge ||
+      0
+    );
 
 
-  /* =========================
-     PREBOOK SLOT
-     ========================= */
+  /* MAP */
 
-  let slot = '';
-
-
-  if (hasPre) {
-
-    const slotEl =
-      document.getElementById(
-        'prebookSlot'
-      );
+  const mapUrl =
+    `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
 
 
-    if (
-      !slotEl ||
-      !slotEl.value
-    ) {
-
-      alert(
-        'Please select a pre-booking delivery time.'
-      );
-
-      return;
-    }
-
-
-    slot =
-      slotEl.value;
-
-
-    const slotDate =
-      new Date(slot);
-
-
-    const minTime =
-      new Date(
-        Date.now() +
-        5 * 60 * 60 * 1000
-      );
-
-
-    const maxTime =
-      new Date(
-        Date.now() +
-        12 * 60 * 60 * 1000
-      );
-
-
-    if (
-      slotDate < minTime ||
-      slotDate > maxTime ||
-      !isWithinShopHours(
-        slotDate
-      )
-    ) {
-
-      alert(
-        'Please select a valid pre-booking slot within 5–12 hours and shop hours.'
-      );
-
-      buildSlots();
-
-      return;
-    }
-
-  } else {
-
-    /* =========================
-       REGULAR SHOP HOURS
-       ========================= */
-
-    const now =
-      new Date();
-
-
-    if (
-      !isWithinShopHours(now)
-    ) {
-
-      alert(
-
-        now.getDay() === 5
-
-          ? 'Friday order time is 3:00 PM–9:00 PM. Please order during shop hours.'
-
-          : 'Regular order time is 11:00 AM–7:00 PM. Pre-booking is available for Continental and Kacchi.'
-
-      );
-
-      return;
-    }
-  }
-
-
-  /* =======================================================
-     WHATSAPP ORDER MESSAGE
-     ======================================================= */
+  /* WHATSAPP MESSAGE */
 
   let text =
     `*NEW ORDER — CHEF SIFAT'S KITCHEN*\n\n`;
 
 
   text +=
-    cart
-      .map(
-        item =>
-          `• ${item.name} — ${item.choice} × ${item.qty} = ${money(
-            item.price *
-            item.qty
-          )}`
-      )
-      .join('\n');
+    `*Customer Information*\n`;
 
 
   text +=
-    `\n\n*Subtotal:* ${money(subtotal)}`;
+    `Name: ${name}\n`;
 
 
   text +=
-    `\n*Delivery Charge:* ${money(deliveryCharge)}`;
+    `Phone: ${phone}\n`;
 
 
   text +=
-    `\n*TOTAL:* ${money(total)}`;
+    `House/Building: ${house}\n`;
 
 
   text +=
-    `\n\n*Customer:* ${name}`;
+    `Road/Area: ${road}\n`;
 
 
-  text +=
-    `\n*Phone:* ${phone}`;
-
-
-  text +=
-    `\n*House/Building:* ${house}`;
-
-
-  text +=
-    `\n*Road/Area:* ${road}`;
-
-
-  text +=
-    `\n*Map Address:* ${
-      mapAddress ||
-      'Selected on map'
-    }`;
-
-
-  text +=
-    `\n*Distance:* ${distance.toFixed(2)} km`;
-
-
-  text +=
-    `\n*COD:* ${
-      codAvailable
-        ? 'Available'
-        : 'Not Available'
-    }`;
-
-
-  text +=
-    `\n*Payment:* ${payment}`;
-
-
-  text +=
-    `\n*Transaction ID:* ${
-      tx || 'N/A'
-    }`;
-
-
-  /* =========================
-     OPENSTREETMAP LOCATION
-     ========================= */
-
-  const mapUrl =
-    `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
-
-
-  text +=
-    `\n*Location:* ${mapUrl}`;
-
-
-  if (slot) {
+  if (mapAddress) {
 
     text +=
-      `\n*Pre-booking:* ${
-        new Date(slot)
-          .toLocaleString(
-            'en-BD'
-          )
-      }`;
+      `Selected Address: ${mapAddress}\n`;
+
   }
 
 
   text +=
-    `\n*Note:* ${
-      note || 'None'
-    }`;
+    `Location: ${mapUrl}\n`;
 
 
-  /* =========================
-     OPEN WHATSAPP
-     ========================= */
-
-  const whatsappUrl =
-    `https://wa.me/${SETTINGS.whatsapp}?text=` +
-    encodeURIComponent(text);
+  text +=
+    `Distance: ${delivery.distance.toFixed(
+      2
+    )} km\n`;
 
 
-  window.open(
-    whatsappUrl,
-    '_blank',
-    'noopener'
+  text +=
+    `COD Available: ${
+      delivery.codAvailable
+        ? 'YES'
+        : 'NO'
+    }\n\n`;
+
+
+  /* ITEMS */
+
+  text +=
+    `*Order Items*\n`;
+
+
+  cart.forEach(
+    item => {
+
+      text +=
+        `• ${item.name}`;
+
+
+      if (item.choice) {
+
+        text +=
+          ` — ${item.choice}`;
+
+      }
+
+
+      text +=
+        ` × ${item.qty} = ${money(
+          Number(
+            item.price || 0
+          ) *
+          Number(
+            item.qty || 0
+          )
+        )}\n`;
+
+    }
   );
 
 
-  /* =========================
-     CLEAR CART
-     ========================= */
+  /* TOTAL */
 
-  closeCheckout();
+  text +=
+    `\n*Payment & Delivery*\n`;
+
+
+  text +=
+    `Food subtotal: ${money(
+      subtotal
+    )}\n`;
+
+
+  text +=
+    `Delivery charge: ${money(
+      delivery.deliveryCharge
+    )}\n`;
+
+
+  text +=
+    `Total: ${money(
+      total
+    )}\n`;
+
+
+  text +=
+    `Payment method: ${payment}\n`;
+
+
+  if (tx) {
+
+    text +=
+      `Transaction ID / Last 5 digits: ${tx}\n`;
+
+  }
+
+
+  if (selectedSlot) {
+
+    const slotDate =
+      new Date(
+        selectedSlot
+      );
+
+
+    text +=
+      `Pre-booking time: ${formatDateTime(
+        slotDate
+      )}\n`;
+
+  }
+
+
+  if (note) {
+
+    text +=
+      `\nCustomer note: ${note}\n`;
+
+  }
+
+
+  text +=
+    `\nThank you for ordering from Chef Sifat's Kitchen.`;
+
+
+  /* WHATSAPP */
+
+  const whatsappUrl =
+    `https://wa.me/${SETTINGS.whatsapp}?text=` +
+    encodeURIComponent(
+      text
+    );
+
+
+  try {
+
+    window.open(
+      whatsappUrl,
+      '_blank'
+    );
+
+  } catch (error) {
+
+    window.location.href =
+      whatsappUrl;
+
+  }
+
+
+  /* CLEAR */
 
   cart = [];
 
   saveCart();
 
+  updateCount();
+
+  renderCart();
+
+  closeCheckout();
+
 
   toast(
-    'Order details prepared ✓'
+    'Order details prepared successfully.'
   );
+
+
+  return true;
+
 }
 
 
 /* =========================================================
    TOAST
-   ========================================================= */
+========================================================= */
 
-function toast(message) {
+function toast(
+  message
+) {
 
-  const x =
-    document.createElement(
-      'div'
+  let toastEl =
+    getEl(
+      'toast'
     );
 
 
-  x.textContent =
+  if (!toastEl) {
+
+    toastEl =
+      document.createElement(
+        'div'
+      );
+
+
+    toastEl.id =
+      'toast';
+
+
+    toastEl.className =
+      'toast';
+
+
+    document.body.appendChild(
+      toastEl
+    );
+
+  }
+
+
+  toastEl.textContent =
     message;
 
 
-  x.style.cssText = [
-
-    'position:fixed',
-
-    'left:50%',
-
-    'bottom:25px',
-
-    'transform:translateX(-50%)',
-
-    'z-index:99999',
-
-    'background:#e8a323',
-
-    'color:#111',
-
-    'padding:11px 18px',
-
-    'border-radius:999px',
-
-    'font-weight:800',
-
-    'box-shadow:0 10px 30px #000'
-
-  ].join(';');
-
-
-  document.body.appendChild(
-    x
+  toastEl.classList.add(
+    'show'
   );
 
 
-  setTimeout(
-    () => x.remove(),
-    1800
+  clearTimeout(
+    toastEl._timer
   );
+
+
+  toastEl._timer =
+    setTimeout(
+      () => {
+
+        toastEl.classList.remove(
+          'show'
+        );
+
+      },
+      3000
+    );
+
 }
 
 
 /* =========================================================
    CATEGORY TABS
-   ========================================================= */
+========================================================= */
 
-document
-  .querySelectorAll('.tab')
-  .forEach(button => {
+function setupCategoryTabs() {
 
-    button.addEventListener(
-      'click',
-      () => {
+  const tabs =
+    document.querySelectorAll(
+      '[data-category]'
+    );
 
-        document
-          .querySelectorAll('.tab')
-          .forEach(x =>
-            x.classList.remove(
-              'active'
-            )
+
+  tabs.forEach(
+    tab => {
+
+      tab.addEventListener(
+        'click',
+        () => {
+
+          currentCategory =
+            tab.dataset.category ||
+            'all';
+
+
+          tabs.forEach(
+            other =>
+              other.classList.remove(
+                'active'
+              )
           );
 
 
-        button.classList.add(
-          'active'
-        );
+          tab.classList.add(
+            'active'
+          );
 
 
-        activeFilter =
-          button.dataset.filter;
+          renderMenu();
 
+        }
+      );
 
-        renderMenu();
-      }
-    );
+    }
+  );
 
-  });
+}
 
 
 /* =========================================================
    SEARCH
-   ========================================================= */
+========================================================= */
 
-document
-  .getElementById('search')
-  ?.addEventListener(
+function setupSearch() {
+
+  const search =
+    getEl(
+      'search'
+    );
+
+
+  if (!search)
+    return;
+
+
+  search.addEventListener(
     'input',
-    renderMenu
+    () => {
+
+      renderMenu();
+
+    }
   );
+
+}
+
+
+/* =========================================================
+   PAYMENT EVENT
+========================================================= */
+
+document.addEventListener(
+  'change',
+  event => {
+
+    if (
+      event.target &&
+      event.target.name ===
+        'fpPayment'
+    ) {
+
+      syncFoodpandaPayment();
+
+    }
+
+  }
+);
 
 
 /* =========================================================
    YEAR
-   ========================================================= */
+========================================================= */
 
-const year =
-  document.getElementById(
-    'year'
-  );
+function updateYear() {
+
+  const year =
+    getEl(
+      'year'
+    );
 
 
-if (year) {
+  if (year) {
 
-  year.textContent =
-    new Date().getFullYear();
+    year.textContent =
+      new Date()
+        .getFullYear();
+
+  }
+
 }
 
 
 /* =========================================================
    INITIAL LOAD
-   ========================================================= */
+========================================================= */
 
-renderMenu();
+document.addEventListener(
+  'DOMContentLoaded',
+  () => {
 
-updateCount();
+    renderMenu();
 
-renderCart();
+    updateCount();
+
+    renderCart();
+
+    setupCategoryTabs();
+
+    setupSearch();
+
+    updateYear();
+
+  }
+);
+
+
+/* =========================================================
+   GLOBAL FUNCTIONS
+========================================================= */
+
+window.renderMenu =
+  renderMenu;
+
+window.addItemToCart =
+  addItemToCart;
+
+window.addToCart =
+  addToCart;
+
+window.addToCartByName =
+  addToCartByName;
+
+window.updateCount =
+  updateCount;
+
+window.openCart =
+  openCart;
+
+window.closeCart =
+  closeCart;
+
+window.renderCart =
+  renderCart;
+
+window.changeQty =
+  changeQty;
+
+window.removeItem =
+  removeItem;
+
+window.checkout =
+  checkout;
+
+window.closeCheckout =
+  closeCheckout;
+
+window.buildPaymentBlock =
+  buildPaymentBlock;
+
+window.updatePaymentOptions =
+  updatePaymentOptions;
+
+window.useCurrentLocation =
+  useCurrentLocation;
+
+window.openLocationMap =
+  openLocationMap;
+
+window.resetLocation =
+  resetLocation;
+
+window.createOrMoveMarker =
+  createOrMoveMarker;
+
+window.setDeliveryLocation =
+  setDeliveryLocation;
+
+window.calculateDistance =
+  calculateDistance;
+
+window.calculateDelivery =
+  calculateDelivery;
+
+window.reverseGeocode =
+  reverseGeocode;
+
+window.placeOrder =
+  placeOrder;
+
+window.toast =
+  toast;
+
+
+/* =========================================================
+   END OF APP.JS
+========================================================= */
