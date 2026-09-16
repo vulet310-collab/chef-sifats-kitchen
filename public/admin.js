@@ -1,2427 +1,2686 @@
-'use strict';
-
-
-
 /* =========================================================
-   ADMIN STATE
-========================================================= */
+   CHEF SIFAT'S KITCHEN — ADMIN PANEL
+   Compatible with fresh admin.html
+   ========================================================= */
 
-let adminToken =
-  localStorage.getItem(
-    'csk_admin_token'
-  ) || '';
+(() => {
+  'use strict';
 
+  const API = '/api';
 
+  let adminToken =
+    localStorage.getItem('csk_admin_token') || '';
 
-let adminMenu = [];
+  let adminUser =
+    localStorage.getItem('csk_admin_user') || '';
 
-let adminOrders = [];
+  let currentView = 'dashboard';
 
-let adminReviews = [];
+  /* =======================================================
+     BASIC HELPERS
+     ======================================================= */
 
-let adminCustomers = [];
-
-let adminSettings = {};
-
-
-
-/* =========================================================
-   HELPERS
-========================================================= */
-
-function aesc(value) {
-
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-}
-
-
-
-function amoney(value) {
-
-  return '৳' +
-    Number(value || 0)
-      .toLocaleString('en-BD', {
-        maximumFractionDigits: 0
-      });
-
-}
-
-
-
-async function api(
-  url,
-  options = {}
-) {
-
-  const headers =
-    options.headers || {};
-
-
-  headers.Authorization =
-    `Bearer ${adminToken}`;
-
-
-  if (
-    options.body &&
-    !headers['Content-Type']
-  ) {
-
-    headers['Content-Type'] =
-      'application/json';
-
+  function $(id) {
+    return document.getElementById(id);
   }
 
+  function esc(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
 
-  const response =
-    await fetch(
-      url,
+  function money(value) {
+    const n = Number(value || 0);
+    return `৳${n.toLocaleString('en-BD')}`;
+  }
+
+  function setView(html, title = '') {
+    const view = $('view');
+    if (view) view.innerHTML = html;
+
+    const pageTitle = $('pageTitle');
+    if (pageTitle && title) {
+      pageTitle.textContent = title;
+    }
+  }
+
+  function showApp() {
+    if ($('login')) $('login').style.display = 'none';
+    if ($('app')) $('app').style.display = 'flex';
+
+    const userBox = $('adminUser');
+    if (userBox) {
+      userBox.textContent = adminUser
+        ? `Admin: ${adminUser}`
+        : 'Admin';
+    }
+  }
+
+  function showLogin() {
+    if ($('login')) $('login').style.display = 'flex';
+    if ($('app')) $('app').style.display = 'none';
+  }
+
+  /* =======================================================
+     API
+     ======================================================= */
+
+  async function api(path, options = {}) {
+    const headers = {
+      ...(options.headers || {})
+    };
+
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    if (adminToken) {
+      headers.Authorization = `Bearer ${adminToken}`;
+    }
+
+    const response = await fetch(
+      `${API}${path}`,
       {
         ...options,
         headers
       }
     );
 
+    let data = null;
 
-  if (
-    response.status ===
-    401
-  ) {
-
-    adminLogout();
-
-    throw new Error(
-      'Admin session expired.'
-    );
-
-  }
-
-
-  const data =
-    await response.json();
-
-
-  if (
-    !response.ok ||
-    data.ok === false
-  ) {
-
-    throw new Error(
-      data.message ||
-      'Request failed.'
-    );
-
-  }
-
-
-  return data;
-
-}
-
-
-
-/* =========================================================
-   LOGIN
-========================================================= */
-
-async function adminLogin() {
-
-  const username =
-    document
-      .getElementById(
-        'adminUsername'
-      )
-      ?.value
-      .trim();
-
-
-  const password =
-    document
-      .getElementById(
-        'adminPassword'
-      )
-      ?.value;
-
-
-  const message =
-    document.getElementById(
-      'loginMessage'
-    );
-
-
-  if (
-    !username ||
-    !password
-  ) {
-
-    if (message) {
-
-      message.textContent =
-        'Username and password required.';
-
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
     }
 
-    return;
+    if (response.status === 401) {
+      logout(false);
+      throw new Error(
+        data.message || 'Admin session expired.'
+      );
+    }
 
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+        data.error ||
+        `Request failed (${response.status})`
+      );
+    }
+
+    return data;
   }
 
+  /* =======================================================
+     LOGIN
+     ======================================================= */
 
-  try {
+  async function adminLogin(event) {
+    if (event) event.preventDefault();
 
-    const response =
-      await fetch(
-        '/api/admin/login',
+    const username =
+      $('username')?.value.trim() || '';
+
+    const password =
+      $('password')?.value || '';
+
+    const message = $('loginMessage');
+    const button = $('loginBtn');
+
+    if (!username || !password) {
+      if (message) {
+        message.textContent =
+          'Username and password are required.';
+      }
+      return;
+    }
+
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Logging in...';
+    }
+
+    if (message) {
+      message.textContent = '';
+    }
+
+    try {
+      const data = await api(
+        '/admin/login',
         {
-
           method: 'POST',
-
-          headers: {
-
-            'Content-Type':
-              'application/json'
-
-          },
-
-          body:
-            JSON.stringify({
-              username,
-              password
-            })
-
+          body: JSON.stringify({
+            username,
+            password
+          })
         }
       );
 
+      adminToken =
+        data.token ||
+        data.accessToken ||
+        data.adminToken ||
+        '';
 
-    const data =
-      await response.json();
+      adminUser =
+        data.username ||
+        data.user?.username ||
+        username;
 
+      if (!adminToken) {
+        throw new Error(
+          'Login successful but no admin token was received.'
+        );
+      }
 
-    if (
-      !response.ok ||
-      !data.ok
-    ) {
-
-      throw new Error(
-        data.message ||
-        'Login failed.'
+      localStorage.setItem(
+        'csk_admin_token',
+        adminToken
       );
 
-    }
-
-
-    adminToken =
-      data.token ||
-      data.accessToken ||
-      '';
-
-
-    if (!adminToken) {
-
-      throw new Error(
-        'No admin token returned.'
+      localStorage.setItem(
+        'csk_admin_user',
+        adminUser
       );
 
+      showApp();
+      await dash();
+
+    } catch (error) {
+      console.error(error);
+
+      if (message) {
+        message.textContent =
+          error.message || 'Login failed.';
+      }
+
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Login';
+      }
     }
+  }
 
+  /* =======================================================
+     LOGOUT
+     ======================================================= */
 
-    localStorage.setItem(
-      'csk_admin_token',
-      adminToken
+  function logout(showMessage = true) {
+    adminToken = '';
+    adminUser = '';
+
+    localStorage.removeItem(
+      'csk_admin_token'
     );
 
+    localStorage.removeItem(
+      'csk_admin_user'
+    );
 
-    showApp();
+    showLogin();
 
-    dash();
-
-
-  } catch (error) {
-
-    if (message) {
-
-      message.textContent =
-        error.message ||
-        'Login failed.';
-
-      message.style.color =
-        '#b00000';
-
+    if (showMessage && $('loginMessage')) {
+      $('loginMessage').textContent =
+        'You have been logged out.';
     }
-
   }
 
-}
+  /* =======================================================
+     DASHBOARD
+     ======================================================= */
 
+  async function dash() {
+    currentView = 'dashboard';
 
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Dashboard</h2>
+            <p>Chef Sifat's Kitchen overview</p>
+          </div>
+          <button class="btn" onclick="dash()">
+            ↻ Refresh
+          </button>
+        </div>
 
-/* =========================================================
-   SHOW APP
-========================================================= */
+        <div class="stats" id="dashboardStats">
+          <div class="stat-card">
+            <span>Loading...</span>
+          </div>
+        </div>
 
-function showApp() {
-
-  const login =
-    document.getElementById(
-      'login'
+        <div class="panel">
+          <h3>Recent Orders</h3>
+          <div id="recentOrders">
+            Loading...
+          </div>
+        </div>
+      `,
+      'Dashboard'
     );
 
-  const app =
-    document.getElementById(
-      'app'
-    );
-
-
-  if (login) {
-    login.style.display =
-      'none';
-  }
-
-
-  if (app) {
-    app.style.display =
-      'block';
-  }
-
-}
-
-
-
-function adminLogout() {
-
-  adminToken = '';
-
-  localStorage.removeItem(
-    'csk_admin_token'
-  );
-
-
-  const login =
-    document.getElementById(
-      'login'
-    );
-
-  const app =
-    document.getElementById(
-      'app'
-    );
-
-
-  if (app) {
-    app.style.display =
-      'none';
-  }
-
-
-  if (login) {
-    login.style.display =
-      'flex';
-  }
-
-}
-
-
-
-/* =========================================================
-   DASHBOARD
-========================================================= */
-
-async function dash() {
-
-  const view =
-    document.getElementById(
-      'view'
-    );
-
-
-  if (!view) return;
-
-
-  view.innerHTML =
-    '<h2>Loading dashboard...</h2>';
-
-
-  try {
-
-    const [
-      orderData,
-      menuData,
-      reviewData,
-      customerData
-    ] =
-      await Promise.all([
-
-        api(
-          '/api/admin/orders'
-        ),
-
-        api(
-          '/api/admin/menu'
-        ),
-
-        api(
-          '/api/admin/reviews'
-        ),
-
-        api(
-          '/api/admin/customers'
-        )
-
+    try {
+      const [
+        ordersData,
+        menuData,
+        reviewsData,
+        customersData
+      ] = await Promise.all([
+        api('/admin/orders'),
+        api('/admin/menu'),
+        api('/admin/reviews'),
+        api('/admin/customers')
       ]);
 
+      const orders =
+        Array.isArray(ordersData)
+          ? ordersData
+          : ordersData.orders || [];
 
-    adminOrders =
-      orderData.orders ||
-      orderData.items ||
-      [];
+      const menu =
+        Array.isArray(menuData)
+          ? menuData
+          : menuData.menu ||
+            menuData.items ||
+            [];
 
+      const reviews =
+        Array.isArray(reviewsData)
+          ? reviewsData
+          : reviewsData.reviews || [];
 
-    adminMenu =
-      menuData.menu ||
-      menuData.items ||
-      [];
+      const customers =
+        Array.isArray(customersData)
+          ? customersData
+          : customersData.customers || [];
 
+      const pending =
+        orders.filter(
+          o =>
+            String(
+              o.status || ''
+            ).toLowerCase() === 'pending'
+        ).length;
 
-    adminReviews =
-      reviewData.reviews ||
-      reviewData.items ||
-      [];
+      const completed =
+        orders.filter(
+          o =>
+            String(
+              o.status || ''
+            ).toLowerCase() === 'completed'
+        ).length;
 
+      const activeMenu =
+        menu.filter(
+          item => item.active !== false
+        ).length;
 
-    adminCustomers =
-      customerData.customers ||
-      customerData.items ||
-      [];
+      const stats = $('dashboardStats');
 
+      if (stats) {
+        stats.innerHTML = `
+          <div class="stat-card">
+            <b>${orders.length}</b>
+            <span>Total Orders</span>
+          </div>
 
-    const pending =
-      adminOrders.filter(
-        o =>
-          String(
-            o.status ||
-            ''
-          ).toLowerCase() ===
-          'pending'
-      ).length;
+          <div class="stat-card">
+            <b>${pending}</b>
+            <span>Pending Orders</span>
+          </div>
 
+          <div class="stat-card">
+            <b>${completed}</b>
+            <span>Completed</span>
+          </div>
 
-    const revenue =
-      adminOrders.reduce(
-        (
-          sum,
-          order
-        ) =>
-          sum +
-          Number(
-            order.total ||
-            order.grandTotal ||
-            0
-          ),
-        0
-      );
+          <div class="stat-card">
+            <b>${customers.length}</b>
+            <span>Customers</span>
+          </div>
 
+          <div class="stat-card">
+            <b>${activeMenu}</b>
+            <span>Active Menu Items</span>
+          </div>
 
-    view.innerHTML = `
+          <div class="stat-card">
+            <b>${reviews.length}</b>
+            <span>Reviews</span>
+          </div>
+        `;
+      }
 
-      <h2>
-        📊 Dashboard
-      </h2>
+      const recent =
+        orders
+          .slice()
+          .sort(
+            (a, b) =>
+              new Date(
+                b.createdAt || 0
+              ) -
+              new Date(
+                a.createdAt || 0
+              )
+          )
+          .slice(0, 8);
 
+      const box = $('recentOrders');
 
-      <div class="grid">
+      if (!box) return;
 
-        <div class="card">
+      if (!recent.length) {
+        box.innerHTML =
+          '<p>No orders found.</p>';
+        return;
+      }
 
-          <h3>
-            Orders
-          </h3>
+      box.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
 
-          <strong>
-            ${adminOrders.length}
-          </strong>
+            <tbody>
+              ${recent.map(order => `
+                <tr>
+                  <td>
+                    #${esc(
+                      order.id ||
+                      order.orderId ||
+                      ''
+                    )}
+                  </td>
 
+                  <td>
+                    ${esc(
+                      order.customer?.name ||
+                      order.name ||
+                      'Customer'
+                    )}
+                  </td>
+
+                  <td>
+                    ${money(
+                      order.total ||
+                      order.grandTotal ||
+                      0
+                    )}
+                  </td>
+
+                  <td>
+                    <span class="badge">
+                      ${esc(
+                        order.status ||
+                        'pending'
+                      )}
+                    </span>
+                  </td>
+
+                  <td>
+                    ${formatDate(
+                      order.createdAt
+                    )}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
         </div>
+      `;
 
+    } catch (error) {
+      console.error(error);
 
-        <div class="card">
+      const box = $('recentOrders');
 
-          <h3>
-            Pending
-          </h3>
-
-          <strong>
-            ${pending}
-          </strong>
-
-        </div>
-
-
-        <div class="card">
-
-          <h3>
-            Menu Items
-          </h3>
-
-          <strong>
-            ${adminMenu.length}
-          </strong>
-
-        </div>
-
-
-        <div class="card">
-
-          <h3>
-            Customers
-          </h3>
-
-          <strong>
-            ${adminCustomers.length}
-          </strong>
-
-        </div>
-
-
-        <div class="card">
-
-          <h3>
-            Reviews
-          </h3>
-
-          <strong>
-            ${adminReviews.length}
-          </strong>
-
-        </div>
-
-
-        <div class="card">
-
-          <h3>
-            Order Value
-          </h3>
-
-          <strong>
-            ${amoney(revenue)}
-          </strong>
-
-        </div>
-
-      </div>
-
-    `;
-
-  } catch (error) {
-
-    view.innerHTML = `
-
-      <h2>
-        Dashboard
-      </h2>
-
-      <p>
-        ${aesc(
-          error.message
-        )}
-      </p>
-
-    `;
-
+      if (box) {
+        box.innerHTML = `
+          <p class="error">
+            ${esc(error.message)}
+          </p>
+        `;
+      }
+    }
   }
 
-}
+  /* =======================================================
+     ORDERS
+     ======================================================= */
 
+  async function orders() {
+    currentView = 'orders';
 
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Orders</h2>
+            <p>Manage customer orders</p>
+          </div>
 
-/* =========================================================
-   ORDERS
-========================================================= */
+          <button class="btn" onclick="orders()">
+            ↻ Refresh
+          </button>
+        </div>
 
-async function orders() {
-
-  const view =
-    document.getElementById(
-      'view'
+        <div id="ordersBox">
+          Loading orders...
+        </div>
+      `,
+      'Orders'
     );
 
+    try {
+      const data =
+        await api('/admin/orders');
 
-  view.innerHTML =
-    '<h2>Loading orders...</h2>';
+      const list =
+        Array.isArray(data)
+          ? data
+          : data.orders || [];
 
+      const box = $('ordersBox');
 
-  try {
+      if (!box) return;
 
-    const data =
-      await api(
-        '/api/admin/orders'
-      );
+      if (!list.length) {
+        box.innerHTML =
+          '<p>No orders found.</p>';
+        return;
+      }
 
+      const sorted =
+        list.slice().sort(
+          (a, b) =>
+            new Date(
+              b.createdAt || 0
+            ) -
+            new Date(
+              a.createdAt || 0
+            )
+        );
 
-    adminOrders =
-      data.orders ||
-      data.items ||
-      [];
+      box.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Items</th>
+                <th>Total</th>
+                <th>Payment</th>
+                <th>Status</th>
+                <th>Time</th>
+                <th>Action</th>
+              </tr>
+            </thead>
 
+            <tbody>
+              ${sorted.map(order => {
 
-    if (!adminOrders.length) {
+                const items =
+                  Array.isArray(order.items)
+                    ? order.items
+                    : [];
 
-      view.innerHTML =
-        '<h2>📦 Orders</h2><p>No orders.</p>';
+                return `
+                  <tr>
+                    <td>
+                      <b>
+                        #${esc(
+                          order.id ||
+                          order.orderId ||
+                          ''
+                        )}
+                      </b>
+                    </td>
 
-      return;
+                    <td>
+                      ${esc(
+                        order.customer?.name ||
+                        order.name ||
+                        'Customer'
+                      )}
+                    </td>
 
+                    <td>
+                      ${esc(
+                        order.customer?.phone ||
+                        order.phone ||
+                        ''
+                      )}
+                    </td>
+
+                    <td>
+                      ${items.map(item => `
+                        <div>
+                          ${esc(
+                            item.name ||
+                            'Item'
+                          )}
+                          ×
+                          ${Number(
+                            item.qty || 1
+                          )}
+                          ${
+                            item.choice
+                              ? `(${esc(item.choice)})`
+                              : ''
+                          }
+                        </div>
+                      `).join('')}
+                    </td>
+
+                    <td>
+                      <b>
+                        ${money(
+                          order.total ||
+                          order.grandTotal ||
+                          0
+                        )}
+                      </b>
+                    </td>
+
+                    <td>
+                      ${esc(
+                        order.paymentMethod ||
+                        order.payment?.method ||
+                        'COD'
+                      )}
+                    </td>
+
+                    <td>
+                      <select
+                        onchange="updateOrderStatus(
+                          '${esc(
+                            order.id ||
+                            order.orderId ||
+                            ''
+                          )}',
+                          this.value
+                        )"
+                      >
+                        ${[
+                          'pending',
+                          'confirmed',
+                          'preparing',
+                          'out_for_delivery',
+                          'completed',
+                          'cancelled'
+                        ].map(status => `
+                          <option
+                            value="${status}"
+                            ${
+                              String(
+                                order.status ||
+                                'pending'
+                              ).toLowerCase() ===
+                              status
+                                ? 'selected'
+                                : ''
+                            }
+                          >
+                            ${status.replace(
+                              /_/g,
+                              ' '
+                            )}
+                          </option>
+                        `).join('')}
+                      </select>
+                    </td>
+
+                    <td>
+                      ${formatDate(
+                        order.deliveryTime ||
+                        order.createdAt
+                      )}
+                    </td>
+
+                    <td>
+                      <button
+                        class="small-btn"
+                        onclick="viewOrder(
+                          '${esc(
+                            order.id ||
+                            order.orderId ||
+                            ''
+                          )}'
+                        )"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+    } catch (error) {
+      const box = $('ordersBox');
+
+      if (box) {
+        box.innerHTML = `
+          <p class="error">
+            ${esc(error.message)}
+          </p>
+        `;
+      }
     }
+  }
 
+  /* =======================================================
+     ORDER STATUS
+     ======================================================= */
 
-    view.innerHTML = `
+  async function updateOrderStatus(
+    id,
+    status
+  ) {
+    if (!id) return;
 
-      <h2>
-        📦 Orders
-      </h2>
-
-
-      <div class="table-wrap">
-
-        <table>
-
-          <thead>
-
-            <tr>
-
-              <th>
-                Order
-              </th>
-
-              <th>
-                Customer
-              </th>
-
-              <th>
-                Total
-              </th>
-
-              <th>
-                Payment
-              </th>
-
-              <th>
-                Status
-              </th>
-
-              <th>
-                Action
-              </th>
-
-            </tr>
-
-          </thead>
-
-
-          <tbody id="ordersTable"></tbody>
-
-        </table>
-
-      </div>
-
-    `;
-
-
-    const tbody =
-      document.getElementById(
-        'ordersTable'
+    try {
+      await api(
+        `/admin/orders/${encodeURIComponent(id)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            status
+          })
+        }
       );
 
+      await orders();
 
-    adminOrders.forEach(
-      function (order) {
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not update order.'
+      );
 
-        const tr =
-          document.createElement(
-            'tr'
-          );
+      await orders();
+    }
+  }
 
+  /* =======================================================
+     VIEW SINGLE ORDER
+     ======================================================= */
 
-        tr.innerHTML = `
+  async function viewOrder(id) {
+    if (!id) return;
 
-          <td>
-            ${aesc(
-              order.id ||
-              order.orderId ||
-              ''
-            )}
-          </td>
+    try {
+      const data =
+        await api(
+          `/admin/orders/${encodeURIComponent(id)}`
+        );
 
+      const order =
+        data.order || data;
 
-          <td>
-            ${aesc(
-              order.customer?.name ||
-              order.name ||
-              ''
-            )}
+      const items =
+        Array.isArray(order.items)
+          ? order.items
+          : [];
 
-            <br>
+      setView(
+        `
+          <div class="page-head">
+            <div>
+              <h2>
+                Order #${esc(
+                  order.id ||
+                  order.orderId ||
+                  id
+                )}
+              </h2>
+              <p>Order details</p>
+            </div>
 
-            ${aesc(
-              order.customer?.phone ||
-              order.phone ||
-              ''
-            )}
-          </td>
+            <button
+              class="btn"
+              onclick="orders()"
+            >
+              ← Back
+            </button>
+          </div>
 
+          <div class="panel">
+            <h3>Customer</h3>
 
-          <td>
-            ${amoney(
-              order.total ||
-              order.grandTotal
-            )}
-          </td>
+            <p>
+              <b>Name:</b>
+              ${esc(
+                order.customer?.name ||
+                order.name ||
+                ''
+              )}
+            </p>
 
+            <p>
+              <b>Phone:</b>
+              ${esc(
+                order.customer?.phone ||
+                order.phone ||
+                ''
+              )}
+            </p>
 
-          <td>
-            ${aesc(
-              order.paymentMethod ||
-              ''
-            )}
-          </td>
+            <p>
+              <b>Email:</b>
+              ${esc(
+                order.customer?.email ||
+                order.email ||
+                ''
+              )}
+            </p>
+          </div>
 
+          <div class="panel">
+            <h3>Delivery</h3>
 
-          <td>
-            ${aesc(
-              order.status ||
-              'Pending'
-            )}
-          </td>
+            <p>
+              <b>Address:</b>
+              ${esc(
+                order.address ||
+                order.deliveryAddress ||
+                ''
+              )}
+            </p>
 
+            <p>
+              <b>Delivery Time:</b>
+              ${formatDate(
+                order.deliveryTime
+              )}
+            </p>
 
-          <td>
+            <p>
+              <b>Distance:</b>
+              ${esc(
+                order.distanceKm ??
+                order.location?.distanceKm ??
+                ''
+              )} km
+            </p>
+          </div>
 
-            <select
-              class="admin-input"
-              onchange="
-                updateOrderStatus(
-                  '${aesc(
-                    order.id ||
-                    order.orderId
-                  )}',
-                  this.value
-                )
-              "
+          <div class="panel">
+            <h3>Items</h3>
+
+            ${items.map(item => `
+              <div class="order-item">
+                <b>
+                  ${esc(
+                    item.name ||
+                    'Item'
+                  )}
+                </b>
+
+                ${
+                  item.choice
+                    ? `<span>
+                        ${esc(item.choice)}
+                      </span>`
+                    : ''
+                }
+
+                <span>
+                  × ${Number(
+                    item.qty || 1
+                  )}
+                </span>
+
+                <strong>
+                  ${money(
+                    Number(item.price || 0) *
+                    Number(item.qty || 1)
+                  )}
+                </strong>
+              </div>
+            `).join('')}
+
+            <hr>
+
+            <h3>
+              Total:
+              ${money(
+                order.total ||
+                order.grandTotal ||
+                0
+              )}
+            </h3>
+          </div>
+        `,
+        `Order #${id}`
+      );
+
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not load order.'
+      );
+    }
+  }
+
+  /* =======================================================
+     MENU
+     ======================================================= */
+
+  async function menu() {
+    currentView = 'menu';
+
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Menu</h2>
+            <p>Manage food items, prices and pre-order settings</p>
+          </div>
+
+          <div>
+            <button
+              class="btn"
+              onclick="showAddMenuForm()"
+            >
+              + Add Item
+            </button>
+
+            <button
+              class="btn"
+              onclick="menu()"
+            >
+              ↻ Refresh
+            </button>
+          </div>
+        </div>
+
+        <div id="menuBox">
+          Loading menu...
+        </div>
+      `,
+      'Menu'
+    );
+
+    try {
+      const data =
+        await api('/admin/menu');
+
+      const list =
+        Array.isArray(data)
+          ? data
+          : data.menu ||
+            data.items ||
+            [];
+
+      const box = $('menuBox');
+
+      if (!box) return;
+
+      if (!list.length) {
+        box.innerHTML =
+          '<p>No menu items found.</p>';
+        return;
+      }
+
+      box.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Sizes / Prices</th>
+                <th>Pre-order</th>
+                <th>Active</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${list.map(item => {
+
+                const sizes =
+                  Array.isArray(item.sizes)
+                    ? item.sizes
+                    : [];
+
+                const pizza =
+                  String(
+                    item.cat || ''
+                  ).toLowerCase() ===
+                  'pizza';
+
+                return `
+                  <tr>
+                    <td>
+                      ${
+                        item.image
+                          ? `<img
+                              src="${esc(item.image)}"
+                              class="menu-thumb"
+                              alt=""
+                            >`
+                          : '—'
+                      }
+                    </td>
+
+                    <td>
+                      <b>
+                        ${esc(
+                          item.name ||
+                          ''
+                        )}
+                      </b>
+                    </td>
+
+                    <td>
+                      ${esc(
+                        item.cat ||
+                        ''
+                      )}
+                    </td>
+
+                    <td>
+                      ${
+                        sizes.length
+                          ? sizes.map(
+                              (s, i) => `
+                                <div>
+                                  ${esc(
+                                    Array.isArray(s)
+                                      ? s[0]
+                                      : s?.label ||
+                                        `Size ${i + 1}`
+                                  )}
+                                  :
+                                  ${money(
+                                    Array.isArray(s)
+                                      ? s[1]
+                                      : s?.price
+                                  )}
+                                </div>
+                              `
+                            ).join('')
+                          : money(
+                              item.price
+                            )
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        pizza
+                          ? '<span class="badge">OFF</span>'
+                          : `
+                            <span class="badge">
+                              ${
+                                item.prebook
+                                  ? 'ON'
+                                  : 'OFF'
+                              }
+                            </span>
+                          `
+                      }
+                    </td>
+
+                    <td>
+                      ${
+                        item.active !== false
+                          ? 'ON'
+                          : 'OFF'
+                      }
+                    </td>
+
+                    <td>
+                      <button
+                        class="small-btn"
+                        onclick="editMenuItem(
+                          '${esc(
+                            item.id
+                          )}'
+                        )"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        class="small-btn danger"
+                        onclick="deleteMenuItem(
+                          '${esc(
+                            item.id
+                          )}'
+                        )"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } catch (error) {
+      const box = $('menuBox');
+
+      if (box) {
+        box.innerHTML = `
+          <p class="error">
+            ${esc(error.message)}
+          </p>
+        `;
+      }
+    }
+  }
+
+  /* =======================================================
+     ADD MENU FORM
+     ======================================================= */
+
+  function showAddMenuForm() {
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Add Menu Item</h2>
+            <p>Create a new food item</p>
+          </div>
+
+          <button
+            class="btn"
+            onclick="menu()"
+          >
+            ← Back
+          </button>
+        </div>
+
+        <div class="panel">
+          <form
+            id="menuForm"
+            onsubmit="saveNewMenuItem(event)"
+          >
+
+            <label>Name</label>
+            <input
+              id="mName"
+              required
+              placeholder="Food name"
             >
 
-              ${[
-                'Pending',
-                'Confirmed',
-                'Preparing',
-                'Out for Delivery',
-                'Delivered',
-                'Cancelled'
-              ].map(
-                status =>
-                  `<option
+            <label>Category</label>
+            <select id="mCat">
+              <option>Pizza</option>
+              <option>Momo</option>
+              <option>Continental</option>
+              <option>Kacchi</option>
+            </select>
+
+            <label>Base Price</label>
+            <input
+              id="mPrice"
+              type="number"
+              min="0"
+              placeholder="Price"
+            >
+
+            <label>Description</label>
+            <textarea
+              id="mDescription"
+              placeholder="Description"
+            ></textarea>
+
+            <label>
+              <input
+                id="mPrebook"
+                type="checkbox"
+              >
+              Pre-order ON
+            </label>
+
+            <label>
+              <input
+                id="mActive"
+                type="checkbox"
+                checked
+              >
+              Active
+            </label>
+
+            <button
+              class="btn"
+              type="submit"
+            >
+              Save Item
+            </button>
+
+          </form>
+        </div>
+      `,
+      'Add Menu Item'
+    );
+
+    const catSelect = $('mCat');
+
+    if (catSelect) {
+      catSelect.addEventListener(
+        'change',
+        () => {
+          if (
+            catSelect.value === 'Pizza' ||
+            catSelect.value === 'Momo'
+          ) {
+            if ($('mPrebook')) {
+              $('mPrebook').checked = false;
+            }
+          }
+        }
+      );
+    }
+  }
+
+  async function saveNewMenuItem(event) {
+    event.preventDefault();
+
+    const cat =
+      $('mCat')?.value || 'Pizza';
+
+    const payload = {
+      name:
+        $('mName')?.value.trim() || '',
+
+      cat,
+
+      price:
+        Number(
+          $('mPrice')?.value || 0
+        ),
+
+      description:
+        $('mDescription')?.value.trim() ||
+        '',
+
+      prebook:
+        cat === 'Pizza' ||
+        cat === 'Momo'
+          ? false
+          : Boolean(
+              $('mPrebook')?.checked
+            ),
+
+      active:
+        Boolean(
+          $('mActive')?.checked
+        )
+    };
+
+    if (!payload.name) {
+      alert('Enter item name.');
+      return;
+    }
+
+    try {
+      await api(
+        '/admin/menu',
+        {
+          method: 'POST',
+          body: JSON.stringify(
+            payload
+          )
+        }
+      );
+
+      alert(
+        'Menu item added successfully.'
+      );
+
+      await menu();
+
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not add menu item.'
+      );
+    }
+  }
+
+  /* =======================================================
+     EDIT MENU ITEM
+     ======================================================= */
+
+  async function editMenuItem(id) {
+    try {
+      const data =
+        await api('/admin/menu');
+
+      const list =
+        Array.isArray(data)
+          ? data
+          : data.menu ||
+            data.items ||
+            [];
+
+      const item =
+        list.find(
+          x =>
+            String(x.id) ===
+            String(id)
+        );
+
+      if (!item) {
+        alert(
+          'Menu item not found.'
+        );
+        return;
+      }
+
+      const sizes =
+        Array.isArray(item.sizes)
+          ? item.sizes
+          : [];
+
+      const pizza =
+        String(
+          item.cat || ''
+        ).toLowerCase() ===
+        'pizza';
+
+      setView(
+        `
+          <div class="page-head">
+            <div>
+              <h2>Edit Menu Item</h2>
+              <p>
+                ${esc(
+                  item.name
+                )}
+              </p>
+            </div>
+
+            <button
+              class="btn"
+              onclick="menu()"
+            >
+              ← Back
+            </button>
+          </div>
+
+          <div class="panel">
+
+            <form
+              id="editMenuForm"
+              onsubmit="saveMenuItem(
+                event,
+                '${esc(item.id)}'
+              )"
+            >
+
+              <label>Name</label>
+
+              <input
+                id="eName"
+                value="${esc(
+                  item.name || ''
+                )}"
+                required
+              >
+
+              <label>Category</label>
+
+              <select id="eCat">
+                ${[
+                  'Pizza',
+                  'Momo',
+                  'Continental',
+                  'Kacchi'
+                ].map(c => `
+                  <option
                     ${
                       String(
-                        order.status
-                      ) ===
-                      status
+                        item.cat
+                      ).toLowerCase() ===
+                      c.toLowerCase()
                         ? 'selected'
                         : ''
                     }
                   >
-                    ${status}
-                  </option>`
-              ).join('')}
+                    ${c}
+                  </option>
+                `).join('')}
+              </select>
 
-            </select>
+              <label>Base Price</label>
 
-          </td>
+              <input
+                id="ePrice"
+                type="number"
+                min="0"
+                value="${Number(
+                  item.price || 0
+                )}"
+              >
 
-        `;
+              <label>Description</label>
 
+              <textarea
+                id="eDescription"
+              >${esc(
+                item.description || ''
+              )}</textarea>
 
-        tbody.appendChild(
-          tr
-        );
+              <h3>Sizes / Prices</h3>
 
-      }
-    );
+              <div id="sizeRows">
 
-
-  } catch (error) {
-
-    view.innerHTML = `
-
-      <h2>
-        Orders
-      </h2>
-
-      <p>
-        ${aesc(
-          error.message
-        )}
-      </p>
-
-    `;
-
-  }
-
-}
-
-
-
-/* =========================================================
-   ORDER STATUS
-========================================================= */
-
-async function updateOrderStatus(
-  id,
-  status
-) {
-
-  try {
-
-    await api(
-      `/api/admin/orders/${encodeURIComponent(id)}`,
-      {
-
-        method: 'PATCH',
-
-        body:
-          JSON.stringify({
-            status
-          })
-
-      }
-    );
-
-
-    alert(
-      'Order status updated.'
-    );
-
-
-  } catch (error) {
-
-    alert(
-      error.message
-    );
-
-  }
-
-}
-
-
-
-/* =========================================================
-   MENU
-========================================================= */
-
-async function menu() {
-
-  const view =
-    document.getElementById(
-      'view'
-    );
-
-
-  view.innerHTML =
-    '<h2>Loading menu...</h2>';
-
-
-  try {
-
-    const data =
-      await api(
-        '/api/admin/menu'
-      );
-
-
-    adminMenu =
-      data.menu ||
-      data.items ||
-      [];
-
-
-    view.innerHTML = `
-
-      <h2>
-        🍕 Menu Management
-      </h2>
-
-
-      <button
-        class="admin-btn success"
-        onclick="showAddMenuForm()"
-      >
-        + Add Menu Item
-      </button>
-
-
-      <div
-        id="menuForm"
-        style="margin:20px 0"
-      ></div>
-
-
-      <div
-        id="adminMenuGrid"
-        class="grid"
-      ></div>
-
-    `;
-
-
-    renderAdminMenu();
-
-
-  } catch (error) {
-
-    view.innerHTML = `
-
-      <h2>
-        Menu
-      </h2>
-
-      <p>
-        ${aesc(
-          error.message
-        )}
-      </p>
-
-    `;
-
-  }
-
-}
-
-
-
-function renderAdminMenu() {
-
-  const grid =
-    document.getElementById(
-      'adminMenuGrid'
-    );
-
-
-  if (!grid) return;
-
-
-  grid.innerHTML = '';
-
-
-  adminMenu.forEach(
-    function (item) {
-
-      const sizes =
-        Array.isArray(
-          item.sizes
-        )
-          ? item.sizes
-          : [];
-
-
-      const sizeText =
-        sizes.map(
-          s =>
-            Array.isArray(s)
-              ? `${aesc(s[0])}: ${amoney(s[1])}`
-              : `${aesc(s.label || '')}: ${amoney(s.price)}`
-        ).join('<br>');
-
-
-      const card =
-        document.createElement(
-          'div'
-        );
-
-
-      card.className =
-        'card';
-
-
-      card.innerHTML = `
-
-        <img
-          src="${aesc(
-            item.image ||
-            '/assets/food.jpg'
-          )}"
-          onerror="
-            this.src='/assets/food.jpg'
-          "
-        >
-
-
-        <h3>
-          ${aesc(
-            item.name
-          )}
-        </h3>
-
-
-        <p>
-          Category:
-          ${aesc(
-            item.cat
-          )}
-        </p>
-
-
-        <p>
-          ${
-            sizeText ||
-            amoney(item.price)
-          }
-        </p>
-
-
-        <p>
-          Pre-order:
-          ${
-            item.prebook
-              ? 'ON'
-              : 'OFF'
-          }
-        </p>
-
-
-        <p>
-          Active:
-          ${
-            item.active !== false
-              ? 'YES'
-              : 'NO'
-          }
-        </p>
-
-
-        <button
-          class="admin-btn"
-          onclick="
-            editMenuItem(
-              '${aesc(item.id)}'
-            )
-          "
-        >
-          Edit
-        </button>
-
-
-        <button
-          class="admin-btn danger"
-          onclick="
-            deleteMenuItem(
-              '${aesc(item.id)}'
-            )
-          "
-        >
-          Delete
-        </button>
-
-      `;
-
-
-      grid.appendChild(
-        card
-      );
-
-    }
-  );
-
-}
-
-
-
-/* =========================================================
-   ADD MENU
-========================================================= */
-
-function showAddMenuForm() {
-
-  const box =
-    document.getElementById(
-      'menuForm'
-    );
-
-
-  box.innerHTML = `
-
-    <div class="card">
-
-      <h3>
-        Add Menu Item
-      </h3>
-
-
-      <div class="form-grid">
-
-        <input
-          id="mName"
-          placeholder="Food name"
-        >
-
-
-        <select id="mCat">
-
-          <option>
-            Pizza
-          </option>
-
-          <option>
-            Momo
-          </option>
-
-          <option>
-            Continental
-          </option>
-
-          <option>
-            Kacchi
-          </option>
-
-        </select>
-
-
-        <input
-          id="mPrice"
-          type="number"
-          placeholder="Base price"
-        >
-
-
-        <input
-          id="mImage"
-          placeholder="Image path"
-        >
-
-
-        <textarea
-          id="mDescription"
-          placeholder="Description"
-        ></textarea>
-
-      </div>
-
-
-      <label>
-
-        <input
-          id="mPrebook"
-          type="checkbox"
-        >
-
-        Pre-order ON
-
-      </label>
-
-
-      <br>
-
-
-      <label>
-
-        <input
-          id="mActive"
-          type="checkbox"
-          checked
-        >
-
-        Active
-
-      </label>
-
-
-      <br>
-
-
-      <button
-        class="admin-btn success"
-        onclick="createMenuItem()"
-      >
-        Save Item
-      </button>
-
-    </div>
-
-  `;
-
-}
-
-
-
-/* =========================================================
-   CREATE MENU
-========================================================= */
-
-async function createMenuItem() {
-
-  const item = {
-
-    id:
-      'item-' +
-      Date.now(),
-
-    name:
-      document.getElementById(
-        'mName'
-      ).value.trim(),
-
-    cat:
-      document.getElementById(
-        'mCat'
-      ).value,
-
-    price:
-      Number(
-        document.getElementById(
-          'mPrice'
-        ).value
-      ) || 0,
-
-    image:
-      document.getElementById(
-        'mImage'
-      ).value.trim(),
-
-    description:
-      document.getElementById(
-        'mDescription'
-      ).value.trim(),
-
-    prebook:
-      document.getElementById(
-        'mPrebook'
-      ).checked,
-
-    active:
-      document.getElementById(
-        'mActive'
-      ).checked
-
-  };
-
-
-  /* Pizza always OFF */
-
-  if (
-    item.cat ===
-    'Pizza'
-  ) {
-
-    item.prebook =
-      false;
-
-  }
-
-
-  try {
-
-    await api(
-      '/api/admin/menu',
-      {
-
-        method: 'POST',
-
-        body:
-          JSON.stringify(
-            item
-          )
-
-      }
-    );
-
-
-    alert(
-      'Menu item created.'
-    );
-
-
-    menu();
-
-
-  } catch (error) {
-
-    alert(
-      error.message
-    );
-
-  }
-
-}
-
-
-
-/* =========================================================
-   EDIT MENU
-========================================================= */
-
-function editMenuItem(id) {
-
-  const item =
-    adminMenu.find(
-      x =>
-        String(x.id) ===
-        String(id)
-    );
-
-
-  if (!item) return;
-
-
-  const box =
-    document.getElementById(
-      'menuForm'
-    );
-
-
-  box.innerHTML = `
-
-    <div class="card">
-
-      <h3>
-        Edit:
-        ${aesc(item.name)}
-      </h3>
-
-
-      <div class="form-grid">
-
-        <input
-          id="eName"
-          value="${aesc(
-            item.name
-          )}"
-        >
-
-
-        <select id="eCat">
-
-          ${[
-            'Pizza',
-            'Momo',
-            'Continental',
-            'Kacchi'
-          ].map(
-            cat =>
-              `<option
                 ${
-                  item.cat === cat
-                    ? 'selected'
+                  sizes.length
+                    ? sizes.map(
+                        (s, i) => {
+
+                          const label =
+                            Array.isArray(s)
+                              ? s[0]
+                              : s?.label ||
+                                '';
+
+                          const price =
+                            Array.isArray(s)
+                              ? s[1]
+                              : s?.price ||
+                                0;
+
+                          return `
+                            <div
+                              class="size-row"
+                            >
+                              <input
+                                class="size-label"
+                                value="${esc(
+                                  label
+                                )}"
+                                placeholder="Size"
+                              >
+
+                              <input
+                                class="size-price"
+                                type="number"
+                                min="0"
+                                value="${Number(
+                                  price
+                                )}"
+                                placeholder="Price"
+                              >
+
+                              <button
+                                type="button"
+                                class="small-btn danger"
+                                onclick="this.parentElement.remove()"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          `;
+                        }
+                      ).join('')
                     : ''
                 }
+
+              </div>
+
+              <button
+                type="button"
+                class="small-btn"
+                onclick="addSizeRow()"
               >
-                ${cat}
-              </option>`
-          ).join('')}
+                + Add Size
+              </button>
 
-        </select>
+              <br><br>
 
+              <label>
+                <input
+                  id="ePrebook"
+                  type="checkbox"
+                  ${
+                    item.prebook &&
+                    !pizza
+                      ? 'checked'
+                      : ''
+                  }
+                  ${
+                    pizza
+                      ? 'disabled'
+                      : ''
+                  }
+                >
+                Pre-order ON
+              </label>
 
-        <input
-          id="ePrice"
-          type="number"
-          value="${Number(
-            item.price || 0
-          )}"
-        >
+              <label>
+                <input
+                  id="eActive"
+                  type="checkbox"
+                  ${
+                    item.active !== false
+                      ? 'checked'
+                      : ''
+                  }
+                >
+                Active
+              </label>
 
+              <br>
 
-        <input
-          id="eImage"
-          value="${aesc(
-            item.image || ''
-          )}"
-        >
+              <button
+                class="btn"
+                type="submit"
+              >
+                Save Changes
+              </button>
 
+            </form>
 
-        <textarea
-          id="eDescription"
-        >${aesc(
-          item.description || ''
-        )}</textarea>
+            <hr>
 
-      </div>
+            <h3>Item Image</h3>
 
+            <div>
+              ${
+                item.image
+                  ? `<img
+                      src="${esc(
+                        item.image
+                      )}"
+                      class="edit-image"
+                      alt=""
+                    >`
+                  : '<p>No image</p>'
+              }
+            </div>
 
-      <label>
+            <input
+              id="menuImage"
+              type="file"
+              accept="image/*"
+            >
 
-        <input
-          id="ePrebook"
-          type="checkbox"
-          ${
-            item.prebook
-              ? 'checked'
-              : ''
-          }
-        >
+            <button
+              class="btn"
+              type="button"
+              onclick="uploadMenuImage(
+                '${esc(item.id)}'
+              )"
+            >
+              Upload Image
+            </button>
 
-        Pre-order ON
+          </div>
+        `,
+        'Edit Menu Item'
+      );
 
-      </label>
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not load menu item.'
+      );
+    }
+  }
 
+  function addSizeRow() {
+    const box = $('sizeRows');
 
-      <br>
+    if (!box) return;
 
+    const row =
+      document.createElement('div');
 
-      <label>
+    row.className =
+      'size-row';
 
-        <input
-          id="eActive"
-          type="checkbox"
-          ${
-            item.active !== false
-              ? 'checked'
-              : ''
-          }
-        >
+    row.innerHTML = `
+      <input
+        class="size-label"
+        placeholder="Size"
+      >
 
-        Active
-
-      </label>
-
-
-      <br>
-
+      <input
+        class="size-price"
+        type="number"
+        min="0"
+        placeholder="Price"
+      >
 
       <button
-        class="admin-btn success"
-        onclick="
-          saveMenuItem(
-            '${aesc(id)}'
-          )
-        "
+        type="button"
+        class="small-btn danger"
+        onclick="this.parentElement.remove()"
       >
-        Save Changes
+        ×
       </button>
-
-    </div>
-
-  `;
-
-}
-
-
-
-/* =========================================================
-   SAVE MENU
-========================================================= */
-
-async function saveMenuItem(id) {
-
-  const old =
-    adminMenu.find(
-      x =>
-        String(x.id) ===
-        String(id)
-    );
-
-
-  if (!old) return;
-
-
-  const updated = {
-
-    ...old,
-
-    name:
-      document.getElementById(
-        'eName'
-      ).value.trim(),
-
-    cat:
-      document.getElementById(
-        'eCat'
-      ).value,
-
-    price:
-      Number(
-        document.getElementById(
-          'ePrice'
-        ).value
-      ) || 0,
-
-    image:
-      document.getElementById(
-        'eImage'
-      ).value.trim(),
-
-    description:
-      document.getElementById(
-        'eDescription'
-      ).value.trim(),
-
-    prebook:
-      document.getElementById(
-        'ePrebook'
-      ).checked,
-
-    active:
-      document.getElementById(
-        'eActive'
-      ).checked
-
-  };
-
-
-  if (
-    updated.cat ===
-    'Pizza'
-  ) {
-
-    updated.prebook =
-      false;
-
-  }
-
-
-  try {
-
-    await api(
-      `/api/admin/menu/${encodeURIComponent(id)}`,
-      {
-
-        method: 'PUT',
-
-        body:
-          JSON.stringify(
-            updated
-          )
-
-      }
-    );
-
-
-    alert(
-      'Menu updated.'
-    );
-
-
-    menu();
-
-
-  } catch (error) {
-
-    alert(
-      error.message
-    );
-
-  }
-
-}
-
-
-
-/* =========================================================
-   DELETE MENU
-========================================================= */
-
-async function deleteMenuItem(id) {
-
-  if (
-    !confirm(
-      'Delete this menu item?'
-    )
-  ) {
-
-    return;
-
-  }
-
-
-  try {
-
-    await api(
-      `/api/admin/menu/${encodeURIComponent(id)}`,
-      {
-        method: 'DELETE'
-      }
-    );
-
-
-    menu();
-
-
-  } catch (error) {
-
-    alert(
-      error.message
-    );
-
-  }
-
-}
-
-
-
-/* =========================================================
-   REVIEWS
-========================================================= */
-
-async function reviews() {
-
-  const view =
-    document.getElementById(
-      'view'
-    );
-
-
-  view.innerHTML =
-    '<h2>Loading reviews...</h2>';
-
-
-  try {
-
-    const data =
-      await api(
-        '/api/admin/reviews'
-      );
-
-
-    adminReviews =
-      data.reviews ||
-      data.items ||
-      [];
-
-
-    view.innerHTML = `
-
-      <h2>
-        ⭐ Reviews
-      </h2>
-
-
-      <div id="reviewList"></div>
-
     `;
 
+    box.appendChild(row);
+  }
 
-    const list =
-      document.getElementById(
-        'reviewList'
+  async function saveMenuItem(
+    event,
+    id
+  ) {
+    event.preventDefault();
+
+    const cat =
+      $('eCat')?.value || '';
+
+    const rows =
+      document.querySelectorAll(
+        '#sizeRows .size-row'
       );
 
+    const sizes = [];
 
-    if (!adminReviews.length) {
+    rows.forEach(row => {
+      const label =
+        row.querySelector(
+          '.size-label'
+        )?.value.trim();
 
-      list.innerHTML =
-        '<p>No reviews.</p>';
+      const price =
+        Number(
+          row.querySelector(
+            '.size-price'
+          )?.value || 0
+        );
 
+      if (
+        label &&
+        Number.isFinite(price)
+      ) {
+        sizes.push([
+          label,
+          price
+        ]);
+      }
+    });
+
+    const payload = {
+      id,
+
+      name:
+        $('eName')?.value.trim() ||
+        '',
+
+      cat,
+
+      price:
+        Number(
+          $('ePrice')?.value || 0
+        ),
+
+      sizes,
+
+      description:
+        $('eDescription')?.value.trim() ||
+        '',
+
+      prebook:
+        cat === 'Pizza' ||
+        cat === 'Momo'
+          ? false
+          : Boolean(
+              $('ePrebook')?.checked
+            ),
+
+      active:
+        Boolean(
+          $('eActive')?.checked
+        )
+    };
+
+    try {
+      await api(
+        '/admin/menu',
+        {
+          method: 'PUT',
+          body: JSON.stringify(
+            payload
+          )
+        }
+      );
+
+      alert(
+        'Menu item updated successfully.'
+      );
+
+      await menu();
+
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not update menu item.'
+      );
+    }
+  }
+
+  /* =======================================================
+     DELETE MENU ITEM
+     ======================================================= */
+
+  async function deleteMenuItem(id) {
+    if (!id) return;
+
+    const yes =
+      confirm(
+        'Delete this menu item?'
+      );
+
+    if (!yes) return;
+
+    try {
+      await api(
+        `/admin/menu/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      await menu();
+
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not delete menu item.'
+      );
+    }
+  }
+
+  /* =======================================================
+     IMAGE UPLOAD
+     ======================================================= */
+
+  async function uploadMenuImage(id) {
+    const input =
+      $('menuImage');
+
+    if (!input?.files?.length) {
+      alert(
+        'Please select an image first.'
+      );
       return;
-
     }
 
+    const form =
+      new FormData();
 
-    adminReviews.forEach(
-      function (review) {
+    form.append(
+      'image',
+      input.files[0]
+    );
 
-        const card =
-          document.createElement(
-            'div'
-          );
+    try {
+      await api(
+        `/admin/menu/${encodeURIComponent(id)}/image`,
+        {
+          method: 'POST',
+          body: form
+        }
+      );
 
+      alert(
+        'Image uploaded successfully.'
+      );
 
-        card.className =
-          'card';
+      await editMenuItem(id);
 
+    } catch (error) {
+      alert(
+        error.message ||
+        'Image upload failed.'
+      );
+    }
+  }
 
-        card.style.marginBottom =
-          '10px';
+  /* =======================================================
+     REVIEWS
+     ======================================================= */
 
+  async function reviews() {
+    currentView = 'reviews';
 
-        card.innerHTML = `
-
-          <strong>
-            ${aesc(
-              review.name ||
-              review.customerName ||
-              'Customer'
-            )}
-          </strong>
-
-
-          <p>
-            Rating:
-            ${Number(
-              review.rating || 0
-            )}/5
-          </p>
-
-
-          <p>
-            ${aesc(
-              review.text ||
-              review.comment ||
-              ''
-            )}
-          </p>
-
-
-          <p>
-            Status:
-            ${review.approved
-              ? 'Approved'
-              : 'Pending'}
-          </p>
-
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Reviews</h2>
+            <p>Manage customer reviews</p>
+          </div>
 
           <button
-            class="admin-btn"
-            onclick="
-              updateReview(
-                '${aesc(
-                  review.id
-                )}',
-                ${review.approved ? 'false' : 'true'}
-              )
-            "
+            class="btn"
+            onclick="reviews()"
           >
-            ${
-              review.approved
-                ? 'Hide'
-                : 'Approve'
-            }
+            ↻ Refresh
           </button>
+        </div>
 
-        `;
-
-
-        list.appendChild(
-          card
-        );
-
-      }
+        <div id="reviewsBox">
+          Loading reviews...
+        </div>
+      `,
+      'Reviews'
     );
 
+    try {
+      const data =
+        await api('/admin/reviews');
 
-  } catch (error) {
+      const list =
+        Array.isArray(data)
+          ? data
+          : data.reviews || [];
 
-    view.innerHTML = `
+      const box =
+        $('reviewsBox');
 
-      <h2>
-        Reviews
-      </h2>
+      if (!box) return;
 
-      <p>
-        ${aesc(
-          error.message
-        )}
-      </p>
+      if (!list.length) {
+        box.innerHTML =
+          '<p>No reviews found.</p>';
+        return;
+      }
 
-    `;
+      box.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Rating</th>
+                <th>Review</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
 
+            <tbody>
+              ${list.map(review => `
+                <tr>
+                  <td>
+                    ${esc(
+                      review.customerName ||
+                      review.name ||
+                      review.customer?.name ||
+                      'Customer'
+                    )}
+                  </td>
+
+                  <td>
+                    ${'★'.repeat(
+                      Math.max(
+                        0,
+                        Math.min(
+                          5,
+                          Number(
+                            review.rating || 0
+                          )
+                        )
+                      )
+                    )}
+                  </td>
+
+                  <td>
+                    ${esc(
+                      review.text ||
+                      review.comment ||
+                      review.review ||
+                      ''
+                    )}
+                  </td>
+
+                  <td>
+                    ${
+                      review.approved === false
+                        ? 'Hidden'
+                        : 'Visible'
+                    }
+                  </td>
+
+                  <td>
+                    <button
+                      class="small-btn"
+                      onclick="toggleReview(
+                        '${esc(
+                          review.id
+                        )}',
+                        ${
+                          review.approved === false
+                            ? 'true'
+                            : 'false'
+                        }
+                      )"
+                    >
+                      ${
+                        review.approved === false
+                          ? 'Approve'
+                          : 'Hide'
+                      }
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+    } catch (error) {
+      const box =
+        $('reviewsBox');
+
+      if (box) {
+        box.innerHTML = `
+          <p class="error">
+            ${esc(
+              error.message
+            )}
+          </p>
+        `;
+      }
+    }
   }
 
-}
+  async function toggleReview(
+    id,
+    approved
+  ) {
+    if (!id) return;
 
-
-
-/* =========================================================
-   REVIEW UPDATE
-========================================================= */
-
-async function updateReview(
-  id,
-  approved
-) {
-
-  try {
-
-    await api(
-      `/api/admin/reviews/${encodeURIComponent(id)}`,
-      {
-
-        method: 'PATCH',
-
-        body:
-          JSON.stringify({
-            approved
+    try {
+      await api(
+        `/admin/reviews/${encodeURIComponent(id)}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            approved:
+              approved === true ||
+              approved === 'true'
           })
+        }
+      );
 
-      }
-    );
+      await reviews();
 
-
-    reviews();
-
-
-  } catch (error) {
-
-    alert(
-      error.message
-    );
-
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not update review.'
+      );
+    }
   }
 
-}
+  /* =======================================================
+     CUSTOMERS
+     ======================================================= */
 
+  async function customers() {
+    currentView = 'customers';
 
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Customers</h2>
+            <p>Registered customer accounts</p>
+          </div>
 
-/* =========================================================
-   CUSTOMERS
-========================================================= */
+          <button
+            class="btn"
+            onclick="customers()"
+          >
+            ↻ Refresh
+          </button>
+        </div>
 
-async function customers() {
-
-  const view =
-    document.getElementById(
-      'view'
+        <div id="customersBox">
+          Loading customers...
+        </div>
+      `,
+      'Customers'
     );
 
-
-  view.innerHTML =
-    '<h2>Loading customers...</h2>';
-
-
-  try {
-
-    const data =
-      await api(
-        '/api/admin/customers'
-      );
-
-
-    adminCustomers =
-      data.customers ||
-      data.items ||
-      [];
-
-
-    view.innerHTML = `
-
-      <h2>
-        👥 Customers
-      </h2>
-
-
-      <div class="table-wrap">
-
-        <table>
-
-          <thead>
-
-            <tr>
-
-              <th>
-                Name
-              </th>
-
-              <th>
-                Mobile
-              </th>
-
-              <th>
-                Email
-              </th>
-
-              <th>
-                Orders
-              </th>
-
-            </tr>
-
-          </thead>
-
-
-          <tbody id="customerTable"></tbody>
-
-        </table>
-
-      </div>
-
-    `;
-
-
-    const tbody =
-      document.getElementById(
-        'customerTable'
-      );
-
-
-    adminCustomers.forEach(
-      function (customer) {
-
-        const tr =
-          document.createElement(
-            'tr'
-          );
-
-
-        tr.innerHTML = `
-
-          <td>
-            ${aesc(
-              customer.name ||
-              ''
-            )}
-          </td>
-
-
-          <td>
-            ${aesc(
-              customer.mobile ||
-              customer.phone ||
-              ''
-            )}
-          </td>
-
-
-          <td>
-            ${aesc(
-              customer.email ||
-              ''
-            )}
-          </td>
-
-
-          <td>
-            ${Number(
-              customer.orderCount ||
-              customer.ordersCount ||
-              0
-            )}
-          </td>
-
-        `;
-
-
-        tbody.appendChild(
-          tr
+    try {
+      const data =
+        await api(
+          '/admin/customers'
         );
 
+      const list =
+        Array.isArray(data)
+          ? data
+          : data.customers || [];
+
+      const box =
+        $('customersBox');
+
+      if (!box) return;
+
+      if (!list.length) {
+        box.innerHTML =
+          '<p>No customers found.</p>';
+        return;
       }
-    );
 
+      box.innerHTML = `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Mobile</th>
+                <th>Email</th>
+                <th>Orders</th>
+                <th>Joined</th>
+              </tr>
+            </thead>
 
-  } catch (error) {
+            <tbody>
+              ${list.map(customer => `
+                <tr>
+                  <td>
+                    ${esc(
+                      customer.name ||
+                      ''
+                    )}
+                  </td>
 
-    view.innerHTML = `
+                  <td>
+                    ${esc(
+                      customer.phone ||
+                      customer.mobile ||
+                      ''
+                    )}
+                  </td>
 
-      <h2>
-        Customers
-      </h2>
+                  <td>
+                    ${esc(
+                      customer.email ||
+                      ''
+                    )}
+                  </td>
 
-      <p>
-        ${aesc(
-          error.message
-        )}
-      </p>
+                  <td>
+                    ${
+                      customer.orderCount ??
+                      customer.ordersCount ??
+                      0
+                    }
+                  </td>
 
-    `;
+                  <td>
+                    ${formatDate(
+                      customer.createdAt
+                    )}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
 
+    } catch (error) {
+      const box =
+        $('customersBox');
+
+      if (box) {
+        box.innerHTML = `
+          <p class="error">
+            ${esc(
+              error.message
+            )}
+          </p>
+        `;
+      }
+    }
   }
 
-}
+  /* =======================================================
+     DELIVERY & SETTINGS
+     ======================================================= */
 
+  async function settings() {
+    currentView = 'settings';
 
+    setView(
+      `
+        <div class="page-head">
+          <div>
+            <h2>Delivery & Settings</h2>
+            <p>Delivery radius, payment and shop hours</p>
+          </div>
 
-/* =========================================================
-   SETTINGS
-========================================================= */
+          <button
+            class="btn"
+            onclick="settings()"
+          >
+            ↻ Refresh
+          </button>
+        </div>
 
-async function settings() {
-
-  const view =
-    document.getElementById(
-      'view'
+        <div id="settingsBox">
+          Loading settings...
+        </div>
+      `,
+      'Delivery & Settings'
     );
 
+    try {
+      const data =
+        await api(
+          '/admin/settings'
+        );
 
-  view.innerHTML =
-    '<h2>Loading settings...</h2>';
+      const s =
+        data.settings || data;
 
+      const delivery =
+        s.delivery || {};
 
-  try {
+      const payment =
+        s.payment || {};
 
-    const data =
-      await api(
-        '/api/admin/settings'
-      );
+      const hours =
+        s.hours || {};
 
+      const prebook =
+        s.prebook || {};
 
-    adminSettings =
-      data.settings ||
-      data;
+      const normal =
+        hours.normal || {
+          open: 11,
+          close: 19
+        };
 
+      const friday =
+        hours.friday || {
+          open: 15,
+          close: 21
+        };
 
-    const delivery =
-      adminSettings.delivery ||
-      {};
+      const box =
+        $('settingsBox');
 
+      if (!box) return;
 
-    const payment =
-      adminSettings.payment ||
-      {};
+      box.innerHTML = `
+        <div class="panel">
+          <h3>Delivery</h3>
 
+          <label>
+            Base Location Name
+          </label>
 
-    const hours =
-      adminSettings.hours ||
-      {};
+          <input
+            id="sBaseName"
+            value="${esc(
+              delivery.name ||
+              delivery.baseName ||
+              'Kahalthuri Hamidia High School'
+            )}"
+          >
 
+          <label>
+            Latitude
+          </label>
 
-    view.innerHTML = `
+          <input
+            id="sLat"
+            type="number"
+            step="any"
+            value="${Number(
+              delivery.lat ??
+              delivery.latitude ??
+              23.3022494
+            )}"
+          >
 
-      <h2>
-        🚚 Delivery & Settings
-      </h2>
+          <label>
+            Longitude
+          </label>
 
+          <input
+            id="sLng"
+            type="number"
+            step="any"
+            value="${Number(
+              delivery.lng ??
+              delivery.longitude ??
+              90.9187528
+            )}"
+          >
 
-      <h3>
-        Delivery Base
-      </h3>
+          <label>
+            COD Radius (km)
+          </label>
 
+          <input
+            id="sCodRadius"
+            type="number"
+            step="0.1"
+            min="0"
+            value="${Number(
+              delivery.codRadiusKm ??
+              delivery.codRadius ??
+              1
+            )}"
+          >
 
-      <div class="form-grid">
+          <label>
+            Maximum Delivery Radius (km)
+          </label>
 
-        <input
-          id="sLat"
-          type="number"
-          step="any"
-          value="${Number(
-            delivery.baseLat ??
-            delivery.latitude ??
-            23.3022494
-          )}"
-          placeholder="Latitude"
+          <input
+            id="sMaxRadius"
+            type="number"
+            step="0.1"
+            min="0"
+            value="${Number(
+              delivery.maxRadiusKm ??
+              delivery.maxRadius ??
+              4
+            )}"
+          >
+
+          <label>
+            Delivery Rate / started km
+          </label>
+
+          <input
+            id="sRate"
+            type="number"
+            step="1"
+            min="0"
+            value="${Number(
+              delivery.ratePerKm ??
+              10
+            )}"
+          >
+
+          <label>
+            COD Charge
+          </label>
+
+          <input
+            id="sCodCharge"
+            type="number"
+            step="1"
+            min="0"
+            value="${Number(
+              delivery.codCharge ??
+              0
+            )}"
+          >
+        </div>
+
+        <div class="panel">
+          <h3>Payment</h3>
+
+          <label>
+            bKash Number
+          </label>
+
+          <input
+            id="sBkash"
+            value="${esc(
+              payment.bkash ||
+              payment.bkashNumber ||
+              '01792494275'
+            )}"
+          >
+
+          <label>
+            Nagad Number
+          </label>
+
+          <input
+            id="sNagad"
+            value="${esc(
+              payment.nagad ||
+              payment.nagadNumber ||
+              '01792494275'
+            )}"
+          >
+
+          <label>
+            Payment Method
+          </label>
+
+          <input
+            id="sPaymentMethod"
+            value="${esc(
+              payment.method ||
+              'Send Money Only'
+            )}"
+          >
+        </div>
+
+        <div class="panel">
+          <h3>Shop Hours</h3>
+
+          <h4>Sunday – Thursday</h4>
+
+          <label>
+            Opening Hour
+          </label>
+
+          <input
+            id="sNormalOpen"
+            type="number"
+            min="0"
+            max="23"
+            value="${Number(
+              normal.open
+            )}"
+          >
+
+          <label>
+            Closing Hour
+          </label>
+
+          <input
+            id="sNormalClose"
+            type="number"
+            min="1"
+            max="24"
+            value="${Number(
+              normal.close
+            )}"
+          >
+
+          <h4>Friday</h4>
+
+          <label>
+            Opening Hour
+          </label>
+
+          <input
+            id="sFridayOpen"
+            type="number"
+            min="0"
+            max="23"
+            value="${Number(
+              friday.open
+            )}"
+          >
+
+          <label>
+            Closing Hour
+          </label>
+
+          <input
+            id="sFridayClose"
+            type="number"
+            min="1"
+            max="24"
+            value="${Number(
+              friday.close
+            )}"
+          >
+        </div>
+
+        <div class="panel">
+          <h3>Pre-order</h3>
+
+          <label>
+            <input
+              id="sPrebookEnabled"
+              type="checkbox"
+              ${
+                prebook.enabled !== false
+                  ? 'checked'
+                  : ''
+              }
+            >
+            Enable pre-order
+          </label>
+
+          <p>
+            Continental/Kacchi items can use
+            pre-order when the item itself is ON.
+          </p>
+
+          <p>
+            Pizza and Momo remain OFF.
+          </p>
+        </div>
+
+        <button
+          class="btn full"
+          onclick="saveSettings()"
         >
+          Save Settings
+        </button>
+      `;
 
+    } catch (error) {
+      const box =
+        $('settingsBox');
 
-        <input
-          id="sLng"
-          type="number"
-          step="any"
-          value="${Number(
-            delivery.baseLng ??
-            delivery.longitude ??
-            90.9187528
-          )}"
-          placeholder="Longitude"
-        >
-
-
-        <input
-          id="sCodRadius"
-          type="number"
-          step="0.1"
-          value="${Number(
-            delivery.codRadiusKm ??
-            delivery.codRadius ??
-            1
-          )}"
-          placeholder="COD radius km"
-        >
-
-
-        <input
-          id="sMaxRadius"
-          type="number"
-          step="0.1"
-          value="${Number(
-            delivery.maxRadiusKm ??
-            delivery.maxRadius ??
-            4
-          )}"
-          placeholder="Maximum radius km"
-        >
-
-
-        <input
-          id="sRate"
-          type="number"
-          value="${Number(
-            delivery.ratePerKm ??
-            10
-          )}"
-          placeholder="Rate per started km"
-        >
-
-      </div>
-
-
-
-      <h3>
-        💳 Payment
-      </h3>
-
-
-      <div class="form-grid">
-
-        <input
-          id="sPayment"
-          value="${aesc(
-            payment.number ||
-            payment.bkash ||
-            '01792494275'
-          )}"
-          placeholder="bKash/Nagad number"
-        >
-
-      </div>
-
-
-
-      <h3>
-        🕐 Shop Hours
-      </h3>
-
-
-      <div class="form-grid">
-
-        <input
-          id="sNormalOpen"
-          type="number"
-          value="${Number(
-            hours.normal?.open ??
-            11
-          )}"
-          placeholder="Normal open hour"
-        >
-
-
-        <input
-          id="sNormalClose"
-          type="number"
-          value="${Number(
-            hours.normal?.close ??
-            19
-          )}"
-          placeholder="Normal close hour"
-        >
-
-
-        <input
-          id="sFridayOpen"
-          type="number"
-          value="${Number(
-            hours.friday?.open ??
-            15
-          )}"
-          placeholder="Friday open hour"
-        >
-
-
-        <input
-          id="sFridayClose"
-          type="number"
-          value="${Number(
-            hours.friday?.close ??
-            21
-          )}"
-          placeholder="Friday close hour"
-        >
-
-      </div>
-
-
-      <p>
-        Customer order slots automatically use:
-        Opening + 1 hour → Closing - 1 hour,
-        in 30-minute intervals.
-      </p>
-
-
-      <h3>
-        📅 Pre-order
-      </h3>
-
-
-      <label>
-
-        <input
-          id="sPrebook"
-          type="checkbox"
-          ${
-            adminSettings.prebook?.enabled !== false
-              ? 'checked'
-              : ''
-          }
-        >
-
-        Allow pre-order
-
-      </label>
-
-
-      <br><br>
-
-
-      <button
-        class="admin-btn success"
-        onclick="saveSettings()"
-      >
-        Save Settings
-      </button>
-
-    `;
-
-
-  } catch (error) {
-
-    view.innerHTML = `
-
-      <h2>
-        Settings
-      </h2>
-
-      <p>
-        ${aesc(
-          error.message
-        )}
-      </p>
-
-    `;
-
+      if (box) {
+        box.innerHTML = `
+          <p class="error">
+            ${esc(
+              error.message
+            )}
+          </p>
+        `;
+      }
+    }
   }
 
-}
+  /* =======================================================
+     SAVE SETTINGS
+     ======================================================= */
 
+  async function saveSettings() {
+    const payload = {
+      delivery: {
+        name:
+          $('sBaseName')?.value.trim() ||
+          'Kahalthuri Hamidia High School',
 
-
-/* =========================================================
-   SAVE SETTINGS
-========================================================= */
-
-async function saveSettings() {
-
-  const settings = {
-
-    delivery: {
-
-      baseLat:
-        Number(
-          document.getElementById(
-            'sLat'
-          ).value
-        ),
-
-      baseLng:
-        Number(
-          document.getElementById(
-            'sLng'
-          ).value
-        ),
-
-      codRadiusKm:
-        Number(
-          document.getElementById(
-            'sCodRadius'
-          ).value
-        ),
-
-      maxRadiusKm:
-        Number(
-          document.getElementById(
-            'sMaxRadius'
-          ).value
-        ),
-
-      ratePerKm:
-        Number(
-          document.getElementById(
-            'sRate'
-          ).value
-        ),
-
-      codCharge:
-        0
-
-    },
-
-
-    payment: {
-
-      number:
-        document.getElementById(
-          'sPayment'
-        ).value.trim(),
-
-      bkash:
-        document.getElementById(
-          'sPayment'
-        ).value.trim(),
-
-      nagad:
-        document.getElementById(
-          'sPayment'
-        ).value.trim(),
-
-      method:
-        'Send Money Only'
-
-    },
-
-
-    hours: {
-
-      normal: {
-
-        open:
+        lat:
           Number(
-            document.getElementById(
-              'sNormalOpen'
-            ).value
+            $('sLat')?.value ||
+            23.3022494
           ),
 
-        close:
+        lng:
           Number(
-            document.getElementById(
-              'sNormalClose'
-            ).value
-          )
+            $('sLng')?.value ||
+            90.9187528
+          ),
 
+        codRadiusKm:
+          Number(
+            $('sCodRadius')?.value ||
+            1
+          ),
+
+        maxRadiusKm:
+          Number(
+            $('sMaxRadius')?.value ||
+            4
+          ),
+
+        ratePerKm:
+          Number(
+            $('sRate')?.value ||
+            10
+          ),
+
+        codCharge:
+          Number(
+            $('sCodCharge')?.value ||
+            0
+          )
       },
 
+      payment: {
+        bkash:
+          $('sBkash')?.value.trim() ||
+          '01792494275',
 
-      friday: {
+        nagad:
+          $('sNagad')?.value.trim() ||
+          '01792494275',
 
-        open:
-          Number(
-            document.getElementById(
-              'sFridayOpen'
-            ).value
-          ),
+        method:
+          $('sPaymentMethod')?.value.trim() ||
+          'Send Money Only'
+      },
 
-        close:
-          Number(
-            document.getElementById(
-              'sFridayClose'
-            ).value
+      hours: {
+        normal: {
+          open:
+            Number(
+              $('sNormalOpen')?.value ||
+              11
+            ),
+
+          close:
+            Number(
+              $('sNormalClose')?.value ||
+              19
+            )
+        },
+
+        friday: {
+          open:
+            Number(
+              $('sFridayOpen')?.value ||
+              15
+            ),
+
+          close:
+            Number(
+              $('sFridayClose')?.value ||
+              21
+            )
+        }
+      },
+
+      prebook: {
+        enabled:
+          Boolean(
+            $('sPrebookEnabled')?.checked
           )
-
       }
+    };
 
-    },
-
-
-    prebook: {
-
-      enabled:
-        document.getElementById(
-          'sPrebook'
-        ).checked
-
+    if (
+      payload.delivery.maxRadiusKm <
+      payload.delivery.codRadiusKm
+    ) {
+      alert(
+        'Maximum radius cannot be smaller than COD radius.'
+      );
+      return;
     }
 
-  };
+    if (
+      payload.hours.normal.close <=
+      payload.hours.normal.open
+    ) {
+      alert(
+        'Normal closing hour must be after opening hour.'
+      );
+      return;
+    }
 
+    if (
+      payload.hours.friday.close <=
+      payload.hours.friday.open
+    ) {
+      alert(
+        'Friday closing hour must be after opening hour.'
+      );
+      return;
+    }
 
-  try {
+    try {
+      await api(
+        '/admin/settings',
+        {
+          method: 'PUT',
+          body: JSON.stringify(
+            payload
+          )
+        }
+      );
 
-    await api(
-      '/api/admin/settings',
+      alert(
+        'Settings saved successfully.'
+      );
+
+      await settings();
+
+    } catch (error) {
+      alert(
+        error.message ||
+        'Could not save settings.'
+      );
+    }
+  }
+
+  /* =======================================================
+     DATE / TIME
+     ======================================================= */
+
+  function formatDate(value) {
+    if (!value) return '—';
+
+    const d =
+      new Date(value);
+
+    if (
+      Number.isNaN(
+        d.getTime()
+      )
+    ) {
+      return esc(value);
+    }
+
+    return d.toLocaleString(
+      'en-BD',
       {
-
-        method: 'PUT',
-
-        body:
-          JSON.stringify(
-            settings
-          )
-
+        dateStyle: 'medium',
+        timeStyle: 'short'
       }
     );
-
-
-    alert(
-      'Settings saved successfully.'
-    );
-
-
-    settingsViewReload();
-
-
-  } catch (error) {
-
-    alert(
-      error.message
-    );
-
   }
 
-}
+  /* =======================================================
+     MOBILE SIDEBAR
+     ======================================================= */
 
+  function toggleAdminSidebar() {
+    const sidebar =
+      document.querySelector(
+        '.admin-sidebar'
+      );
 
-
-function settingsViewReload() {
-
-  settings();
-
-}
-
-
-
-/* =========================================================
-   INITIAL ADMIN STATE
-========================================================= */
-
-document.addEventListener(
-  'DOMContentLoaded',
-  function () {
-
-    if (adminToken) {
-
-      showApp();
-
-      dash();
-
+    if (sidebar) {
+      sidebar.classList.toggle(
+        'open'
+      );
     }
-
   }
-);
 
+  /* =======================================================
+     STARTUP
+     ======================================================= */
 
+  function init() {
+    if (adminToken) {
+      showApp();
+      dash().catch(error => {
+        console.error(error);
+      });
+    } else {
+      showLogin();
+    }
+  }
 
-/* =========================================================
-   EXPORTS
-========================================================= */
+  /* =======================================================
+     GLOBAL EXPORTS
+     ======================================================= */
 
-window.adminLogin =
-  adminLogin;
+  window.adminLogin =
+    adminLogin;
 
-window.adminLogout =
-  adminLogout;
+  window.logout =
+    logout;
 
-window.dash =
-  dash;
+  window.dash =
+    dash;
 
-window.orders =
-  orders;
+  window.orders =
+    orders;
 
-window.menu =
-  menu;
+  window.menu =
+    menu;
 
-window.reviews =
-  reviews;
+  window.reviews =
+    reviews;
 
-window.customers =
-  customers;
+  window.customers =
+    customers;
 
-window.settings =
-  settings;
+  window.settings =
+    settings;
 
-window.updateOrderStatus =
-  updateOrderStatus;
+  window.updateOrderStatus =
+    updateOrderStatus;
 
-window.updateReview =
-  updateReview;
+  window.viewOrder =
+    viewOrder;
 
-window.showAddMenuForm =
-  showAddMenuForm;
+  window.showAddMenuForm =
+    showAddMenuForm;
 
-window.createMenuItem =
-  createMenuItem;
+  window.saveNewMenuItem =
+    saveNewMenuItem;
 
-window.editMenuItem =
-  editMenuItem;
+  window.editMenuItem =
+    editMenuItem;
 
-window.saveMenuItem =
-  saveMenuItem;
+  window.addSizeRow =
+    addSizeRow;
 
-window.deleteMenuItem =
-  deleteMenuItem;
+  window.saveMenuItem =
+    saveMenuItem;
 
-window.saveSettings =
-  saveSettings;
+  window.deleteMenuItem =
+    deleteMenuItem;
+
+  window.uploadMenuImage =
+    uploadMenuImage;
+
+  window.toggleReview =
+    toggleReview;
+
+  window.saveSettings =
+    saveSettings;
+
+  window.toggleAdminSidebar =
+    toggleAdminSidebar;
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    init
+  );
+
+})();
