@@ -33,115 +33,285 @@ const esc = s =>
    CUSTOMER AUTH HELPERS
 ========================================================= */
 
-function customerToken() {
-  try {
-    if (typeof getCustomerToken === 'function') {
-      return getCustomerToken();
-    }
-  } catch (_) {}
+function openCustomerLogin(mode = 'login') {
 
-  return localStorage.getItem('csk_customer_token') || '';
-}
-
-function customerData() {
-  try {
-    if (typeof getCustomerData === 'function') {
-      return getCustomerData();
-    }
-  } catch (_) {}
-
-  try {
-    return JSON.parse(
-      localStorage.getItem('csk_customer_data') || 'null'
-    );
-  } catch (_) {
-    return null;
+  if (typeof openAuthModal === 'function') {
+    openAuthModal(mode);
+    return;
   }
+
+  if (typeof openCustomerAuth === 'function') {
+    openCustomerAuth(mode);
+    return;
+  }
+
+  console.error(
+    'Customer authentication system is not loaded.'
+  );
+
+  alert(
+    'Login system is loading. Please refresh the page and try again.'
+  );
 }
 
-function customerLoggedIn() {
-  try {
-    if (typeof isCustomerLoggedIn === 'function') {
-      return isCustomerLoggedIn();
-    }
-  } catch (_) {}
-
-  return !!customerToken();
-}
 
 function requireCustomerLogin() {
+
   if (customerLoggedIn()) {
     return true;
   }
 
-  alert(
-    'Please login or create a customer account before placing an order.'
-  );
-
-  if (typeof openCustomerAuth === 'function') {
-    openCustomerAuth('login');
-  }
+  openCustomerLogin('login');
 
   return false;
 }
 
 /* =========================================================
-   LOAD CONFIG
+   LOAD CONFIG + MENU
 ========================================================= */
 
 (async function init() {
 
   try {
 
-    const r =
-      await fetch('/api/config');
+    /*
+      First try /api/config
+    */
 
-    if (!r.ok) {
-      throw new Error(
-        'Could not load website configuration.'
+    let config = null;
+
+    try {
+
+      const r =
+        await fetch('/api/config', {
+          cache: 'no-store'
+        });
+
+      if (r.ok) {
+        config = await r.json();
+      }
+
+    } catch (e) {
+
+      console.warn(
+        'Config request failed:',
+        e
       );
-    }
 
-    C = await r.json();
-
-    if (!C.menu) {
-      C.menu = [];
-    }
-
-    if (!C.settings) {
-      C.settings = {};
     }
 
     /*
-      Keep only valid menu items in cart.
+      Normalize config
     */
 
-    cart = cart.filter(x =>
-      C.menu.some(p =>
-        String(p.id) === String(x.id)
-      )
-    );
+    if (!config) {
+      config = {};
+    }
+
+    /*
+      Some backend versions return:
+        { menu: [...], settings: {...} }
+
+      Some older versions may return only settings.
+    */
+
+    let menu =
+      Array.isArray(config.menu)
+        ? config.menu
+        : null;
+
+    /*
+      If config did not contain menu,
+      explicitly load /api/menu.
+    */
+
+    if (!menu) {
+
+      try {
+
+        const menuResponse =
+          await fetch(
+            '/api/menu',
+            {
+              cache: 'no-store'
+            }
+          );
+
+        if (menuResponse.ok) {
+
+          const menuData =
+            await menuResponse.json();
+
+          if (Array.isArray(menuData)) {
+
+            menu = menuData;
+
+          } else if (
+            Array.isArray(menuData.menu)
+          ) {
+
+            menu = menuData.menu;
+
+          } else if (
+            Array.isArray(menuData.items)
+          ) {
+
+            menu = menuData.items;
+
+          }
+
+        }
+
+      } catch (e) {
+
+        console.warn(
+          'Menu request failed:',
+          e
+        );
+
+      }
+
+    }
+
+    /*
+      Final normalized configuration.
+    */
+
+    C = {
+
+      ...config,
+
+      menu:
+        Array.isArray(menu)
+          ? menu
+          : [],
+
+      settings:
+        config.settings || {}
+
+    };
+
+    /*
+      Keep only valid cart items.
+    */
+
+    cart =
+      cart.filter(item =>
+        C.menu.some(p =>
+          String(p.id) ===
+          String(item.id)
+        )
+      );
+
+    /*
+      Save cleaned cart.
+    */
+
+    localStorage.cskCart =
+      JSON.stringify(cart);
+
+    /*
+      Render menu.
+    */
 
     render();
+
+    /*
+      Render cart.
+    */
+
     cartUI();
+
+    /*
+      Helpful console information.
+    */
+
+    console.log(
+      'Chef Sifat Kitchen loaded:',
+      {
+        menuItems:
+          C.menu.length,
+        settings:
+          C.settings
+      }
+    );
+
+    /*
+      If menu is empty, show useful message.
+    */
+
+    if (!C.menu.length) {
+
+      const grid =
+        $('#grid');
+
+      if (grid) {
+
+        grid.innerHTML = `
+
+          <div
+            style="
+              grid-column:1/-1;
+              padding:25px;
+              text-align:center;
+            "
+          >
+
+            <h3>
+              Menu is temporarily unavailable.
+            </h3>
+
+            <p>
+              Please refresh the page or try again shortly.
+            </p>
+
+          </div>
+
+        `;
+
+      }
+
+    }
 
   } catch (e) {
 
-    console.error(e);
+    console.error(
+      'Website initialization error:',
+      e
+    );
 
-    const grid = $('#grid');
+    const grid =
+      $('#grid');
 
     if (grid) {
 
-      grid.innerHTML =
-        '<p>Unable to load menu. Please refresh the page.</p>';
+      grid.innerHTML = `
+
+        <div
+          style="
+            grid-column:1/-1;
+            padding:25px;
+            text-align:center;
+          "
+        >
+
+          <h3>
+            Unable to load menu.
+          </h3>
+
+          <p>
+            Please refresh the page and try again.
+          </p>
+
+        </div>
+
+      `;
 
     }
 
   }
 
 })();
-
 /* =========================================================
    MENU
 ========================================================= */
@@ -3643,6 +3813,90 @@ setInterval(
   60000
 );
 
+/* =========================================================
+   CUSTOMER AUTH COMPATIBILITY
+   ========================================================= */
+
+/*
+  customer-auth.js uses:
+  openAuthModal()
+
+  Older app.js code may use:
+  openCustomerAuth()
+
+  This keeps both working.
+*/
+
+if (typeof window.openCustomerAuth !== 'function') {
+  window.openCustomerAuth = function (mode = 'login') {
+
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal(mode);
+      return;
+    }
+
+    console.error(
+      'Customer authentication system is not loaded.'
+    );
+
+    alert(
+      'Login system is loading. Please refresh the page and try again.'
+    );
+  };
+}
+
+
+/* =========================================================
+   CUSTOMER AUTH HELPERS
+   ========================================================= */
+
+window.customerToken = customerToken;
+window.customerData = customerData;
+window.customerLoggedIn = customerLoggedIn;
+window.requireCustomerLogin = requireCustomerLogin;
+
+
+/* =========================================================
+   MAIN APP GLOBAL FUNCTIONS
+   Required by index.html onclick=""
+   ========================================================= */
+
+window.checkout = checkout;
+window.openCart = openCart;
+window.closeCart = closeCart;
+window.closeCheckout = closeCheckout;
+
+window.place = place;
+window.placeOrder = placeOrder;
+
+window.gps = gps;
+window.gpsLocation = gpsLocation;
+window.base = base;
+
+window.add = add;
+window.removeCart = removeCart;
+
+window.render = render;
+window.cartUI = cartUI;
+
+
+/* =========================================================
+   ESC KEY
+   ========================================================= */
+
+document.addEventListener('keydown', function (event) {
+
+  if (event.key !== 'Escape') return;
+
+  try {
+    closeCart();
+  } catch (_) {}
+
+  try {
+    closeCheckout();
+  } catch (_) {}
+
+});
 /* =========================================================
    END OF APP.JS
 ========================================================= */
