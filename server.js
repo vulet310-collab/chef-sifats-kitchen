@@ -1,254 +1,31 @@
+/* =========================================================
+   CHEF SIFAT'S KITCHEN
+   COMPLETE CORRECTED SERVER.JS
+   ========================================================= */
+
 'use strict';
 
-/*
-=========================================================
- CHEF SIFAT'S KITCHEN
- FINAL SERVER.JS
-=========================================================
-
-Includes:
-- Express server
-- Helmet security
-- Rate limiting
-- Admin JWT authentication
-- Customer registration/login
-- Customer forgot password / reset password
-- Customer order history
-- Login-required ordering
-- Public menu API
-- Delivery location validation
-- COD radius validation
-- Delivery charge calculation
-- bKash / Nagad payment validation
-- 30-minute delivery time slots
-- Pre-booking validation
-- Shop-hours based time validation
-- Size-specific server-side pricing
-- Menu management
-- Image upload
-- Reviews
-- Customer management
-- Admin settings
-=========================================================
-*/
-
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
 const multer = require('multer');
-const crypto = require('crypto');
+
+/* =========================================================
+   APP
+   ========================================================= */
 
 const app = express();
 
-/* =======================================================
-   PATHS
-======================================================= */
+const PORT = Number(process.env.PORT || 10000);
 
-const DATA = path.join(__dirname, 'data');
-const PUBLIC = path.join(__dirname, 'public');
-const ASSETS = path.join(PUBLIC, 'assets');
-
-if (!fs.existsSync(DATA)) {
-  fs.mkdirSync(DATA, { recursive: true });
-}
-
-if (!fs.existsSync(PUBLIC)) {
-  fs.mkdirSync(PUBLIC, { recursive: true });
-}
-
-if (!fs.existsSync(ASSETS)) {
-  fs.mkdirSync(ASSETS, { recursive: true });
-}
-
-/* =======================================================
-   DATA FILES
-======================================================= */
-
-const SETTINGS_FILE = path.join(DATA, 'settings.json');
-const MENU_FILE = path.join(DATA, 'menu.json');
-const ORDERS_FILE = path.join(DATA, 'orders.json');
-const REVIEWS_FILE = path.join(DATA, 'reviews.json');
-const CUSTOMERS_FILE = path.join(DATA, 'customers.json');
-
-/* =======================================================
-   INITIAL FILES
-======================================================= */
-
-function ensureJsonFile(file, fallback) {
-  if (!fs.existsSync(file)) {
-    fs.writeFileSync(
-      file,
-      JSON.stringify(fallback, null, 2),
-      'utf8'
-    );
-  }
-}
-
-ensureJsonFile(SETTINGS_FILE, {});
-ensureJsonFile(MENU_FILE, []);
-ensureJsonFile(ORDERS_FILE, []);
-ensureJsonFile(REVIEWS_FILE, []);
-ensureJsonFile(CUSTOMERS_FILE, []);
-
-/* =======================================================
-   JSON HELPERS
-======================================================= */
-
-function read(file, fallback) {
-  try {
-    if (!fs.existsSync(file)) {
-      return fallback;
-    }
-
-    const raw = fs.readFileSync(file, 'utf8');
-
-    if (!raw.trim()) {
-      return fallback;
-    }
-
-    return JSON.parse(raw);
-  } catch (error) {
-    console.error(
-      'READ ERROR:',
-      file,
-      error.message
-    );
-
-    return fallback;
-  }
-}
-
-function write(file, data) {
-  fs.writeFileSync(
-    file,
-    JSON.stringify(data, null, 2),
-    'utf8'
-  );
-}
-
-/* =======================================================
-   DEFAULT SETTINGS
-======================================================= */
-
-function defaultSettings() {
-  return {
-    delivery: {
-      baseLat: 23.3022494,
-      baseLng: 90.9187528,
-      baseName: 'Kahalthuri Hamidia High School',
-
-      codRadiusKm: 1,
-      maxRadiusKm: 4,
-
-      ratePerKm: 10,
-      codCharge: 0
-    },
-
-    payment: {
-      bkash: '01792494275',
-      nagad: '01792494275',
-      method: 'Send Money Only'
-    },
-
-    hours: {
-      normal: {
-        open: 11,
-        close: 19
-      },
-
-      friday: {
-        open: 15,
-        close: 21
-      }
-    },
-
-    prebook: {
-      enabled: true,
-
-      /*
-        Kept for compatibility with
-        older admin settings.
-
-        These values are NOT used
-        for time validation anymore.
-      */
-      minHours: 5,
-      maxHours: 12
-    }
-  };
-}
-
-/* =======================================================
-   SETTINGS MERGE
-======================================================= */
-
-function getSettings() {
-  const defaults = defaultSettings();
-  const saved = read(
-    SETTINGS_FILE,
-    {}
-  );
-
-  return {
-    ...defaults,
-    ...saved,
-
-    delivery: {
-      ...defaults.delivery,
-      ...(saved.delivery || {})
-    },
-
-    payment: {
-      ...defaults.payment,
-      ...(saved.payment || {})
-    },
-
-    hours: {
-      ...defaults.hours,
-      ...(saved.hours || {}),
-
-      normal: {
-        ...defaults.hours.normal,
-        ...(
-          saved.hours &&
-          saved.hours.normal
-            ? saved.hours.normal
-            : {}
-        )
-      },
-
-      friday: {
-        ...defaults.hours.friday,
-        ...(
-          saved.hours &&
-          saved.hours.friday
-            ? saved.hours.friday
-            : {}
-        )
-      }
-    },
-
-    prebook: {
-      ...defaults.prebook,
-      ...(saved.prebook || {})
-    }
-  };
-}
-
-/* =======================================================
-   ENVIRONMENT
-======================================================= */
-
-const PORT =
-  process.env.PORT ||
-  10000;
-
-const SECRET =
+const JWT_SECRET =
   process.env.JWT_SECRET ||
-  'CHANGE_THIS_JWT_SECRET_IN_RENDER';
+  'chef-sifats-kitchen-change-this-secret';
 
 const ADMIN_USERNAME =
   process.env.ADMIN_USERNAME ||
@@ -258,11 +35,586 @@ const ADMIN_PASSWORD =
   process.env.ADMIN_PASSWORD ||
   '';
 
-/* =======================================================
-   MIDDLEWARE
-======================================================= */
+const SHOP_TIME_ZONE = 'Asia/Dhaka';
 
-app.disable('x-powered-by');
+/* =========================================================
+   PATHS
+   ========================================================= */
+
+const ROOT = __dirname;
+const PUBLIC_DIR = path.join(ROOT, 'public');
+const ASSETS_DIR = path.join(PUBLIC_DIR, 'assets');
+
+const DATA_DIR = path.join(ROOT, 'data');
+
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
+const MENU_FILE = path.join(DATA_DIR, 'menu.json');
+const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const REVIEWS_FILE = path.join(DATA_DIR, 'reviews.json');
+const CUSTOMERS_FILE = path.join(DATA_DIR, 'customers.json');
+
+/* =========================================================
+   CREATE DIRECTORIES / FILES
+   ========================================================= */
+
+function ensureDir(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function ensureFile(file, fallback) {
+  ensureDir(path.dirname(file));
+
+  if (!fs.existsSync(file)) {
+    fs.writeFileSync(
+      file,
+      JSON.stringify(fallback, null, 2),
+      'utf8'
+    );
+  }
+}
+
+ensureDir(PUBLIC_DIR);
+ensureDir(ASSETS_DIR);
+ensureDir(DATA_DIR);
+
+/* =========================================================
+   DEFAULT SETTINGS
+   ========================================================= */
+
+const DEFAULT_SETTINGS = {
+  delivery: {
+    baseName: 'Kahalthuri Hamidia High School',
+    baseLat: 23.3022494,
+    baseLng: 90.9187528,
+
+    codRadiusKm: 1,
+    maxRadiusKm: 4,
+
+    ratePerKm: 10,
+    codCharge: 0
+  },
+
+  payment: {
+    bkash: '01792494275',
+    nagad: '01792494275',
+    method: 'Send Money Only'
+  },
+
+  hours: {
+    normal: {
+      open: 11,
+      close: 19
+    },
+
+    friday: {
+      open: 15,
+      close: 21
+    }
+  },
+
+  prebook: {
+    enabled: true
+  },
+
+  restaurant: {
+    name: "Chef Sifat's Kitchen",
+    address: 'Kahalthuri, Shahedapur-3630, Kachua, Chandpur',
+    phone: '01792494275',
+    phone2: '01815905178',
+    email: 'chefsifatskitchen@gmail.com',
+    facebook: 'https://web.facebook.com/ChefSifatsKitchen'
+  }
+};
+
+ensureFile(SETTINGS_FILE, DEFAULT_SETTINGS);
+ensureFile(MENU_FILE, []);
+ensureFile(ORDERS_FILE, []);
+ensureFile(REVIEWS_FILE, []);
+ensureFile(CUSTOMERS_FILE, []);
+
+/* =========================================================
+   JSON HELPERS
+   ========================================================= */
+
+function readJSON(file, fallback) {
+  try {
+    const raw = fs.readFileSync(file, 'utf8');
+
+    if (!raw.trim()) {
+      return fallback;
+    }
+
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('JSON READ ERROR:', file, err.message);
+    return fallback;
+  }
+}
+
+function writeJSON(file, data) {
+  const tempFile =
+    `${file}.${process.pid}.${Date.now()}.tmp`;
+
+  fs.writeFileSync(
+    tempFile,
+    JSON.stringify(data, null, 2),
+    'utf8'
+  );
+
+  fs.renameSync(tempFile, file);
+}
+
+/* =========================================================
+   SETTINGS
+   ========================================================= */
+
+function deepMerge(base, extra) {
+  if (
+    !extra ||
+    typeof extra !== 'object' ||
+    Array.isArray(extra)
+  ) {
+    return base;
+  }
+
+  const output = {
+    ...base
+  };
+
+  for (const key of Object.keys(extra)) {
+    if (
+      extra[key] &&
+      typeof extra[key] === 'object' &&
+      !Array.isArray(extra[key]) &&
+      base[key] &&
+      typeof base[key] === 'object' &&
+      !Array.isArray(base[key])
+    ) {
+      output[key] = deepMerge(
+        base[key],
+        extra[key]
+      );
+    } else {
+      output[key] = extra[key];
+    }
+  }
+
+  return output;
+}
+
+function getSettings() {
+  const saved =
+    readJSON(SETTINGS_FILE, {});
+
+  return deepMerge(
+    DEFAULT_SETTINGS,
+    saved
+  );
+}
+
+function saveSettings(settings) {
+  writeJSON(
+    SETTINGS_FILE,
+    deepMerge(DEFAULT_SETTINGS, settings)
+  );
+}
+
+/* =========================================================
+   NORMALIZE SETTINGS
+   ========================================================= */
+
+function normalizeSettings() {
+  const s = getSettings();
+
+  s.delivery.baseLat =
+    Number(s.delivery.baseLat) ||
+    DEFAULT_SETTINGS.delivery.baseLat;
+
+  s.delivery.baseLng =
+    Number(s.delivery.baseLng) ||
+    DEFAULT_SETTINGS.delivery.baseLng;
+
+  s.delivery.codRadiusKm =
+    Number(s.delivery.codRadiusKm);
+
+  if (!Number.isFinite(s.delivery.codRadiusKm)) {
+    s.delivery.codRadiusKm = 1;
+  }
+
+  s.delivery.maxRadiusKm =
+    Number(s.delivery.maxRadiusKm);
+
+  if (!Number.isFinite(s.delivery.maxRadiusKm)) {
+    s.delivery.maxRadiusKm = 4;
+  }
+
+  s.delivery.ratePerKm =
+    Number(s.delivery.ratePerKm);
+
+  if (!Number.isFinite(s.delivery.ratePerKm)) {
+    s.delivery.ratePerKm = 10;
+  }
+
+  s.delivery.codCharge =
+    Number(s.delivery.codCharge);
+
+  if (!Number.isFinite(s.delivery.codCharge)) {
+    s.delivery.codCharge = 0;
+  }
+
+  s.hours.normal.open =
+    Number(s.hours.normal.open);
+
+  s.hours.normal.close =
+    Number(s.hours.normal.close);
+
+  s.hours.friday.open =
+    Number(s.hours.friday.open);
+
+  s.hours.friday.close =
+    Number(s.hours.friday.close);
+
+  if (
+    !Number.isFinite(s.hours.normal.open) ||
+    !Number.isFinite(s.hours.normal.close)
+  ) {
+    s.hours.normal = {
+      open: 11,
+      close: 19
+    };
+  }
+
+  if (
+    !Number.isFinite(s.hours.friday.open) ||
+    !Number.isFinite(s.hours.friday.close)
+  ) {
+    s.hours.friday = {
+      open: 15,
+      close: 21
+    };
+  }
+
+  return s;
+}
+
+/* =========================================================
+   MENU
+   ========================================================= */
+
+function normalizeSize(size) {
+  if (Array.isArray(size)) {
+    return [
+      String(size[0] ?? ''),
+      Number(size[1]) || 0
+    ];
+  }
+
+  if (
+    size &&
+    typeof size === 'object'
+  ) {
+    return {
+      label: String(
+        size.label ??
+        size.name ??
+        ''
+      ),
+
+      price:
+        Number(size.price) || 0
+    };
+  }
+
+  return null;
+}
+
+function normalizeProduct(product, index = 0) {
+  const p = {
+    ...product
+  };
+
+  p.id =
+    String(
+      p.id ||
+      p._id ||
+      `item-${index + 1}`
+    );
+
+  p.name =
+    String(
+      p.name ||
+      'Unnamed Item'
+    );
+
+  p.cat =
+    String(
+      p.cat ||
+      p.category ||
+      'Other'
+    ).trim().toLowerCase();
+
+  p.image =
+    String(
+      p.image ||
+      ''
+    );
+
+  p.description =
+    String(
+      p.description ||
+      ''
+    );
+
+  p.choice =
+    String(
+      p.choice ||
+      ''
+    );
+
+  p.active =
+    p.active !== false;
+
+  /* -----------------------------------------
+     SIZE / PRICE
+     ----------------------------------------- */
+
+  if (Array.isArray(p.sizes)) {
+    p.sizes =
+      p.sizes
+        .map(normalizeSize)
+        .filter(Boolean);
+  } else {
+    p.sizes = [];
+  }
+
+  if (p.sizes.length) {
+    const first = p.sizes[0];
+
+    if (Array.isArray(first)) {
+      p.price =
+        Number(first[1]) || 0;
+    } else {
+      p.price =
+        Number(first.price) || 0;
+    }
+  } else {
+    p.price =
+      Number(p.price) || 0;
+  }
+
+  /* -----------------------------------------
+     PRE-BOOKING
+     ----------------------------------------- */
+
+  p.prebook =
+    p.prebook === true;
+
+  /*
+    Pizza and Momo can never become
+    pre-booking items accidentally.
+  */
+
+  if (
+    p.cat === 'pizza' ||
+    p.cat === 'momo'
+  ) {
+    p.prebook = false;
+  }
+
+  /*
+    Only Continental/Kacchi can be
+    pre-booked.
+  */
+
+  if (
+    p.prebook &&
+    p.cat !== 'continental' &&
+    p.cat !== 'kacchi'
+  ) {
+    p.prebook = false;
+  }
+
+  /* -----------------------------------------
+     QUANTITY
+     ----------------------------------------- */
+
+  if (
+    p.minQty !== undefined &&
+    p.minQty !== null
+  ) {
+    p.minQty =
+      Number(p.minQty) || 1;
+  }
+
+  if (
+    p.maxQty !== undefined &&
+    p.maxQty !== null
+  ) {
+    p.maxQty =
+      Number(p.maxQty) || 20;
+  }
+
+  return p;
+}
+
+function getMenu() {
+  const raw =
+    readJSON(
+      MENU_FILE,
+      []
+    );
+
+  let list = [];
+
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (
+    raw &&
+    Array.isArray(raw.menu)
+  ) {
+    list = raw.menu;
+  } else if (
+    raw &&
+    Array.isArray(raw.items)
+  ) {
+    list = raw.items;
+  }
+
+  return list.map(
+    normalizeProduct
+  );
+}
+
+function saveMenu(menu) {
+  writeJSON(
+    MENU_FILE,
+    menu.map(
+      normalizeProduct
+    )
+  );
+}
+
+/* =========================================================
+   CUSTOMER DATA
+   ========================================================= */
+
+function getCustomers() {
+  const raw =
+    readJSON(
+      CUSTOMERS_FILE,
+      []
+    );
+
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (
+    raw &&
+    Array.isArray(raw.customers)
+  ) {
+    return raw.customers;
+  }
+
+  return [];
+}
+
+function saveCustomers(customers) {
+  writeJSON(
+    CUSTOMERS_FILE,
+    customers
+  );
+}
+
+function sanitizeCustomer(customer) {
+  if (!customer) {
+    return null;
+  }
+
+  return {
+    id: customer.id,
+    name: customer.name,
+    mobile: customer.mobile,
+    email: customer.email,
+    createdAt: customer.createdAt,
+    updatedAt: customer.updatedAt
+  };
+}
+
+/* =========================================================
+   ORDERS
+   ========================================================= */
+
+function getOrders() {
+  const raw =
+    readJSON(
+      ORDERS_FILE,
+      []
+    );
+
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (
+    raw &&
+    Array.isArray(raw.orders)
+  ) {
+    return raw.orders;
+  }
+
+  return [];
+}
+
+function saveOrders(orders) {
+  writeJSON(
+    ORDERS_FILE,
+    orders
+  );
+}
+
+/* =========================================================
+   REVIEWS
+   ========================================================= */
+
+function getReviews() {
+  const raw =
+    readJSON(
+      REVIEWS_FILE,
+      []
+    );
+
+  if (Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (
+    raw &&
+    Array.isArray(raw.reviews)
+  ) {
+    return raw.reviews;
+  }
+
+  return [];
+}
+
+function saveReviews(reviews) {
+  writeJSON(
+    REVIEWS_FILE,
+    reviews
+  );
+}
+
+/* =========================================================
+   EXPRESS MIDDLEWARE
+   ========================================================= */
+
+app.set(
+  'trust proxy',
+  1
+);
 
 app.use(
   helmet({
@@ -285,94 +637,97 @@ app.use(
   })
 );
 
-/* =======================================================
-   RATE LIMITERS
-======================================================= */
+/* =========================================================
+   RATE LIMITING
+   ========================================================= */
 
 const generalLimiter =
   rateLimit({
-    windowMs:
-      15 * 60 * 1000,
-
-    max: 300,
-
+    windowMs: 15 * 60 * 1000,
+    max: 500,
     standardHeaders: true,
-    legacyHeaders: false,
-
-    message: {
-      ok: false,
-      message:
-        'Too many requests. Please try again later.'
-    }
+    legacyHeaders: false
   });
 
-const loginLimiter =
+const authLimiter =
   rateLimit({
-    windowMs:
-      15 * 60 * 1000,
-
-    max: 30,
-
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     standardHeaders: true,
-    legacyHeaders: false,
-
-    message: {
-      ok: false,
-      message:
-        'Too many login attempts. Please try again later.'
-    }
+    legacyHeaders: false
   });
 
-const passwordLimiter =
-  rateLimit({
-    windowMs:
-      15 * 60 * 1000,
+app.use(
+  '/api/',
+  generalLimiter
+);
 
-    max: 10,
-
-    standardHeaders: true,
-    legacyHeaders: false,
-
-    message: {
-      ok: false,
-      message:
-        'Too many password reset attempts. Please try again later.'
-    }
-  });
-
-app.use(generalLimiter);
-
-/* =======================================================
+/* =========================================================
    STATIC FILES
-======================================================= */
+   ========================================================= */
 
 app.use(
   '/assets',
-  express.static(ASSETS)
+  express.static(
+    ASSETS_DIR
+  )
 );
 
 app.use(
-  express.static(PUBLIC)
+  express.static(
+    PUBLIC_DIR
+  )
 );
 
-/* =======================================================
-   BASIC HELPERS
-======================================================= */
+/* =========================================================
+   UTILITY
+   ========================================================= */
 
-function cleanString(
-  value,
-  max = 500
-) {
+function safeString(value) {
   return String(
-    value || ''
-  )
-    .trim()
-    .slice(0, max);
+    value ?? ''
+  ).trim();
 }
 
-function makeId(
-  prefix = 'id'
+function normalizeMobile(value) {
+  let mobile =
+    safeString(value)
+      .replace(/[\s-]/g, '');
+
+  if (
+    mobile.startsWith('+880')
+  ) {
+    mobile =
+      '0' +
+      mobile.slice(4);
+  }
+
+  if (
+    mobile.startsWith('880')
+  ) {
+    mobile =
+      '0' +
+      mobile.slice(3);
+  }
+
+  return mobile;
+}
+
+function isValidBangladeshMobile(
+  mobile
 ) {
+  return /^01\d{9}$/.test(
+    normalizeMobile(mobile)
+  );
+}
+
+function normalizeEmail(email) {
+  return safeString(
+    email
+  ).toLowerCase();
+}
+
+function generateId(prefix) {
   return (
     prefix +
     '_' +
@@ -384,255 +739,40 @@ function makeId(
   );
 }
 
-/* =======================================================
-   PHONE VALIDATION
-======================================================= */
-
-function normalizePhone(phone) {
-  let value =
-    cleanString(
-      phone,
-      30
-    ).replace(
-      /[\s-]/g,
-      ''
-    );
-
-  if (
-    value.startsWith('+880')
-  ) {
-    value =
-      '0' +
-      value.slice(4);
-  } else if (
-    value.startsWith('880')
-  ) {
-    value =
-      '0' +
-      value.slice(3);
-  }
-
-  return value;
-}
-
-function validBangladeshPhone(
-  phone
-) {
-  return /^01\d{9}$/.test(
-    normalizePhone(phone)
-  );
-}
-
-/* =======================================================
-   EMAIL VALIDATION
-======================================================= */
-
-function normalizeEmail(email) {
-  return cleanString(
-    email,
-    200
-  ).toLowerCase();
-}
-
-function validEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-    normalizeEmail(email)
-  );
-}
-
-/* =======================================================
-   PASSWORD HELPERS
-======================================================= */
-
-function hashPassword(
-  password
-) {
-  const salt =
-    crypto
-      .randomBytes(16)
-      .toString('hex');
-
-  const hash =
-    crypto
-      .scryptSync(
-        String(password),
-        salt,
-        64
-      )
-      .toString('hex');
-
-  return {
-    salt,
-    hash
-  };
-}
-
-function verifyPassword(
-  password,
-  storedHash,
-  salt
-) {
-  try {
-    const hash =
-      crypto
-        .scryptSync(
-          String(password),
-          String(salt),
-          64
-        )
-        .toString('hex');
-
-    return crypto.timingSafeEqual(
-      Buffer.from(
-        hash,
-        'hex'
-      ),
-      Buffer.from(
-        storedHash,
-        'hex'
-      )
-    );
-  } catch (error) {
-    return false;
-  }
-}
-
-/* =======================================================
-   CUSTOMER SAFE DATA
-======================================================= */
-
-function customerSafeData(
-  customer
-) {
-  return {
-    id:
-      customer.id,
-
-    name:
-      customer.name,
-
-    phone:
-      customer.phone,
-
-    email:
-      customer.email,
-
-    createdAt:
-      customer.createdAt
-  };
-}
-
-/* =======================================================
-   CUSTOMER JWT
-======================================================= */
+/* =========================================================
+   JWT
+   ========================================================= */
 
 function createCustomerToken(
   customer
 ) {
   return jwt.sign(
     {
-      id:
-        customer.id,
-
-      role:
-        'customer'
+      type: 'customer',
+      customerId: customer.id
     },
-
-    SECRET,
-
+    JWT_SECRET,
     {
-      expiresIn:
-        '30d'
+      expiresIn: '30d'
     }
   );
 }
 
-/* =======================================================
-   ADMIN JWT
-======================================================= */
+function getBearerToken(req) {
+  const header =
+    req.headers.authorization ||
+    '';
 
-function createAdminToken(
-  username
-) {
-  return jwt.sign(
-    {
-      username,
-      role:
-        'admin'
-    },
-
-    SECRET,
-
-    {
-      expiresIn:
-        '8h'
-    }
-  );
-}
-
-/* =======================================================
-   ADMIN AUTH
-======================================================= */
-
-function auth(
-  req,
-  res,
-  next
-) {
-  try {
-    const header =
-      req.headers.authorization ||
-      '';
-
-    if (
-      !header.startsWith(
-        'Bearer '
-      )
-    ) {
-      return res.status(401).json({
-        ok: false,
-        message:
-          'Admin authentication required.'
-      });
-    }
-
-    const token =
-      header.slice(7);
-
-    const payload =
-      jwt.verify(
-        token,
-        SECRET
-      );
-
-    if (
-      !payload ||
-      payload.role !== 'admin'
-    ) {
-      return res.status(403).json({
-        ok: false,
-        message:
-          'Admin access required.'
-      });
-    }
-
-    req.admin =
-      payload;
-
-    next();
-
-  } catch (error) {
-    return res.status(401).json({
-      ok: false,
-      message:
-        'Invalid or expired admin token.'
-    });
+  if (
+    !header.startsWith(
+      'Bearer '
+    )
+  ) {
+    return '';
   }
-}
 
-/* =======================================================
-   CUSTOMER AUTH
-======================================================= */
+  return header.slice(7).trim();
+}
 
 function customerAuth(
   req,
@@ -640,54 +780,42 @@ function customerAuth(
   next
 ) {
   try {
-    const header =
-      req.headers.authorization ||
-      '';
+    const token =
+      getBearerToken(req);
+
+    if (!token) {
+      return res.status(401).json({
+        ok: false,
+        message:
+          'Login required.'
+      });
+    }
+
+    const decoded =
+      jwt.verify(
+        token,
+        JWT_SECRET
+      );
 
     if (
-      !header.startsWith(
-        'Bearer '
-      )
+      decoded.type !==
+      'customer'
     ) {
       return res.status(401).json({
         ok: false,
         message:
-          'Please login before placing an order.'
-      });
-    }
-
-    const token =
-      header.slice(7);
-
-    const payload =
-      jwt.verify(
-        token,
-        SECRET
-      );
-
-    if (
-      !payload ||
-      payload.role !== 'customer' ||
-      !payload.id
-    ) {
-      return res.status(403).json({
-        ok: false,
-        message:
-          'Customer login required.'
+          'Invalid customer session.'
       });
     }
 
     const customers =
-      read(
-        CUSTOMERS_FILE,
-        []
-      );
+      getCustomers();
 
     const customer =
       customers.find(
-        item =>
-          item.id ===
-          payload.id
+        c =>
+          c.id ===
+          decoded.customerId
       );
 
     if (!customer) {
@@ -702,21 +830,71 @@ function customerAuth(
       customer;
 
     next();
-
-  } catch (error) {
+  } catch (err) {
     return res.status(401).json({
       ok: false,
       message:
-        'Customer login expired. Please login again.'
+        'Session expired. Please login again.'
     });
   }
 }
 
-/* =======================================================
-   HAVERSINE DISTANCE
-======================================================= */
+/* =========================================================
+   ADMIN AUTH
+   ========================================================= */
 
-function distanceKm(
+function adminAuth(
+  req,
+  res,
+  next
+) {
+  try {
+    const token =
+      getBearerToken(req);
+
+    if (!token) {
+      return res.status(401).json({
+        ok: false,
+        message:
+          'Admin login required.'
+      });
+    }
+
+    const decoded =
+      jwt.verify(
+        token,
+        JWT_SECRET
+      );
+
+    if (
+      decoded.type !==
+      'admin'
+    ) {
+      return res.status(401).json({
+        ok: false,
+        message:
+          'Invalid admin session.'
+      });
+    }
+
+    req.admin =
+      decoded;
+
+    next();
+  } catch (err) {
+    return res.status(401).json({
+      ok: false,
+      message:
+        'Admin session expired.'
+    });
+  }
+}
+
+/* =========================================================
+   DISTANCE
+   ========================================================= */
+
+function calculateDistanceKm(
   lat1,
   lng1,
   lat2,
@@ -724,452 +902,196 @@ function distanceKm(
 ) {
   const R = 6371;
 
+  const toRad =
+    value =>
+      value *
+      Math.PI /
+      180;
+
   const dLat =
-    (lat2 - lat1) *
-    Math.PI /
-    180;
+    toRad(
+      lat2 - lat1
+    );
 
   const dLng =
-    (lng2 - lng1) *
-    Math.PI /
-    180;
+    toRad(
+      lng2 - lng1
+    );
 
   const a =
-    Math.sin(dLat / 2) ** 2 +
+    Math.sin(
+      dLat / 2
+    ) ** 2 +
     Math.cos(
-      lat1 * Math.PI / 180
+      toRad(lat1)
     ) *
     Math.cos(
-      lat2 * Math.PI / 180
+      toRad(lat2)
     ) *
-    Math.sin(dLng / 2) ** 2;
+    Math.sin(
+      dLng / 2
+    ) ** 2;
 
-  return (
-    R *
+  const c =
     2 *
     Math.atan2(
       Math.sqrt(a),
       Math.sqrt(1 - a)
-    )
-  );
+    );
+
+  return R * c;
 }
 
-/* =======================================================
-   LOCATION VALIDATION
-======================================================= */
+/* =========================================================
+   DELIVERY CALCULATION
+   ========================================================= */
 
-function validateCoordinates(
+function calculateDelivery(
   lat,
   lng
 ) {
-  return (
-    Number.isFinite(lat) &&
-    Number.isFinite(lng) &&
-    lat >= -90 &&
-    lat <= 90 &&
-    lng >= -180 &&
-    lng <= 180
-  );
-}
+  const s =
+    normalizeSettings();
 
-/* =======================================================
-   PAYMENT HELPERS
-======================================================= */
-
-function normalizePayment(
-  value
-) {
-  return cleanString(
-    value,
-    200
-  );
-}
-
-function paymentIsCOD(
-  payment
-) {
-  return /^cash on delivery/i.test(
-    normalizePayment(payment)
-  );
-}
-
-function paymentIsBkash(
-  payment
-) {
-  return /^bKash/i.test(
-    normalizePayment(payment)
-  );
-}
-
-function paymentIsNagad(
-  payment
-) {
-  return /^Nagad/i.test(
-    normalizePayment(payment)
-  );
-}
-
-function validTransactionId(
-  value
-) {
-  const tx =
-    cleanString(
-      value,
-      50
-    );
-
-  if (!tx) {
-    return false;
-  }
-
-  return /^\d{5,50}$/.test(
-    tx
-  );
-}
-
-/* =======================================================
-   MENU
-======================================================= */
-
-function getMenu() {
-  const menu =
-    read(
-      MENU_FILE,
-      []
+  const distance =
+    calculateDistanceKm(
+      s.delivery.baseLat,
+      s.delivery.baseLng,
+      lat,
+      lng
     );
 
   if (
-    !Array.isArray(menu)
+    distance >
+    s.delivery.maxRadiusKm
   ) {
-    return [];
+    return {
+      available: false,
+      codAvailable: false,
+      distanceKm: distance,
+      deliveryCharge: 0,
+      paymentRequired: false
+    };
   }
 
-  return menu.map(
-    normalizeProduct
-  );
-}
+  const codAvailable =
+    distance <=
+    s.delivery.codRadiusKm;
 
-/* =======================================================
-   NORMALIZE PRODUCT
-======================================================= */
-
-function normalizeProduct(
-  product
-) {
-  product =
-    product &&
-    typeof product === 'object'
-      ? product
-      : {};
-
-  const rawSizes =
-    Array.isArray(
-      product.sizes
-    )
-      ? product.sizes
-      : [];
-
-  const sizes =
-    rawSizes
-      .map(
-        size => {
-
-          if (
-            Array.isArray(size)
-          ) {
-            return [
-              cleanString(
-                size[0],
-                100
-              ),
-
-              Number(
-                size[1]
-              ) || 0
-            ];
-          }
-
-          if (
-            size &&
-            typeof size === 'object'
-          ) {
-            return [
-              cleanString(
-                size.name ||
-                size.label ||
-                size.size ||
-                '',
-                100
-              ),
-
-              Number(
-                size.price
-              ) || 0
-            ];
-          }
-
-          return [
-            '',
-            0
-          ];
-        }
-      )
-      .filter(
-        size =>
-          size[0] &&
-          size[1] > 0
-      );
-
-  const firstPrice =
-    sizes.length
+  const deliveryCharge =
+    codAvailable
       ? Number(
-          sizes[0][1]
-        )
-      : Number(
-          product.price
-        ) || 0;
+          s.delivery.codCharge
+        ) || 0
+      : Math.ceil(distance) *
+        Number(
+          s.delivery.ratePerKm
+        );
 
-  const item = {
-    id:
-      product.id ||
-      makeId('item'),
-
-    name:
-      cleanString(
-        product.name,
-        200
-      ),
-
-    cat:
-      cleanString(
-        product.cat,
-        50
-      ).toLowerCase(),
-
-    price:
-      firstPrice,
-
-    sizes,
-
-    image:
-      cleanString(
-        product.image,
-        500
-      ),
-
-    description:
-      cleanString(
-        product.description,
-        1000
-      ),
-
-    choice:
-      cleanString(
-        product.choice ||
-        (
-          sizes[0]
-            ? sizes[0][0]
-            : ''
-        ),
-        200
-      ),
-
-    options:
-      Array.isArray(
-        product.options
-      )
-        ? product.options
-        : [],
-
-    minQty:
-      Number(
-        product.minQty
-      ) > 0
-        ? Number(
-            product.minQty
-          )
-        : 1,
-
-    maxQty:
-      Number(
-        product.maxQty
-      ) > 0
-        ? Number(
-            product.maxQty
-          )
-        : 100,
-
-    prebook:
-      Boolean(
-        product.prebook
-      ),
-
-    active:
-      product.active !== false
+  return {
+    available: true,
+    codAvailable,
+    distanceKm: distance,
+    deliveryCharge,
+    paymentRequired:
+      !codAvailable
   };
-
-  /*
-    PIZZA IS ALWAYS NON-PREBOOK.
-  */
-
-  if (
-    item.cat === 'pizza'
-  ) {
-    item.prebook =
-      false;
-  }
-
-  return item;
 }
 
-/* =======================================================
-   PREBOOK CHECK
-======================================================= */
-
-function isPrebookCategory(
-  product
-) {
-  return Boolean(
-    product &&
-    product.prebook === true
-  );
-}
-
-/* =======================================================
+/* =========================================================
    BANGLADESH TIMEZONE HELPERS
-======================================================= */
+   ========================================================= */
 
-const BD_TIMEZONE =
-  'Asia/Dhaka';
-
-/*
-  Get Bangladesh local
-  date/time information from
-  any JavaScript Date.
-*/
-
-function getBangladeshParts(
+function getDhakaParts(
   date
 ) {
-  const formatter =
+  const parts =
     new Intl.DateTimeFormat(
       'en-US',
       {
         timeZone:
-          BD_TIMEZONE,
+          SHOP_TIME_ZONE,
 
-        year:
-          'numeric',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
 
-        month:
-          '2-digit',
+        weekday: 'long',
 
-        day:
-          '2-digit',
-
-        hour:
-          '2-digit',
-
-        minute:
-          '2-digit',
-
-        second:
-          '2-digit',
-
-        hourCycle:
-          'h23',
-
-        weekday:
-          'long'
+        hourCycle: 'h23'
       }
-    );
-
-  const parts =
-    formatter.formatToParts(
+    ).formatToParts(
       date
     );
 
-  const result = {};
+  const map = {};
 
-  for (
-    const part of parts
-  ) {
-    if (
-      part.type !== 'literal'
-    ) {
-      result[part.type] =
-        part.value;
-    }
+  for (const part of parts) {
+    map[part.type] =
+      part.value;
   }
 
   return {
     year:
-      Number(
-        result.year
-      ),
+      Number(map.year),
 
     month:
-      Number(
-        result.month
-      ),
+      Number(map.month),
 
     day:
-      Number(
-        result.day
-      ),
+      Number(map.day),
 
     hour:
-      Number(
-        result.hour
-      ),
+      Number(map.hour),
 
     minute:
-      Number(
-        result.minute
-      ),
+      Number(map.minute),
 
     second:
-      Number(
-        result.second
-      ),
+      Number(map.second),
 
     weekday:
-      result.weekday
+      map.weekday
   };
 }
 
-/* =======================================================
-   SHOP HOURS
-======================================================= */
+function getDhakaDateKey(
+  date
+) {
+  const p =
+    getDhakaParts(date);
+
+  return [
+    p.year,
+    String(p.month).padStart(2, '0'),
+    String(p.day).padStart(2, '0')
+  ].join('-');
+}
 
 function getShopHoursForDate(
   date
 ) {
-  const settings =
-    getSettings();
+  const s =
+    normalizeSettings();
 
-  const parts =
-    getBangladeshParts(
-      date
-    );
-
-  /*
-    Friday = special hours.
-  */
+  const p =
+    getDhakaParts(date);
 
   if (
-    parts.weekday ===
+    p.weekday ===
     'Friday'
   ) {
     return {
       open:
         Number(
-          settings.hours.friday.open
+          s.hours.friday.open
         ),
-
       close:
         Number(
-          settings.hours.friday.close
+          s.hours.friday.close
         )
     };
   }
@@ -1177,37 +1099,31 @@ function getShopHoursForDate(
   return {
     open:
       Number(
-        settings.hours.normal.open
+        s.hours.normal.open
       ),
-
     close:
       Number(
-        settings.hours.normal.close
+        s.hours.normal.close
       )
   };
 }
 
-/* =======================================================
-   ORDER WINDOW
-======================================================= */
-
 /*
-  FINAL RULE:
+  FINAL CUSTOMER ORDER WINDOW:
 
-  Normal:
-  Shop 11 AM - 7 PM
-  Order slots 12 PM - 6 PM
+  Shop opening + 1 hour
+  through
+  Shop closing - 1 hour
 
-  Friday:
-  Shop 3 PM - 9 PM
-  Order slots 4 PM - 8 PM
+  Example:
+  Normal 11 AM–7 PM
+  => 12 PM–6 PM
 
-  General formula:
-  opening + 1 hour
-  closing - 1 hour
+  Friday 3 PM–9 PM
+  => 4 PM–8 PM
 */
 
-function getOrderWindowForDate(
+function getAllowedOrderWindow(
   date
 ) {
   const hours =
@@ -1224,649 +1140,630 @@ function getOrderWindowForDate(
   };
 }
 
-/* =======================================================
-   VALIDATE ORDER SLOT
-======================================================= */
+function isThirtyMinuteSlot(
+  minute
+) {
+  return (
+    Number(minute) % 30 === 0
+  );
+}
 
-function validateDeliverySlot(
+/* =========================================================
+   DELIVERY TIME VALIDATION
+   ========================================================= */
+
+function validateDeliveryTime(
   deliveryTime,
   options = {}
 ) {
-  const {
-    requireFuture = true,
-    allowPastDate = false
-  } = options;
-
   if (
     !deliveryTime
   ) {
     return {
-      ok: false,
+      valid: false,
       message:
-        'Please select a delivery time.'
+        'Delivery time is required.'
     };
   }
 
-  const date =
+  const selected =
     new Date(
       deliveryTime
     );
 
   if (
     Number.isNaN(
-      date.getTime()
+      selected.getTime()
     )
   ) {
     return {
-      ok: false,
+      valid: false,
       message:
-        'Invalid delivery date/time.'
+        'Invalid delivery time.'
     };
   }
 
-  const parts =
-    getBangladeshParts(
-      date
+  const now =
+    new Date();
+
+  if (
+    selected.getTime() <=
+    now.getTime()
+  ) {
+    return {
+      valid: false,
+      message:
+        'Delivery time must be in the future.'
+    };
+  }
+
+  const selectedDhaka =
+    getDhakaParts(
+      selected
     );
 
-  const window =
-    getOrderWindowForDate(
-      date
+  const nowDhaka =
+    getDhakaParts(
+      now
     );
 
-  const selectedMinutes =
-    parts.hour * 60 +
-    parts.minute;
+  const selectedDate =
+    getDhakaDateKey(
+      selected
+    );
+
+  const todayDate =
+    getDhakaDateKey(
+      now
+    );
+
+  const isPrebook =
+    options.prebook === true;
 
   /*
-    Selected time must be
-    inside opening+1h /
-    closing-1h.
+    Normal order:
+    only today's date.
   */
 
   if (
-    selectedMinutes <
-      window.startMinutes ||
-    selectedMinutes >
-      window.endMinutes
+    !isPrebook &&
+    selectedDate !==
+      todayDate
   ) {
-    const start =
-      formatMinutes12(
-        window.startMinutes
-      );
-
-    const end =
-      formatMinutes12(
-        window.endMinutes
-      );
-
     return {
-      ok: false,
-
+      valid: false,
       message:
-        `Delivery time must be between ${start} and ${end}.`
+        'Regular orders must use today\'s delivery date.'
     };
   }
 
   /*
-    Must be a 30-minute slot.
+    Pre-booking can use future dates,
+    but only if admin enabled it.
   */
 
   if (
-    parts.minute !== 0 &&
-    parts.minute !== 30
+    isPrebook
   ) {
-    return {
-      ok: false,
-      message:
-        'Delivery time must be selected in 30-minute slots.'
-    };
-  }
-
-  /*
-    Make sure seconds/milliseconds
-    are not being used to bypass
-    the slot rule.
-  */
-
-  if (
-    parts.second !== 0
-  ) {
-    return {
-      ok: false,
-      message:
-        'Please select a valid 30-minute delivery slot.'
-    };
-  }
-
-  /*
-    Compare with current time.
-  */
-
-  if (
-    requireFuture
-  ) {
-    const now =
-      new Date();
+    const s =
+      normalizeSettings();
 
     if (
-      date.getTime() <=
-      now.getTime()
+      s.prebook.enabled !==
+      true
     ) {
       return {
-        ok: false,
+        valid: false,
         message:
-          'Please select a future delivery time.'
+          'Pre-booking is currently disabled.'
       };
     }
   }
 
+  const minutes =
+    selectedDhaka.hour *
+      60 +
+    selectedDhaka.minute;
+
+  if (
+    !isThirtyMinuteSlot(
+      selectedDhaka.minute
+    )
+  ) {
+    return {
+      valid: false,
+      message:
+        'Delivery time must be on a 30-minute slot.'
+    };
+  }
+
+  const window =
+    getAllowedOrderWindow(
+      selected
+    );
+
+  if (
+    minutes <
+      window.startMinutes ||
+    minutes >
+      window.endMinutes
+  ) {
+    const startHour =
+      Math.floor(
+        window.startMinutes /
+          60
+      );
+
+    const startMinute =
+      window.startMinutes %
+      60;
+
+    const endHour =
+      Math.floor(
+        window.endMinutes /
+          60
+      );
+
+    const endMinute =
+      window.endMinutes %
+      60;
+
+    return {
+      valid: false,
+      message:
+        `Delivery time must be between ${format12Hour(startHour, startMinute)} and ${format12Hour(endHour, endMinute)}.`
+    };
+  }
+
   /*
-    If past dates are not allowed,
-    compare Bangladesh calendar dates.
+    For today's date, prevent a slot
+    that has already passed.
   */
 
   if (
-    !allowPastDate
+    selectedDate ===
+    todayDate
   ) {
-    const nowParts =
-      getBangladeshParts(
-        new Date()
-      );
-
-    const selectedDateNumber =
-      Number(
-        `${String(parts.year).padStart(4, '0')}${String(parts.month).padStart(2, '0')}${String(parts.day).padStart(2, '0')}`
-      );
-
-    const todayDateNumber =
-      Number(
-        `${String(nowParts.year).padStart(4, '0')}${String(nowParts.month).padStart(2, '0')}${String(nowParts.day).padStart(2, '0')}`
-      );
-
     if (
-      selectedDateNumber <
-      todayDateNumber
+      selected.getTime() <=
+      now.getTime()
     ) {
       return {
-        ok: false,
+        valid: false,
         message:
-          'Delivery date cannot be in the past.'
+          'Please select a future delivery slot.'
       };
     }
   }
 
   return {
-    ok: true
+    valid: true,
+    date:
+      selectedDate,
+
+    time:
+      `${String(
+        selectedDhaka.hour
+      ).padStart(2, '0')}:${String(
+        selectedDhaka.minute
+      ).padStart(2, '0')}`,
+
+    iso:
+      selected.toISOString()
   };
 }
 
-/* =======================================================
-   FORMAT MINUTES
-======================================================= */
-
-function formatMinutes12(
-  minutes
+function format12Hour(
+  hour,
+  minute
 ) {
-  let hour =
-    Math.floor(
-      minutes / 60
-    );
-
-  const minute =
-    minutes % 60;
-
   const suffix =
     hour >= 12
       ? 'PM'
       : 'AM';
 
-  hour =
-    hour % 12;
-
-  if (
-    hour === 0
-  ) {
-    hour = 12;
-  }
+  const h =
+    hour % 12 ||
+    12;
 
   return (
-    `${hour}:${String(minute).padStart(2, '0')} ${suffix}`
+    `${h}:` +
+    `${String(
+      minute
+    ).padStart(2, '0')} ` +
+    suffix
   );
 }
 
-/* =======================================================
-   PREBOOK VALIDATION
-======================================================= */
+/* =========================================================
+   PAYMENT VALIDATION
+   ========================================================= */
 
-function validatePrebookRequest(
-  deliveryTime
+function normalizePayment(
+  payment
 ) {
-  const settings =
-    getSettings();
+  const value =
+    safeString(
+      payment
+    ).toLowerCase();
 
   if (
-    !settings.prebook.enabled
+    value.includes(
+      'cash'
+    ) ||
+    value.includes(
+      'cod'
+    )
   ) {
+    return 'COD';
+  }
+
+  if (
+    value.includes(
+      'bkash'
+    )
+  ) {
+    return 'bKash';
+  }
+
+  if (
+    value.includes(
+      'nagad'
+    )
+  ) {
+    return 'Nagad';
+  }
+
+  return '';
+}
+
+function isValidTransactionId(
+  tx
+) {
+  const value =
+    safeString(tx);
+
+  /*
+    Allow 5–50 numeric digits.
+  */
+
+  return /^\d{5,50}$/.test(
+    value
+  );
+}
+
+/* =========================================================
+   ITEM PREBOOKING
+   ========================================================= */
+
+function isProductPrebook(
+  product
+) {
+  if (!product) {
+    return false;
+  }
+
+  const cat =
+    String(
+      product.cat ||
+      ''
+    ).toLowerCase();
+
+  /*
+    Pizza/Momo ALWAYS OFF.
+  */
+
+  if (
+    cat === 'pizza' ||
+    cat === 'momo'
+  ) {
+    return false;
+  }
+
+  /*
+    Only explicit admin ON.
+  */
+
+  return (
+    product.prebook ===
+    true
+  );
+}
+
+/* =========================================================
+   SERVER-SIDE ITEM PRICE
+   ========================================================= */
+
+function resolveProductPrice(
+  product,
+  requestedItem
+) {
+  if (!product) {
     return {
-      ok: false,
+      valid: false,
       message:
-        'Pre-booking is currently unavailable.'
+        'Product not found.'
     };
   }
 
-  return validateDeliverySlot(
-    deliveryTime,
-    {
-      requireFuture:
-        true,
+  const sizes =
+    Array.isArray(
+      product.sizes
+    )
+      ? product.sizes
+      : [];
 
-      allowPastDate:
-        false
-    }
-  );
-}
-
-/* =======================================================
-   DELIVERY TIME VALIDATION
-======================================================= */
-
-function validateDeliveryTime(
-  deliveryTime,
-  hasPrebook
-) {
-  if (
-    hasPrebook
-  ) {
-    return validatePrebookRequest(
-      deliveryTime
-    );
-  }
-
-  return validateDeliverySlot(
-    deliveryTime,
-    {
-      requireFuture:
-        true,
-
-      allowPastDate:
-        false
-    }
-  );
-}
-
-/* =======================================================
-   SEND PASSWORD RESET EMAIL
-======================================================= */
-
-async function sendPasswordResetEmail(
-  email,
-  code
-) {
-  const apiKey =
-    process.env.RESEND_API_KEY;
-
-  const fromEmail =
-    process.env.FROM_EMAIL ||
-    'onboarding@resend.dev';
-
-  if (!apiKey) {
-    throw new Error(
-      'RESEND_API_KEY is not configured.'
-    );
-  }
-
-  const response =
-    await fetch(
-      'https://api.resend.com/emails',
-      {
-        method:
-          'POST',
-
-        headers: {
-          Authorization:
-            `Bearer ${apiKey}`,
-
-          'Content-Type':
-            'application/json'
-        },
-
-        body:
-          JSON.stringify({
-            from:
-              `Chef Sifat's Kitchen <${fromEmail}>`,
-
-            to: [
-              email
-            ],
-
-            subject:
-              'Chef Sifat’s Kitchen — Password Reset Code',
-
-            html: `
-              <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-
-                <h2>Chef Sifat’s Kitchen</h2>
-
-                <p>
-                  You requested a password reset for your customer account.
-                </p>
-
-                <p>
-                  Your verification code is:
-                </p>
-
-                <div style="
-                  font-size:32px;
-                  font-weight:bold;
-                  letter-spacing:8px;
-                  padding:18px;
-                  background:#f5f5f5;
-                  text-align:center;
-                  margin:20px 0;
-                ">
-                  ${code}
-                </div>
-
-                <p>
-                  This code will expire in 15 minutes.
-                </p>
-
-                <p>
-                  If you did not request this, you can safely ignore this email.
-                </p>
-
-                <hr>
-
-                <small>
-                  Chef Sifat’s Kitchen
-                </small>
-
-              </div>
-            `
-          })
-      }
-    );
+  /*
+    Products with size options.
+  */
 
   if (
-    !response.ok
+    sizes.length
   ) {
-    const text =
-      await response.text();
+    const rawIndex =
+      requestedItem &&
+      requestedItem.sizeIndex;
 
-    throw new Error(
-      `Resend API error: ${response.status} ${text}`
-    );
+    const sizeIndex =
+      Number(
+        rawIndex
+      );
+
+    if (
+      !Number.isInteger(
+        sizeIndex
+      ) ||
+      sizeIndex < 0 ||
+      sizeIndex >=
+        sizes.length
+    ) {
+      return {
+        valid: false,
+        message:
+          `Please select a valid size for ${product.name}.`
+      };
+    }
+
+    const selected =
+      sizes[sizeIndex];
+
+    let label = '';
+    let price = 0;
+
+    if (
+      Array.isArray(
+        selected
+      )
+    ) {
+      label =
+        String(
+          selected[0] ??
+          ''
+        );
+
+      price =
+        Number(
+          selected[1]
+        ) || 0;
+    } else {
+      label =
+        String(
+          selected.label ??
+          selected.name ??
+          ''
+        );
+
+      price =
+        Number(
+          selected.price
+        ) || 0;
+    }
+
+    if (
+      price <= 0
+    ) {
+      return {
+        valid: false,
+        message:
+          `Invalid price configured for ${product.name}.`
+      };
+    }
+
+    return {
+      valid: true,
+      sizeIndex,
+      choice: label,
+      price
+    };
   }
 
-  return true;
+  /*
+    Products without sizes.
+  */
+
+  const price =
+    Number(
+      product.price
+    ) || 0;
+
+  if (
+    price <= 0
+  ) {
+    return {
+      valid: false,
+      message:
+        `No valid price configured for ${product.name}.`
+    };
+  }
+
+  return {
+    valid: true,
+    sizeIndex: null,
+    choice:
+      String(
+        requestedItem?.choice ||
+        product.choice ||
+        ''
+      ),
+    price
+  };
 }
 
-/* =======================================================
-   PUBLIC CONFIG
-======================================================= */
+/* =========================================================
+   CONFIG API
+   ========================================================= */
 
 app.get(
   '/api/config',
   (req, res) => {
-    const settings =
-      getSettings();
-
-    const menu =
-      getMenu()
-        .filter(
-          item =>
-            item.active !== false
-        );
+    const s =
+      normalizeSettings();
 
     res.json({
       ok: true,
 
-      /*
-        Include menu directly
-        for compatibility.
-      */
-      menu,
+      restaurant:
+        s.restaurant,
 
       delivery: {
+        baseName:
+          s.delivery.baseName,
+
         baseLat:
-          settings.delivery.baseLat,
+          s.delivery.baseLat,
 
         baseLng:
-          settings.delivery.baseLng,
-
-        baseName:
-          settings.delivery.baseName,
+          s.delivery.baseLng,
 
         codRadiusKm:
-          settings.delivery.codRadiusKm,
+          s.delivery.codRadiusKm,
 
         maxRadiusKm:
-          settings.delivery.maxRadiusKm,
+          s.delivery.maxRadiusKm,
 
         ratePerKm:
-          settings.delivery.ratePerKm,
+          s.delivery.ratePerKm,
 
         codCharge:
-          settings.delivery.codCharge
+          s.delivery.codCharge
       },
 
       payment: {
         bkash:
-          settings.payment.bkash,
+          s.payment.bkash,
 
         nagad:
-          settings.payment.nagad,
+          s.payment.nagad,
 
         method:
-          settings.payment.method
+          s.payment.method
       },
 
       hours:
-        settings.hours,
+        s.hours,
 
       prebook:
-        settings.prebook
+        s.prebook
     });
   }
 );
 
-/* =======================================================
+/* =========================================================
    PUBLIC MENU
-======================================================= */
+   ========================================================= */
 
 app.get(
   '/api/menu',
   (req, res) => {
-    try {
-      const menu =
-        getMenu()
-          .filter(
-            item =>
-              item.active !== false
-          );
+    const menu =
+      getMenu()
+        .filter(
+          item =>
+            item.active !==
+            false
+        );
 
-      res.json({
-        ok: true,
-        menu
-      });
-
-    } catch (error) {
-      console.error(
-        'PUBLIC MENU ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        ok: false,
-        message:
-          'Unable to load menu.'
-      });
-    }
+    res.json({
+      ok: true,
+      menu
+    });
   }
 );
 
-/* =======================================================
+/* =========================================================
    LOCATION CHECK
-======================================================= */
+   ========================================================= */
 
 app.post(
   '/api/location/check',
   (req, res) => {
-    try {
-      const lat =
-        Number(
-          req.body.lat
-        );
-
-      const lng =
-        Number(
-          req.body.lng
-        );
-
-      if (
-        !validateCoordinates(
-          lat,
-          lng
-        )
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid delivery coordinates.'
-        });
-      }
-
-      const settings =
-        getSettings();
-
-      const distance =
-        distanceKm(
-          Number(
-            settings.delivery.baseLat
-          ),
-
-          Number(
-            settings.delivery.baseLng
-          ),
-
-          lat,
-          lng
-        );
-
-      const maxRadius =
-        Number(
-          settings.delivery.maxRadiusKm
-        );
-
-      const codRadius =
-        Number(
-          settings.delivery.codRadiusKm
-        );
-
-      if (
-        distance >
-        maxRadius
-      ) {
-        return res.json({
-          ok: true,
-
-          available:
-            false,
-
-          codAvailable:
-            false,
-
-          distanceKm:
-            Number(
-              distance.toFixed(2)
-            ),
-
-          deliveryCharge:
-            null,
-
-          paymentRequired:
-            'Order unavailable',
-
-          message:
-            `Sorry. Your delivery location is outside our ${maxRadius} km delivery area.`
-        });
-      }
-
-      const codAvailable =
-        distance <=
-        codRadius;
-
-      const deliveryCharge =
-        codAvailable
-          ? Number(
-              settings.delivery.codCharge
-            )
-          : Math.ceil(
-              distance
-            ) *
-            Number(
-              settings.delivery.ratePerKm
-            );
-
-      res.json({
-        ok: true,
-
-        available:
-          true,
-
-        codAvailable,
-
-        distanceKm:
-          Number(
-            distance.toFixed(2)
-          ),
-
-        deliveryCharge,
-
-        paymentRequired:
-          codAvailable
-            ? 'COD or Online Payment'
-            : 'Online Payment Only',
-
-        message:
-          codAvailable
-            ? 'Cash on Delivery is available.'
-            : 'Cash on Delivery is unavailable. Online payment is required.'
-      });
-
-    } catch (error) {
-      console.error(
-        'LOCATION CHECK ERROR:',
-        error
+    const lat =
+      Number(
+        req.body.lat
       );
 
-      res.status(500).json({
+    const lng =
+      Number(
+        req.body.lng
+      );
+
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng)
+    ) {
+      return res.status(400).json({
         ok: false,
         message:
-          'Unable to check delivery location.'
+          'Valid latitude and longitude are required.'
       });
     }
+
+    const result =
+      calculateDelivery(
+        lat,
+        lng
+      );
+
+    res.json({
+      ok: true,
+
+      available:
+        result.available,
+
+      codAvailable:
+        result.codAvailable,
+
+      distanceKm:
+        Number(
+          result.distanceKm.toFixed(3)
+        ),
+
+      deliveryCharge:
+        result.deliveryCharge,
+
+      paymentRequired:
+        result.paymentRequired
+    });
   }
 );
 
-/* =======================================================
+/* =========================================================
    CUSTOMER REGISTER
-======================================================= */
+   ========================================================= */
 
 app.post(
   '/api/customer/register',
-  loginLimiter,
+  authLimiter,
   async (req, res) => {
     try {
       const name =
-        cleanString(
-          req.body.name,
-          100
+        safeString(
+          req.body.name
         );
 
-      const phone =
-        normalizePhone(
+      const mobile =
+        normalizeMobile(
+          req.body.mobile ||
           req.body.phone
         );
 
@@ -1881,14 +1778,10 @@ app.post(
           ''
         );
 
-      const confirmPassword =
-        String(
-          req.body.confirmPassword ||
-          req.body.confirm_password ||
-          ''
-        );
-
-      if (!name) {
+      if (
+        name.length <
+        2
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -1897,8 +1790,8 @@ app.post(
       }
 
       if (
-        !validBangladeshPhone(
-          phone
+        !isValidBangladeshMobile(
+          mobile
         )
       ) {
         return res.status(400).json({
@@ -1909,7 +1802,7 @@ app.post(
       }
 
       if (
-        !validEmail(
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
           email
         )
       ) {
@@ -1921,110 +1814,87 @@ app.post(
       }
 
       if (
-        password.length < 8
+        password.length <
+        6
       ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Password must be at least 8 characters.'
-        });
-      }
-
-      if (
-        password !==
-        confirmPassword
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Passwords do not match.'
+            'Password must be at least 6 characters.'
         });
       }
 
       const customers =
-        read(
-          CUSTOMERS_FILE,
-          []
-        );
+        getCustomers();
 
-      const existingPhone =
-        customers.find(
-          item =>
-            normalizePhone(
-              item.phone
-            ) === phone
+      const duplicateMobile =
+        customers.some(
+          c =>
+            normalizeMobile(
+              c.mobile
+            ) === mobile
         );
 
       if (
-        existingPhone
+        duplicateMobile
       ) {
         return res.status(409).json({
           ok: false,
           message:
-            'An account with this mobile number already exists.'
+            'This mobile number is already registered.'
         });
       }
 
-      const existingEmail =
-        customers.find(
-          item =>
+      const duplicateEmail =
+        customers.some(
+          c =>
             normalizeEmail(
-              item.email
+              c.email
             ) === email
         );
 
       if (
-        existingEmail
+        duplicateEmail
       ) {
         return res.status(409).json({
           ok: false,
           message:
-            'An account with this email already exists.'
+            'This email address is already registered.'
         });
       }
 
-      const passwordData =
-        hashPassword(
-          password
+      const passwordHash =
+        await bcrypt.hash(
+          password,
+          12
         );
 
       const customer = {
         id:
-          makeId(
-            'customer'
+          generateId(
+            'cus'
           ),
 
         name,
 
-        phone,
+        mobile,
 
         email,
 
-        passwordHash:
-          passwordData.hash,
-
-        passwordSalt:
-          passwordData.salt,
+        passwordHash,
 
         createdAt:
           new Date().toISOString(),
 
         updatedAt:
-          new Date().toISOString(),
-
-        resetCodeHash:
-          null,
-
-        resetCodeExpiresAt:
-          null
+          new Date().toISOString()
       };
 
       customers.push(
         customer
       );
 
-      write(
-        CUSTOMERS_FILE,
+      saveCustomers(
         customers
       );
 
@@ -2037,47 +1907,45 @@ app.post(
         ok: true,
 
         message:
-          'Customer account created successfully.',
+          'Registration successful.',
 
         token,
 
         customer:
-          customerSafeData(
+          sanitizeCustomer(
             customer
           )
       });
-
-    } catch (error) {
+    } catch (err) {
       console.error(
-        'CUSTOMER REGISTER ERROR:',
-        error
+        'REGISTER ERROR:',
+        err
       );
 
       res.status(500).json({
         ok: false,
         message:
-          'Unable to create customer account.'
+          'Registration failed.'
       });
     }
   }
 );
 
-/* =======================================================
+/* =========================================================
    CUSTOMER LOGIN
-======================================================= */
+   ========================================================= */
 
 app.post(
   '/api/customer/login',
-  loginLimiter,
-  (req, res) => {
+  authLimiter,
+  async (req, res) => {
     try {
       const identifier =
-        cleanString(
+        safeString(
           req.body.identifier ||
           req.body.email ||
-          req.body.phone ||
-          req.body.login,
-          200
+          req.body.mobile ||
+          req.body.phone
         );
 
       const password =
@@ -2087,86 +1955,62 @@ app.post(
         );
 
       if (
-        !identifier
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Please enter your mobile number or email.'
-        });
-      }
-
-      if (
+        !identifier ||
         !password
       ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Please enter your password.'
+            'Email/mobile and password are required.'
         });
       }
 
       const customers =
-        read(
-          CUSTOMERS_FILE,
-          []
-        );
+        getCustomers();
 
       const normalizedIdentifier =
-        identifier.toLowerCase();
+        normalizeEmail(
+          identifier
+        );
 
-      const inputPhone =
-        normalizePhone(
+      const normalizedMobile =
+        normalizeMobile(
           identifier
         );
 
       const customer =
         customers.find(
-          item => {
-
-            const email =
-              normalizeEmail(
-                item.email
-              );
-
-            const phone =
-              normalizePhone(
-                item.phone
-              );
-
-            return (
-              email ===
-                normalizedIdentifier ||
-              phone ===
-                inputPhone
-            );
-          }
+          c =>
+            normalizeEmail(
+              c.email
+            ) ===
+              normalizedIdentifier ||
+            normalizeMobile(
+              c.mobile
+            ) ===
+              normalizedMobile
         );
 
-      if (
-        !customer
-      ) {
+      if (!customer) {
         return res.status(401).json({
           ok: false,
           message:
-            'Invalid email/mobile or password.'
+            'Invalid login details.'
         });
       }
 
       const valid =
-        verifyPassword(
+        await bcrypt.compare(
           password,
-          customer.passwordHash,
-          customer.passwordSalt
+          customer.passwordHash ||
+          ''
         );
 
-      if (
-        !valid
-      ) {
+      if (!valid) {
         return res.status(401).json({
           ok: false,
           message:
-            'Invalid email/mobile or password.'
+            'Invalid login details.'
         });
       }
 
@@ -2184,29 +2028,28 @@ app.post(
         token,
 
         customer:
-          customerSafeData(
+          sanitizeCustomer(
             customer
           )
       });
-
-    } catch (error) {
+    } catch (err) {
       console.error(
-        'CUSTOMER LOGIN ERROR:',
-        error
+        'LOGIN ERROR:',
+        err
       );
 
       res.status(500).json({
         ok: false,
         message:
-          'Unable to login.'
+          'Login failed.'
       });
     }
   }
 );
 
-/* =======================================================
+/* =========================================================
    CUSTOMER ME
-======================================================= */
+   ========================================================= */
 
 app.get(
   '/api/customer/me',
@@ -2216,492 +2059,375 @@ app.get(
       ok: true,
 
       customer:
-        customerSafeData(
+        sanitizeCustomer(
           req.customer
         )
     });
   }
 );
 
-/* =======================================================
+/* =========================================================
+   CUSTOMER LOGOUT
+   ========================================================= */
+
+app.post(
+  '/api/customer/logout',
+  customerAuth,
+  (req, res) => {
+    /*
+      JWT is stateless.
+      Client removes token.
+    */
+
+    res.json({
+      ok: true,
+      message:
+        'Logged out successfully.'
+    });
+  }
+);
+
+/* =========================================================
+   FORGOT PASSWORD
+   ========================================================= */
+
+app.post(
+  '/api/customer/forgot-password',
+  authLimiter,
+  (req, res) => {
+    const email =
+      normalizeEmail(
+        req.body.email
+      );
+
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+        email
+      )
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          'Please enter a valid email.'
+      });
+    }
+
+    const customers =
+      getCustomers();
+
+    const customer =
+      customers.find(
+        c =>
+          normalizeEmail(
+            c.email
+          ) === email
+      );
+
+    /*
+      Do not reveal whether
+      email exists.
+    */
+
+    if (!customer) {
+      return res.json({
+        ok: true,
+        message:
+          'If this email is registered, a reset code will be available.'
+      });
+    }
+
+    const code =
+      String(
+        crypto.randomInt(
+          100000,
+          1000000
+        )
+      );
+
+    customer.resetCode =
+      code;
+
+    customer.resetCodeExpiresAt =
+      Date.now() +
+      10 * 60 * 1000;
+
+    saveCustomers(
+      customers
+    );
+
+    /*
+      Email provider is not configured
+      in this server.
+
+      For production, connect an email
+      provider and send the code there.
+
+      Never expose reset codes publicly.
+    */
+
+    console.log(
+      `Password reset requested for ${email}.`
+    );
+
+    res.json({
+      ok: true,
+      message:
+        'If this email is registered, a reset code has been generated.'
+    });
+  }
+);
+
+/* =========================================================
+   RESET PASSWORD
+   ========================================================= */
+
+app.post(
+  '/api/customer/reset-password',
+  authLimiter,
+  async (req, res) => {
+    const email =
+      normalizeEmail(
+        req.body.email
+      );
+
+    const code =
+      safeString(
+        req.body.code
+      );
+
+    const newPassword =
+      String(
+        req.body.password ||
+        req.body.newPassword ||
+        ''
+      );
+
+    if (
+      !email ||
+      !/^\d{6}$/.test(
+        code
+      ) ||
+      newPassword.length <
+        6
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          'Valid email, 6-digit code and new password are required.'
+      });
+    }
+
+    const customers =
+      getCustomers();
+
+    const customer =
+      customers.find(
+        c =>
+          normalizeEmail(
+            c.email
+          ) === email
+      );
+
+    if (
+      !customer ||
+      customer.resetCode !==
+        code ||
+      !customer.resetCodeExpiresAt ||
+      Date.now() >
+        Number(
+          customer.resetCodeExpiresAt
+        )
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          'Invalid or expired reset code.'
+      });
+    }
+
+    customer.passwordHash =
+      await bcrypt.hash(
+        newPassword,
+        12
+      );
+
+    delete customer.resetCode;
+    delete customer.resetCodeExpiresAt;
+
+    customer.updatedAt =
+      new Date().toISOString();
+
+    saveCustomers(
+      customers
+    );
+
+    res.json({
+      ok: true,
+      message:
+        'Password reset successful.'
+    });
+  }
+);
+
+/* =========================================================
    CUSTOMER ORDERS
-======================================================= */
+   ========================================================= */
 
 app.get(
   '/api/customer/orders',
   customerAuth,
   (req, res) => {
-    try {
-      const orders =
-        read(
-          ORDERS_FILE,
-          []
-        );
-
-      const customerOrders =
-        orders
-          .filter(
-            order =>
-              order.customerId ===
-              req.customer.id
-          )
-          .sort(
-            (a, b) =>
-              new Date(
-                b.createdAt
-              ) -
-              new Date(
-                a.createdAt
-              )
-          );
-
-      res.json({
-        ok: true,
-        orders:
-          customerOrders
-      });
-
-    } catch (error) {
-      console.error(
-        'CUSTOMER ORDERS ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        ok: false,
-        message:
-          'Unable to load your orders.'
-      });
-    }
-  }
-);
-
-/* =======================================================
-   FORGOT PASSWORD
-======================================================= */
-
-app.post(
-  '/api/customer/forgot-password',
-  passwordLimiter,
-  async (req, res) => {
-
-    const genericMessage =
-      'If an account exists with this email, a password reset code has been sent.';
-
-    try {
-      const email =
-        normalizeEmail(
-          req.body.email
-        );
-
-      if (
-        !validEmail(
-          email
+    const orders =
+      getOrders()
+        .filter(
+          order =>
+            order.customerId ===
+            req.customer.id
         )
-      ) {
-        return res.json({
-          ok: true,
-          message:
-            genericMessage
-        });
-      }
-
-      const customers =
-        read(
-          CUSTOMERS_FILE,
-          []
+        .sort(
+          (a, b) =>
+            new Date(
+              b.createdAt
+            ) -
+            new Date(
+              a.createdAt
+            )
         );
 
-      const customer =
-        customers.find(
-          item =>
-            normalizeEmail(
-              item.email
-            ) === email
-        );
-
-      if (
-        !customer
-      ) {
-        return res.json({
-          ok: true,
-          message:
-            genericMessage
-        });
-      }
-
-      const code =
-        String(
-          crypto.randomInt(
-            100000,
-            1000000
-          )
-        );
-
-      const codeHash =
-        crypto
-          .createHash(
-            'sha256'
-          )
-          .update(code)
-          .digest('hex');
-
-      customer.resetCodeHash =
-        codeHash;
-
-      customer.resetCodeExpiresAt =
-        new Date(
-          Date.now() +
-          15 * 60 * 1000
-        ).toISOString();
-
-      customer.updatedAt =
-        new Date().toISOString();
-
-      write(
-        CUSTOMERS_FILE,
-        customers
-      );
-
-      try {
-        await sendPasswordResetEmail(
-          email,
-          code
-        );
-
-      } catch (mailError) {
-
-        customer.resetCodeHash =
-          null;
-
-        customer.resetCodeExpiresAt =
-          null;
-
-        write(
-          CUSTOMERS_FILE,
-          customers
-        );
-
-        console.error(
-          'PASSWORD RESET EMAIL ERROR:',
-          mailError.message
-        );
-
-        return res.status(500).json({
-          ok: false,
-          message:
-            'Unable to send password reset email right now. Please try again later.'
-        });
-      }
-
-      res.json({
-        ok: true,
-        message:
-          genericMessage
-      });
-
-    } catch (error) {
-      console.error(
-        'FORGOT PASSWORD ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        ok: false,
-        message:
-          'Unable to process password reset.'
-      });
-    }
+    res.json({
+      ok: true,
+      orders
+    });
   }
 );
 
-/* =======================================================
-   RESET PASSWORD
-======================================================= */
+/*
+  Compatibility endpoint.
+*/
 
-app.post(
-  '/api/customer/reset-password',
-  passwordLimiter,
+app.get(
+  '/api/orders/my',
+  customerAuth,
   (req, res) => {
-    try {
-      const email =
-        normalizeEmail(
-          req.body.email
-        );
-
-      const code =
-        cleanString(
-          req.body.code,
-          20
-        );
-
-      const newPassword =
-        String(
-          req.body.newPassword ||
-          req.body.password ||
-          ''
-        );
-
-      if (
-        !validEmail(
-          email
+    const orders =
+      getOrders()
+        .filter(
+          order =>
+            order.customerId ===
+            req.customer.id
         )
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid email address.'
-        });
-      }
-
-      if (
-        !/^\d{6}$/.test(
-          code
-        )
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid reset code.'
-        });
-      }
-
-      if (
-        newPassword.length < 8
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'New password must be at least 8 characters.'
-        });
-      }
-
-      const customers =
-        read(
-          CUSTOMERS_FILE,
-          []
+        .sort(
+          (a, b) =>
+            new Date(
+              b.createdAt
+            ) -
+            new Date(
+              a.createdAt
+            )
         );
 
-      const customer =
-        customers.find(
-          item =>
-            normalizeEmail(
-              item.email
-            ) === email
-        );
-
-      if (
-        !customer
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid or expired reset code.'
-        });
-      }
-
-      if (
-        !customer.resetCodeHash ||
-        !customer.resetCodeExpiresAt
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid or expired reset code.'
-        });
-      }
-
-      const expires =
-        new Date(
-          customer.resetCodeExpiresAt
-        ).getTime();
-
-      if (
-        !Number.isFinite(
-          expires
-        ) ||
-        Date.now() >
-          expires
-      ) {
-        customer.resetCodeHash =
-          null;
-
-        customer.resetCodeExpiresAt =
-          null;
-
-        write(
-          CUSTOMERS_FILE,
-          customers
-        );
-
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Reset code has expired. Please request a new code.'
-        });
-      }
-
-      const incomingHash =
-        crypto
-          .createHash(
-            'sha256'
-          )
-          .update(code)
-          .digest('hex');
-
-      if (
-        incomingHash !==
-        customer.resetCodeHash
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid or expired reset code.'
-        });
-      }
-
-      const passwordData =
-        hashPassword(
-          newPassword
-        );
-
-      customer.passwordHash =
-        passwordData.hash;
-
-      customer.passwordSalt =
-        passwordData.salt;
-
-      customer.resetCodeHash =
-        null;
-
-      customer.resetCodeExpiresAt =
-        null;
-
-      customer.updatedAt =
-        new Date().toISOString();
-
-      write(
-        CUSTOMERS_FILE,
-        customers
-      );
-
-      res.json({
-        ok: true,
-        message:
-          'Password reset successful. Please login with your new password.'
-      });
-
-    } catch (error) {
-      console.error(
-        'RESET PASSWORD ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        ok: false,
-        message:
-          'Unable to reset password.'
-      });
-    }
+    res.json({
+      ok: true,
+      orders
+    });
   }
 );
 
-/* =======================================================
+/* =========================================================
    CREATE ORDER
-   LOGIN REQUIRED
-======================================================= */
+   ========================================================= */
 
 app.post(
   '/api/orders',
   customerAuth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const body =
         req.body || {};
 
-      const name =
-        cleanString(
-          body.name,
-          100
-        );
+      /*
+        LOGIN REQUIRED:
+        customerAuth already handled this.
+      */
 
-      const phone =
-        normalizePhone(
-          body.phone
-        );
-
-      const house =
-        cleanString(
-          body.house,
-          300
-        );
-
-      const road =
-        cleanString(
-          body.road,
-          300
-        );
-
-      const mapAddress =
-        cleanString(
-          body.mapAddress,
-          500
-        );
-
-      const note =
-        cleanString(
-          body.note,
-          1000
-        );
-
-      const payment =
-        normalizePayment(
-          body.payment
-        );
-
-      const transactionId =
-        cleanString(
-          body.transactionId ||
-          body.tx,
-          50
-        );
-
-      const lat =
-        Number(
-          body.lat
-        );
-
-      const lng =
-        Number(
-          body.lng
-        );
-
-      const deliveryTime =
-        body.deliveryTime ||
-        body.prebookTime ||
-        '';
-
-      const requestedItems =
+      const rawItems =
         Array.isArray(
           body.items
         )
           ? body.items
           : [];
 
-      /* =================================================
-         BASIC VALIDATION
-      ================================================= */
-
-      if (!name) {
+      if (
+        !rawItems.length
+      ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Customer name is required.'
+            'Your cart is empty.'
+        });
+      }
+
+      /* -----------------------------------------
+         CUSTOMER DETAILS
+         ----------------------------------------- */
+
+      const name =
+        safeString(
+          body.name ||
+          req.customer.name
+        );
+
+      const phone =
+        normalizeMobile(
+          body.phone ||
+          body.mobile ||
+          req.customer.mobile
+        );
+
+      const email =
+        normalizeEmail(
+          body.email ||
+          req.customer.email
+        );
+
+      const house =
+        safeString(
+          body.house ||
+          body.houseBuilding
+        );
+
+      const road =
+        safeString(
+          body.road ||
+          body.area ||
+          body.roadArea
+        );
+
+      const mapAddress =
+        safeString(
+          body.mapAddress ||
+          body.address
+        );
+
+      const note =
+        safeString(
+          body.note
+        );
+
+      if (
+        !name ||
+        !house ||
+        !road
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Name, house/building and road/area are required.'
         });
       }
 
       if (
-        !validBangladeshPhone(
+        !isValidBangladeshMobile(
           phone
         )
       ) {
@@ -2712,27 +2438,41 @@ app.post(
         });
       }
 
-      if (!house) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'House / Building is required.'
-        });
-      }
-
-      if (!road) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Road / Area is required.'
-        });
-      }
+      /*
+        Account mobile must match order phone.
+      */
 
       if (
-        !validateCoordinates(
-          lat,
-          lng
-        )
+        normalizeMobile(
+          req.customer.mobile
+        ) !== phone
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Order phone number must match your registered account mobile number.'
+        });
+      }
+
+      /* -----------------------------------------
+         LOCATION
+         ----------------------------------------- */
+
+      const lat =
+        Number(
+          body.lat ??
+          body.latitude
+        );
+
+      const lng =
+        Number(
+          body.lng ??
+          body.longitude
+        );
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng)
       ) {
         return res.status(400).json({
           ok: false,
@@ -2741,44 +2481,39 @@ app.post(
         });
       }
 
-      if (
-        !requestedItems.length
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Your cart is empty.'
-        });
-      }
-
-      /* =================================================
-         CUSTOMER IDENTITY
-      ================================================= */
-
-      const customerPhone =
-        normalizePhone(
-          req.customer.phone
+      const delivery =
+        calculateDelivery(
+          lat,
+          lng
         );
 
       if (
-        phone !==
-        customerPhone
+        !delivery.available
       ) {
         return res.status(400).json({
           ok: false,
+          code:
+            'OUTSIDE_DELIVERY_AREA',
           message:
-            'The checkout phone number must match your logged-in account.'
+            'Sorry. Your delivery location is outside our 4 km delivery area.',
+          distanceKm:
+            Number(
+              delivery.distanceKm.toFixed(
+                3
+              )
+            )
         });
       }
 
-      /* =================================================
-         SERVER MENU
-      ================================================= */
+      /* -----------------------------------------
+         MENU / PRICE VALIDATION
+         ----------------------------------------- */
 
       const menu =
         getMenu();
 
-      const cleanItems = [];
+      const orderItems =
+        [];
 
       let subtotal = 0;
 
@@ -2787,33 +2522,39 @@ app.post(
 
       for (
         const requested
-        of requestedItems
+        of rawItems
       ) {
-
         const productId =
-          String(
+          safeString(
             requested.id ||
-            requested.productId ||
-            ''
+            requested.productId
           );
 
         const product =
           menu.find(
-            item =>
-              String(
-                item.id
-              ) ===
+            p =>
+              String(p.id) ===
               productId
           );
 
         if (
-          !product ||
-          product.active === false
+          !product
         ) {
           return res.status(400).json({
             ok: false,
             message:
-              'One of the selected menu items is no longer available.'
+              `Product not found: ${productId}`
+          });
+        }
+
+        if (
+          product.active ===
+          false
+        ) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              `${product.name} is currently unavailable.`
           });
         }
 
@@ -2826,7 +2567,8 @@ app.post(
           !Number.isInteger(
             qty
           ) ||
-          qty < 1
+          qty < 1 ||
+          qty > 100
         ) {
           return res.status(400).json({
             ok: false,
@@ -2835,136 +2577,59 @@ app.post(
           });
         }
 
-        const minQty =
-          Number(
-            product.minQty
-          ) || 1;
-
-        const maxQty =
-          Number(
-            product.maxQty
-          ) || 100;
-
         if (
-          qty < minQty ||
-          qty > maxQty
+          product.minQty !==
+            undefined &&
+          qty <
+            Number(
+              product.minQty
+            )
         ) {
           return res.status(400).json({
             ok: false,
             message:
-              `${product.name} quantity must be between ${minQty} and ${maxQty}.`
+              `${product.name} requires minimum quantity ${product.minQty}.`
           });
         }
 
-        /* ===============================================
-           SIZE VALIDATION
-        =============================================== */
-
-        let sizeIndex =
-          Number.isInteger(
+        if (
+          product.maxQty !==
+            undefined &&
+          qty >
             Number(
-              requested.sizeIndex
+              product.maxQty
             )
-          )
-            ? Number(
-                requested.sizeIndex
-              )
-            : -1;
-
-        let selectedSize =
-          null;
-
-        let unitPrice =
-          Number(
-            product.price
-          );
+        ) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              `${product.name} allows maximum quantity ${product.maxQty}.`
+          });
+        }
 
         /*
-          If product has sizes,
-          browser MUST select a valid size.
+          SERVER decides price.
+          Browser price is NEVER trusted.
         */
 
-        if (
-          Array.isArray(
-            product.sizes
-          ) &&
-          product.sizes.length
-        ) {
-
-          if (
-            sizeIndex < 0 ||
-            sizeIndex >=
-              product.sizes.length
-          ) {
-
-            /*
-              Backward compatibility:
-              try matching choice.
-            */
-
-            const requestedChoice =
-              cleanString(
-                requested.choice,
-                200
-              );
-
-            const choiceIndex =
-              product.sizes.findIndex(
-                size =>
-                  size[0] ===
-                  requestedChoice
-              );
-
-            if (
-              choiceIndex >= 0
-            ) {
-              sizeIndex =
-                choiceIndex;
-            }
-          }
-
-          if (
-            sizeIndex < 0 ||
-            sizeIndex >=
-              product.sizes.length
-          ) {
-            return res.status(400).json({
-              ok: false,
-              message:
-                `Please select a valid size for ${product.name}.`
-            });
-          }
-
-          selectedSize =
-            product.sizes[
-              sizeIndex
-            ];
-
-          unitPrice =
-            Number(
-              selectedSize[1]
-            );
-        }
+        const pricing =
+          resolveProductPrice(
+            product,
+            requested
+          );
 
         if (
-          !Number.isFinite(
-            unitPrice
-          ) ||
-          unitPrice <= 0
+          !pricing.valid
         ) {
           return res.status(400).json({
             ok: false,
             message:
-              `Invalid price for ${product.name}.`
+              pricing.message
           });
         }
 
-        const lineTotal =
-          unitPrice *
-          qty;
-
         const itemPrebook =
-          isPrebookCategory(
+          isProductPrebook(
             product
           );
 
@@ -2975,7 +2640,14 @@ app.post(
             true;
         }
 
-        cleanItems.push({
+        const lineTotal =
+          pricing.price *
+          qty;
+
+        subtotal +=
+          lineTotal;
+
+        orderItems.push({
           id:
             product.id,
 
@@ -2986,443 +2658,310 @@ app.post(
             product.cat,
 
           choice:
-            selectedSize
-              ? selectedSize[0]
-              : cleanString(
-                  requested.choice ||
-                  product.choice,
-                  200
-                ),
+            pricing.choice,
 
           sizeIndex:
-            selectedSize
-              ? sizeIndex
-              : null,
+            pricing.sizeIndex,
 
           qty,
 
           price:
-            unitPrice,
+            pricing.price,
 
-          total:
-            lineTotal,
+          lineTotal,
 
           prebook:
-            itemPrebook,
-
-          image:
-            product.image ||
-            ''
-        });
-
-        subtotal +=
-          lineTotal;
-      }
-
-      /* =================================================
-         DELIVERY DISTANCE
-      ================================================= */
-
-      const settings =
-        getSettings();
-
-      const distance =
-        distanceKm(
-          Number(
-            settings.delivery.baseLat
-          ),
-
-          Number(
-            settings.delivery.baseLng
-          ),
-
-          lat,
-          lng
-        );
-
-      const maxRadius =
-        Number(
-          settings.delivery.maxRadiusKm
-        );
-
-      const codRadius =
-        Number(
-          settings.delivery.codRadiusKm
-        );
-
-      if (
-        distance >
-        maxRadius
-      ) {
-        return res.status(400).json({
-          ok: false,
-
-          code:
-            'OUTSIDE_DELIVERY_AREA',
-
-          message:
-            `Sorry. Your delivery location is outside our ${maxRadius} km delivery area.`
+            itemPrebook
         });
       }
 
-      const codAvailable =
-        distance <=
-        codRadius;
-
-      const deliveryCharge =
-        codAvailable
-          ? Number(
-              settings.delivery.codCharge
-            )
-          : Math.ceil(
-              distance
-            ) *
-            Number(
-              settings.delivery.ratePerKm
-            );
-
-      /* =================================================
-         PAYMENT
-      ================================================= */
-
-      if (
-        !payment
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Please select a payment method.'
-        });
-      }
-
-      /*
-        PRE-BOOK:
-        Full online payment only.
-      */
-
-      if (
-        hasPrebook
-      ) {
-
-        if (
-          paymentIsCOD(
-            payment
-          )
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Cash on Delivery is not available for pre-booking orders.'
-          });
-        }
-
-        if (
-          !paymentIsBkash(
-            payment
-          ) &&
-          !paymentIsNagad(
-            payment
-          )
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Please select bKash or Nagad for pre-booking.'
-          });
-        }
-
-        if (
-          !validTransactionId(
-            transactionId
-          )
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Full payment is required for pre-booking. Please enter the transaction ID / last 5 digits.'
-          });
-        }
-      }
-
-      /*
-        OUTSIDE COD:
-        Online payment required.
-      */
-
-      if (
-        !hasPrebook &&
-        !codAvailable
-      ) {
-
-        if (
-          paymentIsCOD(
-            payment
-          )
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Cash on Delivery is not available at this location. Please pay by bKash or Nagad.'
-          });
-        }
-
-        if (
-          !paymentIsBkash(
-            payment
-          ) &&
-          !paymentIsNagad(
-            payment
-          )
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Online payment by bKash or Nagad is required for this location.'
-          });
-        }
-
-        if (
-          !validTransactionId(
-            transactionId
-          )
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Please enter the online payment transaction ID / last 5 digits.'
-          });
-        }
-      }
-
-      /*
-        COD:
-        Only inside COD radius.
-      */
-
-      if (
-        paymentIsCOD(
-          payment
-        )
-      ) {
-
-        if (
-          !codAvailable
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Cash on Delivery is not available at your location.'
-          });
-        }
-
-        if (
-          hasPrebook
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'COD is not available for pre-booking.'
-          });
-        }
-      }
-
-      /*
-        Online payment always
-        requires transaction ID.
-      */
-
-      const isOnlinePayment =
-        paymentIsBkash(
-          payment
-        ) ||
-        paymentIsNagad(
-          payment
-        );
-
-      if (
-        isOnlinePayment &&
-        !validTransactionId(
-          transactionId
-        )
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Please enter the transaction ID / last 5 digits.'
-        });
-      }
-
-      /* =================================================
+      /* -----------------------------------------
          DELIVERY TIME
-      ================================================= */
+         ----------------------------------------- */
 
-      /*
-        FINAL RULE:
-        Every order must have
-        a selected 30-minute slot.
-
-        Normal:
-        opening + 1 hour
-        through closing - 1 hour.
-
-        Pre-book:
-        same time window,
-        on a future date.
-      */
+      const deliveryTime =
+        safeString(
+          body.deliveryTime ||
+          body.prebookSlot ||
+          body.slot
+        );
 
       if (
         !deliveryTime
       ) {
         return res.status(400).json({
           ok: false,
+          code:
+            'DELIVERY_TIME_REQUIRED',
           message:
-            hasPrebook
-              ? 'Please select a pre-booking delivery time.'
-              : 'Please select a delivery time.'
+            'Please select a delivery time.'
         });
       }
 
       const timeValidation =
         validateDeliveryTime(
           deliveryTime,
-          hasPrebook
+          {
+            prebook:
+              hasPrebook
+          }
         );
 
       if (
-        !timeValidation.ok
+        !timeValidation.valid
       ) {
         return res.status(400).json({
           ok: false,
+          code:
+            'INVALID_DELIVERY_TIME',
           message:
             timeValidation.message
         });
       }
 
-      /* =================================================
+      /* -----------------------------------------
+         PAYMENT
+         ----------------------------------------- */
+
+      const paymentRaw =
+        body.payment ||
+        body.paymentMethod ||
+        '';
+
+      const payment =
+        normalizePayment(
+          paymentRaw
+        );
+
+      const tx =
+        safeString(
+          body.transactionId ||
+          body.tx ||
+          body.transaction ||
+          body.last5
+        );
+
+      /*
+        Pre-booking:
+        ONLINE ONLY.
+      */
+
+      if (
+        hasPrebook
+      ) {
+        if (
+          payment !==
+            'bKash' &&
+          payment !==
+            'Nagad'
+        ) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              'Pre-booking orders require full bKash or Nagad payment.'
+          });
+        }
+
+        if (
+          !isValidTransactionId(
+            tx
+          )
+        ) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              'Please enter a valid bKash/Nagad transaction ID or last digits.'
+          });
+        }
+      } else {
+        /*
+          Within COD radius:
+          COD OR online payment.
+        */
+
+        if (
+          delivery.codAvailable
+        ) {
+          if (
+            payment ===
+            'COD'
+          ) {
+            /*
+              No transaction ID required.
+            */
+          } else if (
+            payment ===
+              'bKash' ||
+            payment ===
+              'Nagad'
+          ) {
+            if (
+              !isValidTransactionId(
+                tx
+              )
+            ) {
+              return res.status(400).json({
+                ok: false,
+                message:
+                  'Please enter a valid bKash/Nagad transaction ID or last digits.'
+              });
+            }
+          } else {
+            return res.status(400).json({
+              ok: false,
+              message:
+                'Please select a valid payment method.'
+            });
+          }
+        } else {
+          /*
+            1–4 km:
+            COD NOT AVAILABLE.
+            Online payment REQUIRED.
+          */
+
+          if (
+            payment !==
+              'bKash' &&
+            payment !==
+              'Nagad'
+          ) {
+            return res.status(400).json({
+              ok: false,
+              message:
+                'COD is not available for this location. Please use bKash or Nagad.'
+            });
+          }
+
+          if (
+            !isValidTransactionId(
+              tx
+            )
+          ) {
+            return res.status(400).json({
+              ok: false,
+              message:
+                'Online payment transaction ID is required.'
+            });
+          }
+        }
+      }
+
+      /* -----------------------------------------
          TOTAL
-      ================================================= */
+         ----------------------------------------- */
+
+      const deliveryCharge =
+        delivery.deliveryCharge;
 
       const total =
         subtotal +
         deliveryCharge;
 
-      /* =================================================
-         CREATE ORDER
-      ================================================= */
+      /* -----------------------------------------
+         ORDER OBJECT
+         ----------------------------------------- */
 
       const orders =
-        read(
-          ORDERS_FILE,
-          []
-        );
+        getOrders();
 
       const order = {
         id:
-          makeId(
-            'order'
+          generateId(
+            'ORD'
           ),
-
-        createdAt:
-          new Date().toISOString(),
-
-        status:
-          'pending',
 
         customerId:
           req.customer.id,
 
-        customerEmail:
-          cleanString(
-            req.customer.email,
-            200
-          ),
+        customer: {
+          id:
+            req.customer.id,
 
-        name,
+          name,
 
-        phone,
+          mobile:
+            phone,
 
-        email:
-          cleanString(
-            req.customer.email,
-            200
-          ),
-
-        address: {
-          house,
-          road,
-          mapAddress
+          email
         },
 
-        lat,
-
-        lng,
-
-        distanceKm:
-          Number(
-            distance.toFixed(3)
-          ),
-
-        deliveryCharge,
+        items:
+          orderItems,
 
         subtotal,
 
+        deliveryCharge,
+
         total,
 
-        paymentMethod:
-          payment,
+        delivery: {
+          lat,
 
-        paymentType:
-          paymentIsCOD(
-            payment
-          )
-            ? 'COD'
-            : 'ONLINE',
+          lng,
 
-        transactionId:
-          paymentIsCOD(
-            payment
-          )
-            ? ''
-            : transactionId,
+          address:
+            mapAddress,
+
+          house,
+
+          road,
+
+          distanceKm:
+            Number(
+              delivery.distanceKm.toFixed(
+                3
+              )
+            ),
+
+          codAvailable:
+            delivery.codAvailable
+        },
+
+        payment: {
+          method:
+            payment,
+
+          transactionId:
+            tx ||
+            '',
+
+          status:
+            payment ===
+            'COD'
+              ? 'pending'
+              : 'submitted'
+        },
 
         deliveryTime:
-          new Date(
-            deliveryTime
-          ).toISOString(),
+          timeValidation.iso,
 
-        prebook:
+        deliveryDate:
+          timeValidation.date,
+
+        deliveryTimeLocal:
+          timeValidation.time,
+
+        isPrebook:
           hasPrebook,
 
-        /*
-          Keep settings snapshot
-          for historical records.
-        */
+        note,
 
-        prebookSettings:
-          hasPrebook
-            ? {
-                ...settings.prebook,
+        status:
+          'pending',
 
-                /*
-                  New rule snapshot.
-                */
-                timeRule:
-                  'Opening + 1 hour to closing - 1 hour, 30-minute slots'
-              }
-            : null,
+        createdAt:
+          new Date().toISOString(),
 
-        items:
-          cleanItems,
-
-        note
+        updatedAt:
+          new Date().toISOString()
       };
 
       orders.push(
         order
       );
 
-      write(
-        ORDERS_FILE,
+      saveOrders(
         orders
       );
 
@@ -3434,171 +2973,153 @@ app.post(
 
         order
       });
-
-    } catch (error) {
+    } catch (err) {
       console.error(
         'CREATE ORDER ERROR:',
-        error
+        err
       );
 
       res.status(500).json({
         ok: false,
         message:
-          'Unable to place order right now.'
+          'Unable to place order.'
       });
     }
   }
 );
 
-/* =======================================================
-   PUBLIC REVIEWS
-======================================================= */
+/* =========================================================
+   REVIEWS - PUBLIC
+   ========================================================= */
 
 app.get(
   '/api/reviews',
   (req, res) => {
-
     const reviews =
-      read(
-        REVIEWS_FILE,
-        []
-      );
-
-    const approved =
-      Array.isArray(
-        reviews
-      )
-        ? reviews.filter(
-            item =>
-              item.approved !== false
-          )
-        : [];
+      getReviews()
+        .filter(
+          r =>
+            r.approved !==
+            false
+        )
+        .sort(
+          (a, b) =>
+            new Date(
+              b.createdAt ||
+              0
+            ) -
+            new Date(
+              a.createdAt ||
+              0
+            )
+        );
 
     res.json({
       ok: true,
-      reviews:
-        approved
+      reviews
     });
   }
 );
 
-/* =======================================================
-   POST REVIEW
-======================================================= */
+/* =========================================================
+   CREATE REVIEW
+   ========================================================= */
 
 app.post(
   '/api/reviews',
   customerAuth,
   (req, res) => {
-
-    try {
-      const rating =
-        Number(
-          req.body.rating
-        );
-
-      const comment =
-        cleanString(
-          req.body.comment,
-          1000
-        );
-
-      if (
-        !Number.isInteger(
-          rating
-        ) ||
-        rating < 1 ||
-        rating > 5
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Rating must be between 1 and 5.'
-        });
-      }
-
-      if (
-        !comment
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Please write a review.'
-        });
-      }
-
-      const reviews =
-        read(
-          REVIEWS_FILE,
-          []
-        );
-
-      const review = {
-        id:
-          makeId(
-            'review'
-          ),
-
-        customerId:
-          req.customer.id,
-
-        name:
-          req.customer.name,
-
-        rating,
-
-        comment,
-
-        approved:
-          false,
-
-        createdAt:
-          new Date().toISOString()
-      };
-
-      reviews.push(
-        review
+    const rating =
+      Number(
+        req.body.rating
       );
 
-      write(
-        REVIEWS_FILE,
-        reviews
+    const text =
+      safeString(
+        req.body.text ||
+        req.body.comment ||
+        req.body.review
       );
 
-      res.status(201).json({
-        ok: true,
-        message:
-          'Review submitted for approval.'
-      });
-
-    } catch (error) {
-      console.error(
-        'REVIEW ERROR:',
-        error
-      );
-
-      res.status(500).json({
+    if (
+      !Number.isInteger(
+        rating
+      ) ||
+      rating < 1 ||
+      rating > 5
+    ) {
+      return res.status(400).json({
         ok: false,
         message:
-          'Unable to submit review.'
+          'Rating must be between 1 and 5.'
       });
     }
+
+    if (
+      text.length <
+      3
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          'Please write a review.'
+      });
+    }
+
+    const reviews =
+      getReviews();
+
+    const review = {
+      id:
+        generateId(
+          'rev'
+        ),
+
+      customerId:
+        req.customer.id,
+
+      customerName:
+        req.customer.name,
+
+      rating,
+
+      text,
+
+      approved:
+        false,
+
+      createdAt:
+        new Date().toISOString()
+    };
+
+    reviews.push(
+      review
+    );
+
+    saveReviews(
+      reviews
+    );
+
+    res.status(201).json({
+      ok: true,
+      message:
+        'Review submitted for approval.',
+      review
+    });
   }
 );
 
-/* =======================================================
+/* =========================================================
    ADMIN LOGIN
-======================================================= */
+   ========================================================= */
 
 app.post(
   '/api/admin/login',
-  loginLimiter,
-  (req, res) => {
-
+  authLimiter,
+  async (req, res) => {
     const username =
-      cleanString(
-        req.body.username,
-        100
+      safeString(
+        req.body.username
       );
 
     const password =
@@ -3608,67 +3129,108 @@ app.post(
       );
 
     if (
+      !ADMIN_PASSWORD
+    ) {
+      return res.status(503).json({
+        ok: false,
+        message:
+          'Admin password is not configured on the server.'
+      });
+    }
+
+    if (
       username !==
-        ADMIN_USERNAME ||
-      !ADMIN_PASSWORD ||
+      ADMIN_USERNAME ||
       password !==
-        ADMIN_PASSWORD
+      ADMIN_PASSWORD
     ) {
       return res.status(401).json({
         ok: false,
         message:
-          'Invalid admin username or password.'
+          'Invalid admin login details.'
       });
     }
 
     const token =
-      createAdminToken(
-        username
+      jwt.sign(
+        {
+          type: 'admin',
+          username
+        },
+        JWT_SECRET,
+        {
+          expiresIn:
+            '12h'
+        }
       );
 
     res.json({
       ok: true,
-
       token,
 
-      user: {
-        username,
-        role:
-          'admin'
+      admin: {
+        username
       }
     });
   }
 );
 
-/* =======================================================
+/* =========================================================
+   ADMIN ME
+   ========================================================= */
+
+app.get(
+  '/api/admin/me',
+  adminAuth,
+  (req, res) => {
+    res.json({
+      ok: true,
+
+      admin: {
+        username:
+          req.admin.username
+      }
+    });
+  }
+);
+
+/* =========================================================
    ADMIN DASHBOARD
-======================================================= */
+   ========================================================= */
 
 app.get(
   '/api/admin/dashboard',
-  auth,
+  adminAuth,
   (req, res) => {
-
     const orders =
-      read(
-        ORDERS_FILE,
-        []
-      );
-
-    const reviews =
-      read(
-        REVIEWS_FILE,
-        []
-      );
+      getOrders();
 
     const menu =
       getMenu();
 
+    const reviews =
+      getReviews();
+
     const customers =
-      read(
-        CUSTOMERS_FILE,
-        []
+      getCustomers();
+
+    const totalRevenue =
+      orders.reduce(
+        (sum, order) =>
+          sum +
+          Number(
+            order.total
+          || 0
+          ),
+        0
       );
+
+    const pendingOrders =
+      orders.filter(
+        o =>
+          o.status ===
+          'pending'
+      ).length;
 
     res.json({
       ok: true,
@@ -3677,50 +3239,45 @@ app.get(
         orders:
           orders.length,
 
-        pendingOrders:
-          orders.filter(
-            item =>
-              item.status ===
-              'pending'
-          ).length,
-
-        reviews:
-          reviews.length,
+        pendingOrders,
 
         customers:
           customers.length,
 
         menuItems:
-          menu.length
+          menu.length,
+
+        reviews:
+          reviews.length,
+
+        revenue:
+          totalRevenue
       }
     });
   }
 );
 
-/* =======================================================
+/* =========================================================
    ADMIN ORDERS
-======================================================= */
+   ========================================================= */
 
 app.get(
   '/api/admin/orders',
-  auth,
+  adminAuth,
   (req, res) => {
-
     const orders =
-      read(
-        ORDERS_FILE,
-        []
-      );
-
-    orders.sort(
-      (a, b) =>
-        new Date(
-          b.createdAt
-        ) -
-        new Date(
-          a.createdAt
-        )
-    );
+      getOrders()
+        .sort(
+          (a, b) =>
+            new Date(
+              b.createdAt ||
+              0
+            ) -
+            new Date(
+              a.createdAt ||
+              0
+            )
+        );
 
     res.json({
       ok: true,
@@ -3729,26 +3286,56 @@ app.get(
   }
 );
 
-/* =======================================================
-   ADMIN UPDATE ORDER
-======================================================= */
+/* =========================================================
+   ADMIN SINGLE ORDER
+   ========================================================= */
 
-app.patch(
+app.get(
   '/api/admin/orders/:id',
-  auth,
+  adminAuth,
   (req, res) => {
-
-    const orders =
-      read(
-        ORDERS_FILE,
-        []
+    const order =
+      getOrders().find(
+        o =>
+          String(o.id) ===
+          String(
+            req.params.id
+          )
       );
+
+    if (!order) {
+      return res.status(404).json({
+        ok: false,
+        message:
+          'Order not found.'
+      });
+    }
+
+    res.json({
+      ok: true,
+      order
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN UPDATE ORDER
+   ========================================================= */
+
+app.put(
+  '/api/admin/orders/:id',
+  adminAuth,
+  (req, res) => {
+    const orders =
+      getOrders();
 
     const index =
       orders.findIndex(
-        item =>
-          item.id ===
-          req.params.id
+        o =>
+          String(o.id) ===
+          String(
+            req.params.id
+          )
       );
 
     if (
@@ -3765,37 +3352,56 @@ app.patch(
       'pending',
       'confirmed',
       'preparing',
+      'ready',
       'out_for_delivery',
       'delivered',
       'cancelled'
     ];
 
-    if (
-      req.body.status &&
-      allowedStatuses.includes(
+    const newStatus =
+      safeString(
         req.body.status
+      );
+
+    if (
+      newStatus &&
+      !allowedStatuses.includes(
+        newStatus
       )
     ) {
-      orders[index].status =
-        req.body.status;
+      return res.status(400).json({
+        ok: false,
+        message:
+          'Invalid order status.'
+      });
     }
 
     if (
-      req.body.adminNote !==
-      undefined
+      newStatus
     ) {
-      orders[index].adminNote =
-        cleanString(
-          req.body.adminNote,
-          1000
+      orders[index].status =
+        newStatus;
+    }
+
+    if (
+      req.body.paymentStatus
+    ) {
+      orders[index]
+        .payment =
+        orders[index]
+          .payment || {};
+
+      orders[index]
+        .payment.status =
+        safeString(
+          req.body.paymentStatus
         );
     }
 
     orders[index].updatedAt =
       new Date().toISOString();
 
-    write(
-      ORDERS_FILE,
+    saveOrders(
       orders
     );
 
@@ -3807,58 +3413,244 @@ app.patch(
   }
 );
 
-/* =======================================================
-   ADMIN REVIEWS
-======================================================= */
+/* =========================================================
+   ADMIN MENU GET
+   ========================================================= */
 
 app.get(
-  '/api/admin/reviews',
-  auth,
+  '/api/admin/menu',
+  adminAuth,
   (req, res) => {
-
-    const reviews =
-      read(
-        REVIEWS_FILE,
-        []
-      );
-
-    reviews.sort(
-      (a, b) =>
-        new Date(
-          b.createdAt
-        ) -
-        new Date(
-          a.createdAt
-        )
-    );
-
     res.json({
       ok: true,
-      reviews
+      menu:
+        getMenu()
     });
   }
 );
 
-/* =======================================================
-   ADMIN UPDATE REVIEW
-======================================================= */
+/* =========================================================
+   ADMIN FULL MENU UPDATE
+   ========================================================= */
 
-app.patch(
-  '/api/admin/reviews/:id',
-  auth,
+app.put(
+  '/api/admin/menu',
+  adminAuth,
   (req, res) => {
+    let menu =
+      req.body.menu;
 
-    const reviews =
-      read(
-        REVIEWS_FILE,
-        []
+    if (
+      !Array.isArray(
+        menu
+      )
+    ) {
+      return res.status(400).json({
+        ok: false,
+        message:
+          'Menu must be an array.'
+      });
+    }
+
+    menu =
+      menu.map(
+        normalizeProduct
       );
+
+    saveMenu(
+      menu
+    );
+
+    res.json({
+      ok: true,
+      menu:
+        getMenu()
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN SINGLE MENU UPDATE
+   ========================================================= */
+
+app.put(
+  '/api/admin/menu/:id',
+  adminAuth,
+  (req, res) => {
+    const menu =
+      getMenu();
+
+    const index =
+      menu.findIndex(
+        item =>
+          String(item.id) ===
+          String(
+            req.params.id
+          )
+      );
+
+    if (
+      index === -1
+    ) {
+      return res.status(404).json({
+        ok: false,
+        message:
+          'Menu item not found.'
+      });
+    }
+
+    const updated =
+      normalizeProduct({
+        ...menu[index],
+        ...req.body,
+        id:
+          menu[index].id
+      });
+
+    menu[index] =
+      updated;
+
+    saveMenu(
+      menu
+    );
+
+    res.json({
+      ok: true,
+      item:
+        updated
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN CREATE MENU ITEM
+   ========================================================= */
+
+app.post(
+  '/api/admin/menu',
+  adminAuth,
+  (req, res) => {
+    const menu =
+      getMenu();
+
+    const product =
+      normalizeProduct({
+        ...req.body,
+
+        id:
+          req.body.id ||
+          generateId(
+            'item'
+          )
+      });
+
+    if (
+      menu.some(
+        item =>
+          item.id ===
+          product.id
+      )
+    ) {
+      return res.status(409).json({
+        ok: false,
+        message:
+          'Menu item ID already exists.'
+      });
+    }
+
+    menu.push(
+      product
+    );
+
+    saveMenu(
+      menu
+    );
+
+    res.status(201).json({
+      ok: true,
+      item:
+        product
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN DELETE MENU ITEM
+   ========================================================= */
+
+app.delete(
+  '/api/admin/menu/:id',
+  adminAuth,
+  (req, res) => {
+    const menu =
+      getMenu();
+
+    const newMenu =
+      menu.filter(
+        item =>
+          String(item.id) !==
+          String(
+            req.params.id
+          )
+      );
+
+    if (
+      newMenu.length ===
+      menu.length
+    ) {
+      return res.status(404).json({
+        ok: false,
+        message:
+          'Menu item not found.'
+      });
+    }
+
+    saveMenu(
+      newMenu
+    );
+
+    res.json({
+      ok: true,
+      menu:
+        newMenu
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN REVIEWS
+   ========================================================= */
+
+app.get(
+  '/api/admin/reviews',
+  adminAuth,
+  (req, res) => {
+    res.json({
+      ok: true,
+      reviews:
+        getReviews()
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN UPDATE REVIEW
+   ========================================================= */
+
+app.put(
+  '/api/admin/reviews/:id',
+  adminAuth,
+  (req, res) => {
+    const reviews =
+      getReviews();
 
     const index =
       reviews.findIndex(
-        item =>
-          item.id ===
-          req.params.id
+        r =>
+          String(r.id) ===
+          String(
+            req.params.id
+          )
       );
 
     if (
@@ -3875,14 +3667,43 @@ app.patch(
       req.body.approved !==
       undefined
     ) {
-      reviews[index].approved =
+      reviews[index]
+        .approved =
         Boolean(
           req.body.approved
         );
     }
 
-    write(
-      REVIEWS_FILE,
+    if (
+      req.body.rating !==
+      undefined
+    ) {
+      const rating =
+        Number(
+          req.body.rating
+        );
+
+      if (
+        rating < 1 ||
+        rating > 5
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Rating must be 1–5.'
+        });
+      }
+
+      reviews[index]
+        .rating =
+        rating;
+    }
+
+    reviews[index]
+      .updatedAt =
+      new Date().toISOString();
+
+    saveReviews(
       reviews
     );
 
@@ -3894,149 +3715,185 @@ app.patch(
   }
 );
 
-/* =======================================================
-   ADMIN SETTINGS GET
-======================================================= */
+/* =========================================================
+   ADMIN CUSTOMERS
+   ========================================================= */
 
 app.get(
-  '/api/admin/settings',
-  auth,
+  '/api/admin/customers',
+  adminAuth,
   (req, res) => {
+    const customers =
+      getCustomers();
+
+    const orders =
+      getOrders();
+
+    const output =
+      customers.map(
+        customer => {
+          const customerOrders =
+            orders.filter(
+              o =>
+                o.customerId ===
+                customer.id
+            );
+
+          const totalSpent =
+            customerOrders.reduce(
+              (sum, o) =>
+                sum +
+                Number(
+                  o.total || 0
+                ),
+              0
+            );
+
+          return {
+            ...sanitizeCustomer(
+              customer
+            ),
+
+            orderCount:
+              customerOrders.length,
+
+            totalSpent
+          };
+        }
+      );
 
     res.json({
       ok: true,
-
-      settings:
-        getSettings()
+      customers:
+        output
     });
   }
 );
 
-/* =======================================================
+/* =========================================================
+   ADMIN CUSTOMER DETAILS
+   ========================================================= */
+
+app.get(
+  '/api/admin/customers/:id',
+  adminAuth,
+  (req, res) => {
+    const customer =
+      getCustomers().find(
+        c =>
+          String(c.id) ===
+          String(
+            req.params.id
+          )
+      );
+
+    if (!customer) {
+      return res.status(404).json({
+        ok: false,
+        message:
+          'Customer not found.'
+      });
+    }
+
+    const orders =
+      getOrders().filter(
+        o =>
+          o.customerId ===
+          customer.id
+      );
+
+    res.json({
+      ok: true,
+
+      customer:
+        sanitizeCustomer(
+          customer
+        ),
+
+      orders
+    });
+  }
+);
+
+/* =========================================================
+   ADMIN SETTINGS GET
+   ========================================================= */
+
+app.get(
+  '/api/admin/settings',
+  adminAuth,
+  (req, res) => {
+    res.json({
+      ok: true,
+
+      settings:
+        normalizeSettings()
+    });
+  }
+);
+
+/* =========================================================
    ADMIN SETTINGS UPDATE
-======================================================= */
+   ========================================================= */
 
 app.put(
   '/api/admin/settings',
-  auth,
+  adminAuth,
   (req, res) => {
-
     try {
       const current =
-        getSettings();
+        normalizeSettings();
 
       const incoming =
-        req.body || {};
+        req.body.settings ||
+        req.body;
 
-      const next = {
-        ...current,
-
-        delivery: {
-          ...current.delivery,
-
-          ...(incoming.delivery || {})
-        },
-
-        payment: {
-          ...current.payment,
-
-          ...(incoming.payment || {})
-        },
-
-        hours: {
-          ...current.hours,
-
-          ...(incoming.hours || {}),
-
-          normal: {
-            ...current.hours.normal,
-
-            ...(
-              incoming.hours &&
-              incoming.hours.normal
-                ? incoming.hours.normal
-                : {}
-            )
-          },
-
-          friday: {
-            ...current.hours.friday,
-
-            ...(
-              incoming.hours &&
-              incoming.hours.friday
-                ? incoming.hours.friday
-                : {}
-            )
-          }
-        },
-
-        prebook: {
-          ...current.prebook,
-
-          ...(incoming.prebook || {})
-        }
-      };
+      const merged =
+        deepMerge(
+          current,
+          incoming
+        );
 
       /*
-        Sanitize important numeric
-        settings.
+        Keep delivery values sane.
       */
 
-      next.delivery.baseLat =
+      merged.delivery.baseLat =
         Number(
-          next.delivery.baseLat
+          merged.delivery.baseLat
         );
 
-      next.delivery.baseLng =
+      merged.delivery.baseLng =
         Number(
-          next.delivery.baseLng
+          merged.delivery.baseLng
         );
 
-      next.delivery.codRadiusKm =
+      merged.delivery.codRadiusKm =
         Number(
-          next.delivery.codRadiusKm
+          merged.delivery.codRadiusKm
         );
 
-      next.delivery.maxRadiusKm =
+      merged.delivery.maxRadiusKm =
         Number(
-          next.delivery.maxRadiusKm
+          merged.delivery.maxRadiusKm
         );
 
-      next.delivery.ratePerKm =
+      merged.delivery.ratePerKm =
         Number(
-          next.delivery.ratePerKm
+          merged.delivery.ratePerKm
         );
 
-      next.delivery.codCharge =
+      merged.delivery.codCharge =
         Number(
-          next.delivery.codCharge
-        );
-
-      next.hours.normal.open =
-        Number(
-          next.hours.normal.open
-        );
-
-      next.hours.normal.close =
-        Number(
-          next.hours.normal.close
-        );
-
-      next.hours.friday.open =
-        Number(
-          next.hours.friday.open
-        );
-
-      next.hours.friday.close =
-        Number(
-          next.hours.friday.close
+          merged.delivery.codCharge
         );
 
       if (
-        !validateCoordinates(
-          next.delivery.baseLat,
-          next.delivery.baseLng
+        !Number.isFinite(
+          merged.delivery.baseLat
+        ) ||
+        !Number.isFinite(
+          merged.delivery.baseLng
         )
       ) {
         return res.status(400).json({
@@ -4047,86 +3904,95 @@ app.put(
       }
 
       if (
-        next.delivery.codRadiusKm <
-        0 ||
-        next.delivery.maxRadiusKm <=
-        0 ||
-        next.delivery.codRadiusKm >
-        next.delivery.maxRadiusKm
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Invalid delivery radius settings.'
-        });
-      }
-
-      if (
-        next.delivery.ratePerKm <
-        0 ||
-        next.delivery.codCharge <
+        merged.delivery.codRadiusKm <
         0
       ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Delivery charges cannot be negative.'
+            'COD radius cannot be negative.'
         });
       }
 
       if (
-        next.hours.normal.open <
-        0 ||
-        next.hours.normal.open >
-        23 ||
-        next.hours.normal.close <
-        1 ||
-        next.hours.normal.close >
-        24 ||
-        next.hours.normal.open >=
-        next.hours.normal.close
+        merged.delivery.maxRadiusKm <=
+        0
       ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Invalid normal shop hours.'
+            'Maximum delivery radius must be greater than 0.'
         });
       }
 
       if (
-        next.hours.friday.open <
-        0 ||
-        next.hours.friday.open >
-        23 ||
-        next.hours.friday.close <
-        1 ||
-        next.hours.friday.close >
-        24 ||
-        next.hours.friday.open >=
-        next.hours.friday.close
+        merged.delivery.codRadiusKm >
+        merged.delivery.maxRadiusKm
       ) {
         return res.status(400).json({
           ok: false,
           message:
-            'Invalid Friday shop hours.'
+            'COD radius cannot exceed maximum delivery radius.'
         });
       }
 
-      write(
-        SETTINGS_FILE,
-        next
+      /*
+        Shop hours.
+      */
+
+      for (
+        const day of [
+          'normal',
+          'friday'
+        ]
+      ) {
+        const open =
+          Number(
+            merged.hours[
+              day
+            ].open
+          );
+
+        const close =
+          Number(
+            merged.hours[
+              day
+            ].close
+          );
+
+        if (
+          !Number.isFinite(
+            open
+          ) ||
+          !Number.isFinite(
+            close
+          ) ||
+          open < 0 ||
+          close > 24 ||
+          close <= open
+        ) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              `Invalid ${day} shop hours.`
+          });
+        }
+      }
+
+      saveSettings(
+        merged
       );
 
       res.json({
         ok: true,
-        settings:
-          next
-      });
 
-    } catch (error) {
+        settings:
+          normalizeSettings()
+      });
+    } catch (err) {
       console.error(
         'SETTINGS UPDATE ERROR:',
-        error
+        err
       );
 
       res.status(500).json({
@@ -4138,218 +4004,22 @@ app.put(
   }
 );
 
-/* =======================================================
-   ADMIN MENU GET
-======================================================= */
-
-app.get(
-  '/api/admin/menu',
-  auth,
-  (req, res) => {
-
-    res.json({
-      ok: true,
-
-      menu:
-        getMenu()
-    });
-  }
-);
-
-/* =======================================================
-   ADMIN MENU UPDATE ALL
-======================================================= */
-
-app.put(
-  '/api/admin/menu',
-  auth,
-  (req, res) => {
-
-    try {
-      if (
-        !Array.isArray(
-          req.body.menu
-        )
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Menu must be an array.'
-        });
-      }
-
-      const menu =
-        req.body.menu.map(
-          normalizeProduct
-        );
-
-      write(
-        MENU_FILE,
-        menu
-      );
-
-      res.json({
-        ok: true,
-        menu
-      });
-
-    } catch (error) {
-      console.error(
-        'MENU UPDATE ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        ok: false,
-        message:
-          'Unable to update menu.'
-      });
-    }
-  }
-);
-
-/* =======================================================
-   ADMIN MENU CREATE
-======================================================= */
-
-app.post(
-  '/api/admin/menu',
-  auth,
-  (req, res) => {
-
-    try {
-      const menu =
-        getMenu();
-
-      const product =
-        normalizeProduct({
-          ...req.body,
-
-          id:
-            req.body.id ||
-            makeId(
-              'item'
-            )
-        });
-
-      if (
-        !product.name
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Product name is required.'
-        });
-      }
-
-      if (
-        product.price <= 0
-      ) {
-        return res.status(400).json({
-          ok: false,
-          message:
-            'Product price must be greater than 0.'
-        });
-      }
-
-      menu.push(
-        product
-      );
-
-      write(
-        MENU_FILE,
-        menu
-      );
-
-      res.status(201).json({
-        ok: true,
-        product
-      });
-
-    } catch (error) {
-      console.error(
-        'MENU CREATE ERROR:',
-        error
-      );
-
-      res.status(500).json({
-        ok: false,
-        message:
-          'Unable to create menu item.'
-      });
-    }
-  }
-);
-
-/* =======================================================
-   ADMIN MENU DELETE
-======================================================= */
-
-app.delete(
-  '/api/admin/menu/:id',
-  auth,
-  (req, res) => {
-
-    const menu =
-      getMenu();
-
-    const index =
-      menu.findIndex(
-        item =>
-          String(
-            item.id
-          ) ===
-          String(
-            req.params.id
-          )
-      );
-
-    if (
-      index === -1
-    ) {
-      return res.status(404).json({
-        ok: false,
-        message:
-          'Menu item not found.'
-      });
-    }
-
-    const deleted =
-      menu.splice(
-        index,
-        1
-      )[0];
-
-    write(
-      MENU_FILE,
-      menu
-    );
-
-    res.json({
-      ok: true,
-      deleted
-    });
-  }
-);
-
-/* =======================================================
-   IMAGE UPLOAD
-======================================================= */
+/* =========================================================
+   ADMIN MENU IMAGE UPLOAD
+   ========================================================= */
 
 const storage =
   multer.diskStorage({
-
     destination:
       (req, file, cb) => {
         cb(
           null,
-          ASSETS
+          ASSETS_DIR
         );
       },
 
     filename:
       (req, file, cb) => {
-
         const ext =
           path.extname(
             file.originalname
@@ -4362,23 +4032,21 @@ const storage =
             '.png',
             '.webp',
             '.gif'
-          ].includes(
-            ext
-          )
+          ].includes(ext)
             ? ext
             : '.jpg';
 
         cb(
           null,
-
-          `food-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${safeExt}`
+          `menu-${Date.now()}-${crypto
+            .randomBytes(4)
+            .toString('hex')}${safeExt}`
         );
       }
   });
 
 const upload =
   multer({
-
     storage,
 
     limits: {
@@ -4388,7 +4056,6 @@ const upload =
 
     fileFilter:
       (req, file, cb) => {
-
         const allowed = [
           'image/jpeg',
           'image/png',
@@ -4408,7 +4075,7 @@ const upload =
         } else {
           cb(
             new Error(
-              'Only JPG, PNG, WEBP or GIF images are allowed.'
+              'Only image files are allowed.'
             )
           );
         }
@@ -4416,11 +4083,10 @@ const upload =
   });
 
 app.post(
-  '/api/admin/upload-image',
-  auth,
+  '/api/admin/menu/upload',
+  adminAuth,
   upload.single('image'),
   (req, res) => {
-
     if (
       !req.file
     ) {
@@ -4431,141 +4097,90 @@ app.post(
       });
     }
 
+    const imageUrl =
+      `/assets/${req.file.filename}`;
+
     res.json({
       ok: true,
-
-      filename:
-        req.file.filename,
-
+      image:
+        imageUrl,
       url:
-        `/assets/${req.file.filename}`
+        imageUrl
     });
   }
 );
 
-/* =======================================================
-   ADMIN CUSTOMER LIST
-======================================================= */
+/*
+  Compatibility endpoint.
+*/
 
-app.get(
-  '/api/admin/customers',
-  auth,
+app.post(
+  '/api/admin/upload',
+  adminAuth,
+  upload.single('image'),
   (req, res) => {
-
-    const customers =
-      read(
-        CUSTOMERS_FILE,
-        []
-      );
-
-    res.json({
-      ok: true,
-
-      customers:
-        customers.map(
-          customer =>
-            customerSafeData(
-              customer
-            )
-        )
-    });
-  }
-);
-
-/* =======================================================
-   ADMIN CUSTOMER DETAILS
-======================================================= */
-
-app.get(
-  '/api/admin/customers/:id',
-  auth,
-  (req, res) => {
-
-    const customers =
-      read(
-        CUSTOMERS_FILE,
-        []
-      );
-
-    const customer =
-      customers.find(
-        item =>
-          item.id ===
-          req.params.id
-      );
-
     if (
-      !customer
+      !req.file
     ) {
-      return res.status(404).json({
+      return res.status(400).json({
         ok: false,
         message:
-          'Customer not found.'
+          'No image uploaded.'
       });
     }
 
-    const orders =
-      read(
-        ORDERS_FILE,
-        []
-      );
-
-    const customerOrders =
-      orders.filter(
-        order =>
-          order.customerId ===
-          customer.id
-      );
-
-    customerOrders.sort(
-      (a, b) =>
-        new Date(
-          b.createdAt
-        ) -
-        new Date(
-          a.createdAt
-        )
-    );
+    const imageUrl =
+      `/assets/${req.file.filename}`;
 
     res.json({
       ok: true,
-
-      customer:
-        customerSafeData(
-          customer
-        ),
-
-      orders:
-        customerOrders
+      image:
+        imageUrl,
+      url:
+        imageUrl
     });
   }
 );
 
-/* =======================================================
-   ADMIN PAGE
-======================================================= */
+/* =========================================================
+   ADMIN HTML
+   ========================================================= */
 
 app.get(
   '/admin',
   (req, res) => {
-
     res.sendFile(
       path.join(
-        PUBLIC,
+        PUBLIC_DIR,
         'admin.html'
       )
     );
   }
 );
 
-/* =======================================================
+/*
+  Also support /admin/
+*/
+
+app.get(
+  '/admin/',
+  (req, res) => {
+    res.sendFile(
+      path.join(
+        PUBLIC_DIR,
+        'admin.html'
+      )
+    );
+  }
+);
+
+/* =========================================================
    HEALTH CHECK
-======================================================= */
+   ========================================================= */
 
 app.get(
   '/api/health',
   (req, res) => {
-
     res.json({
       ok: true,
 
@@ -4576,19 +4191,18 @@ app.get(
         new Date().toISOString(),
 
       timezone:
-        BD_TIMEZONE
+        SHOP_TIME_ZONE
     });
   }
 );
 
-/* =======================================================
+/* =========================================================
    404 API
-======================================================= */
+   ========================================================= */
 
 app.use(
   '/api',
   (req, res) => {
-
     res.status(404).json({
       ok: false,
       message:
@@ -4597,45 +4211,37 @@ app.use(
   }
 );
 
-/* =======================================================
+/* =========================================================
    ERROR HANDLER
-======================================================= */
+   ========================================================= */
 
 app.use(
-  (
-    error,
-    req,
-    res,
-    next
-  ) => {
-
+  (err, req, res, next) => {
     console.error(
       'SERVER ERROR:',
-      error
+      err
     );
 
     if (
-      error instanceof
+      err instanceof
       multer.MulterError
     ) {
       return res.status(400).json({
         ok: false,
         message:
-          error.message
+          err.message
       });
     }
 
     if (
-      error &&
-      error.message &&
-      error.message.includes(
-        'Only JPG'
-      )
+      err &&
+      err.message ===
+        'Only image files are allowed.'
     ) {
       return res.status(400).json({
         ok: false,
         message:
-          error.message
+          err.message
       });
     }
 
@@ -4647,64 +4253,78 @@ app.use(
   }
 );
 
-/* =======================================================
+/* =========================================================
    START SERVER
-======================================================= */
+   ========================================================= */
 
 app.listen(
   PORT,
   () => {
+    const s =
+      normalizeSettings();
 
     console.log(
-      `Chef Sifat's Kitchen server running on port ${PORT}`
+      '================================================='
     );
 
     console.log(
-      `Admin username: ${ADMIN_USERNAME}`
+      " Chef Sifat's Kitchen Server"
     );
 
     console.log(
-      'Customer authentication: ENABLED'
+      '================================================='
     );
 
     console.log(
-      'Customer order login requirement: ENABLED'
+      `PORT: ${PORT}`
     );
 
     console.log(
-      'Public menu API: ENABLED'
+      `Timezone: ${SHOP_TIME_ZONE}`
     );
 
     console.log(
-      'Delivery base: Kahalthuri Hamidia High School'
+      `Base: ${s.delivery.baseName}`
     );
 
     console.log(
-      'COD radius: 1 km'
+      `Base Coordinates: ${s.delivery.baseLat}, ${s.delivery.baseLng}`
     );
 
     console.log(
-      'Maximum delivery radius: 4 km'
+      `COD Radius: ${s.delivery.codRadiusKm} km`
     );
 
     console.log(
-      'Delivery rate outside COD: ৳10 per started km'
+      `Max Delivery Radius: ${s.delivery.maxRadiusKm} km`
     );
 
     console.log(
-      'Delivery timezone: Asia/Dhaka'
+      `Delivery Rate: ৳${s.delivery.ratePerKm}/started km`
     );
 
     console.log(
-      'Delivery slots: 30 minutes'
+      `Normal Shop Hours: ${s.hours.normal.open}:00–${s.hours.normal.close}:00`
     );
 
     console.log(
-      'Delivery window: Shop opening +1 hour to closing -1 hour'
+      `Friday Shop Hours: ${s.hours.friday.open}:00–${s.hours.friday.close}:00`
     );
 
     console.log(
-      'Pizza pre-booking: DISABLED'
+      'Customer Order Window: Opening + 1 hour → Closing - 1 hour'
+    );
+
+    console.log(
+      'Delivery Slots: 30 minutes'
+    );
+
+    console.log(
+      'Pizza Pre-booking: OFF'
+    );
+
+    console.log(
+      '================================================='
     );
   }
 );
