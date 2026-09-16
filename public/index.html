@@ -1,90 +1,69 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1,viewport-fit=cover"
-  >
-
-  <meta
-    name="theme-color"
-    content="#080808"
-  >
-
+  <meta name="theme-color" content="#080808">
   <meta
     name="description"
-    content="Chef Sifat's Kitchen — Premium freshly prepared Pizza, Momo, Continental food and Kacchi Biryani."
+    content="Chef Sifat's Kitchen — Premium Pizza, Momo, Continental Cuisine and Kacchi Biryani."
   >
 
   <title>Chef Sifat's Kitchen</title>
 
+  <!-- Leaflet Map -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    crossorigin=""
   >
 
-  <link
-    rel="stylesheet"
-    href="/styles.css"
-  >
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="/styles.css">
 </head>
 
 <body>
 
+<!-- =========================================================
+     HEADER
+========================================================= -->
 <header class="site-header">
 
   <div class="brand">
+    <b>CSK</b>
 
-    <div class="brand-logo">
-      CSK
-    </div>
-
-    <div class="brand-text">
-      <strong>Chef Sifat's Kitchen</strong>
+    <span>
+      Chef Sifat's Kitchen
       <small>Freshly Made. Deliciously Delivered.</small>
-    </div>
-
+    </span>
   </div>
 
-
-  <nav
-    id="mainNav"
-    class="main-nav"
-  >
+  <nav class="main-nav" id="mainNav">
 
     <div class="nav-links">
-
-      <a href="#home">Home</a>
-
-      <a href="#menu">Menu</a>
-
-      <a href="#about">About</a>
-
-      <a href="#contact">Contact</a>
-
+      <a href="#home" onclick="closeMobileMenu()">Home</a>
+      <a href="#menu" onclick="closeMobileMenu()">Menu</a>
+      <a href="#about" onclick="closeMobileMenu()">About</a>
+      <a href="#contact" onclick="closeMobileMenu()">Contact</a>
     </div>
-
 
     <div class="nav-actions">
 
       <button
-        type="button"
         class="nav-cart"
+        type="button"
         onclick="openCart()"
       >
         🛒 Cart
-        <span id="count">0</span>
+        <i id="count">0</i>
       </button>
 
-
       <button
-        type="button"
         id="customerAccountBtn"
         class="nav-account"
-        onclick="openAuthModal('login')"
+        type="button"
+        onclick="openAuthModal()"
       >
         👤 Login
       </button>
@@ -93,11 +72,12 @@
 
   </nav>
 
-
   <button
     id="mobileMenuBtn"
-    type="button"
     class="mobile-menu-btn"
+    type="button"
+    aria-label="Open menu"
+    aria-expanded="false"
     onclick="toggleMobileMenu()"
   >
     ☰
@@ -106,11 +86,10 @@
 </header>
 
 
-
-<section
-  id="home"
-  class="hero"
->
+<!-- =========================================================
+     HOME
+========================================================= -->
+<section id="home" class="hero">
 
   <div>
 
@@ -125,19 +104,15 @@
     </h1>
 
     <p>
-      Freshly prepared Pizza, Momo,
-      Continental dishes and Kacchi Biryani.
+      Freshly prepared Pizza, Momo, Continental dishes
+      and Kacchi Biryani.
     </p>
 
-    <a
-      href="#menu"
-      class="btn"
-    >
+    <a class="btn" href="#menu">
       Order Now
     </a>
 
   </div>
-
 
   <div class="heroBox">
 
@@ -148,15 +123,15 @@
     </span>
 
     <span>
-      🗺️ Select exact location on map
+      🗺️ Draggable map pin
     </span>
 
     <span>
-      🚚 Automatic delivery charge
+      🚚 Automatic delivery distance
     </span>
 
     <span>
-      💵 COD inside COD zone
+      💵 COD available inside COD zone
     </span>
 
   </div>
@@ -164,40 +139,37 @@
 </section>
 
 
-
+<!-- =========================================================
+     MENU
+========================================================= -->
 <section id="menu">
 
   <div class="head">
 
     <div>
-
       <small>OUR MENU</small>
 
       <h2>
         Choose your favourites
       </h2>
-
     </div>
-
 
     <input
       id="search"
       type="search"
       placeholder="Search food..."
       autocomplete="off"
+      oninput="render()"
     >
 
   </div>
 
 
-  <div
-    id="categoryButtons"
-    class="chips"
-  >
+  <!-- CATEGORY FILTER -->
+  <div class="chips">
 
     <button
       type="button"
-      class="active"
       onclick="setCategory('All')"
     >
       All
@@ -234,35 +206,19 @@
   </div>
 
 
+  <!-- MENU GRID -->
   <div
     id="grid"
     class="grid"
   ></div>
 
-
-  <div
-    id="menuLoading"
-    style="display:none"
-  >
-    Loading menu...
-  </div>
-
-
-  <div
-    id="menuEmpty"
-    style="display:none"
-  >
-    No food found.
-  </div>
-
 </section>
 
 
-
-<section
-  id="about"
-  class="dark"
->
+<!-- =========================================================
+     ABOUT
+========================================================= -->
+<section id="about" class="dark">
 
   <small>ABOUT US</small>
 
@@ -272,62 +228,49 @@
 
   <p>
     Owned and managed by
-    <strong>MD Sifat Islam</strong>,
-    Owner & Managing Director and Head Chef
-    of Chef Sifat's Kitchen.
+    <b>MD Sifat Islam</b>,
+    Owner & Managing Director and Head Chef of
+    Chef Sifat's Kitchen.
+  </p>
+
+  <p>
+    We prepare fresh, carefully selected food with
+    attention to quality, taste and presentation.
   </p>
 
 
   <div class="info">
 
     <div>
-
       <b>Address</b>
 
       <p>
         Kahalthuri, Shahedapur-3630,
         Kachua, Chandpur
       </p>
-
     </div>
 
 
     <div>
-
-      <b>Regular Hours</b>
+      <b>Shop Hours</b>
 
       <p>
-        Sunday–Thursday
+        Sun–Thu: 11 AM–7 PM
         <br>
-        11 AM–7 PM
+        Friday: 3 PM–9 PM
       </p>
-
     </div>
 
 
     <div>
-
-      <b>Friday</b>
-
-      <p>
-        3 PM–9 PM
-      </p>
-
-    </div>
-
-
-    <div>
-
-      <b>Certification</b>
+      <b>Training</b>
 
       <p>
-        BEACON Academy Bangladesh
-        <br>
-        Food & Beverage Production
-        <br>
-        Grade A+
+        BEACON Academy Bangladesh —
+        Food & Beverage Production,
+        3-Month Professional Course,
+        Grade A+, August 2026.
       </p>
-
     </div>
 
   </div>
@@ -335,7 +278,9 @@
 </section>
 
 
-
+<!-- =========================================================
+     CONTACT
+========================================================= -->
 <section id="contact">
 
   <small>CONTACT</small>
@@ -348,7 +293,6 @@
   <div class="info">
 
     <div>
-
       <b>Phone</b>
 
       <p>
@@ -356,35 +300,30 @@
         <br>
         01815905178
       </p>
-
     </div>
 
 
     <div>
-
       <b>Email</b>
 
       <p>
         chefsifatskitchen@gmail.com
       </p>
-
     </div>
 
 
     <div>
-
       <b>Facebook</b>
 
       <p>
         <a
           href="https://web.facebook.com/ChefSifatsKitchen"
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
         >
           Chef Sifat's Kitchen
         </a>
       </p>
-
     </div>
 
   </div>
@@ -392,41 +331,44 @@
 </section>
 
 
-
-<!-- CART -->
-
+<!-- =========================================================
+     CART OVERLAY
+========================================================= -->
 <div
   id="shade"
   onclick="closeCart()"
 ></div>
 
 
-<aside id="cart">
+<!-- =========================================================
+     CART
+========================================================= -->
+<aside
+  id="cart"
+  aria-hidden="true"
+>
 
   <button
     type="button"
+    aria-label="Close cart"
     onclick="closeCart()"
   >
     ×
   </button>
 
-
   <h2>
     Your Cart
   </h2>
 
-
   <div id="cartItems"></div>
-
 
   <h3 id="subtotal">
     ৳0
   </h3>
 
-
   <button
-    type="button"
     class="btn full"
+    type="button"
     onclick="checkout()"
   >
     Proceed to Checkout
@@ -435,9 +377,9 @@
 </aside>
 
 
-
-<!-- CHECKOUT -->
-
+<!-- =========================================================
+     CHECKOUT MODAL
+========================================================= -->
 <div
   id="modal"
   aria-hidden="true"
@@ -446,8 +388,9 @@
   <div class="box">
 
     <button
-      type="button"
       class="x"
+      type="button"
+      aria-label="Close checkout"
       onclick="closeCheckout()"
     >
       ×
@@ -458,64 +401,73 @@
       CHECKOUT
     </small>
 
-
     <h2>
-      Delivery Information
+      Delivery Location
     </h2>
 
 
+    <!-- =====================================================
+         LOGIN NOTICE
+    ====================================================== -->
     <div
-      id="loginNotice"
+      id="loginRequired"
       style="display:none"
     >
-      Please login before ordering.
-    </div>
 
-
-    <!-- LOCATION -->
-
-    <h3>
-      📍 Delivery Location
-    </h3>
-
-
-    <div class="locBtns">
+      <p>
+        🔐 Please login before placing an order.
+      </p>
 
       <button
         type="button"
         class="btn"
+        onclick="openAuthModal('login')"
+      >
+        Login / Register
+      </button>
+
+    </div>
+
+
+    <!-- =====================================================
+         LOCATION BUTTONS
+    ====================================================== -->
+    <div class="locBtns">
+
+      <button
+        class="btn"
+        type="button"
         onclick="gps()"
       >
         📍 Use my current location
       </button>
 
-
       <button
         type="button"
         onclick="base()"
       >
-        🏫 Use shop location
+        🏫 Use shop base
       </button>
 
     </div>
 
 
-    <div id="map"></div>
+    <!-- MAP -->
+    <div
+      id="map"
+      style="width:100%;min-height:300px"
+    ></div>
 
 
+    <!-- LOCATION STATUS -->
     <div id="status">
-      Select your delivery location.
+      Drag the pin to your exact delivery location.
     </div>
 
 
-
-    <!-- CUSTOMER -->
-
-    <h3>
-      👤 Customer Information
-    </h3>
-
-
+    <!-- =====================================================
+         CUSTOMER INFORMATION
+    ====================================================== -->
     <div class="form">
 
       <input
@@ -525,7 +477,6 @@
         autocomplete="name"
       >
 
-
       <input
         id="phone"
         type="tel"
@@ -533,21 +484,12 @@
         autocomplete="tel"
       >
 
-
-      <input
-        id="email"
-        type="email"
-        placeholder="Email"
-        readonly
-      >
-
-
       <input
         id="house"
         type="text"
         placeholder="House / Building"
+        autocomplete="street-address"
       >
-
 
       <input
         id="road"
@@ -555,73 +497,68 @@
         placeholder="Road / Area"
       >
 
+
+      <!-- ===================================================
+           DELIVERY TIME
+      ==================================================== -->
+      <div id="deliveryTimeWrap">
+
+        <label
+          for="time"
+          style="display:block;margin-bottom:6px"
+        >
+          🕐 Delivery Time
+        </label>
+
+        <select id="time">
+          <option value="">
+            Select delivery time
+          </option>
+        </select>
+
+      </div>
+
+
+      <!-- ORDER NOTE -->
+      <textarea
+        id="note"
+        placeholder="Order note"
+      ></textarea>
+
     </div>
 
 
-
-    <!-- DELIVERY TIME -->
-
-    <h3>
-      🕐 Delivery Time
-    </h3>
-
-
-    <div id="timeBox">
-
-      <select id="time">
-
-        <option value="">
-          Select delivery time
-        </option>
-
-      </select>
-
-    </div>
-
-
+    <!-- =====================================================
+         PAYMENT
+    ====================================================== -->
     <div
-      id="prebookBox"
-      style="display:none"
+      id="pay"
+      class="pay"
     ></div>
 
 
-
-    <!-- PAYMENT -->
-
-    <h3>
-      💳 Payment
-    </h3>
-
-
-    <div id="pay"></div>
+    <!-- =====================================================
+         ORDER SUMMARY
+    ====================================================== -->
+    <div
+      id="sum"
+    ></div>
 
 
-
-    <!-- NOTE -->
-
-    <textarea
-      id="note"
-      placeholder="Order note (optional)"
-      rows="3"
-    ></textarea>
-
-
-
-    <!-- SUMMARY -->
-
-    <div id="sum"></div>
-
-
+    <!-- =====================================================
+         PLACE ORDER
+    ====================================================== -->
     <button
       id="place"
-      type="button"
       class="btn full"
+      type="button"
       onclick="place()"
     >
       Place Order
     </button>
 
 
+    <!-- RESULT -->
     <div id="result"></div>
 
   </div>
@@ -629,27 +566,297 @@
 </div>
 
 
+<!-- =========================================================
+     CUSTOMER AUTH MODAL
+     customer-auth.js controls this section
+========================================================= -->
+<div
+  id="authModal"
+  aria-hidden="true"
+  style="display:none"
+>
 
+  <div class="auth-box">
+
+    <button
+      type="button"
+      class="x"
+      aria-label="Close"
+      onclick="closeAuthModal()"
+    >
+      ×
+    </button>
+
+
+    <!-- AUTH TITLE -->
+    <small>
+      CUSTOMER ACCOUNT
+    </small>
+
+    <h2 id="authTitle">
+      Login
+    </h2>
+
+
+    <!-- =====================================================
+         LOGIN FORM
+    ====================================================== -->
+    <form
+      id="loginForm"
+      onsubmit="return customerLogin(event)"
+    >
+
+      <input
+        id="loginPhone"
+        type="tel"
+        placeholder="Mobile Number"
+        autocomplete="tel"
+        required
+      >
+
+      <input
+        id="loginPassword"
+        type="password"
+        placeholder="Password"
+        autocomplete="current-password"
+        required
+      >
+
+      <button
+        class="btn full"
+        type="submit"
+      >
+        Login
+      </button>
+
+    </form>
+
+
+    <!-- =====================================================
+         REGISTER FORM
+    ====================================================== -->
+    <form
+      id="registerForm"
+      style="display:none"
+      onsubmit="return customerRegister(event)"
+    >
+
+      <input
+        id="registerName"
+        type="text"
+        placeholder="Full Name"
+        autocomplete="name"
+        required
+      >
+
+      <input
+        id="registerPhone"
+        type="tel"
+        placeholder="Mobile Number"
+        autocomplete="tel"
+        required
+      >
+
+      <input
+        id="registerEmail"
+        type="email"
+        placeholder="Email Address"
+        autocomplete="email"
+        required
+      >
+
+      <input
+        id="registerPassword"
+        type="password"
+        placeholder="Password"
+        autocomplete="new-password"
+        required
+      >
+
+      <button
+        class="btn full"
+        type="submit"
+      >
+        Create Account
+      </button>
+
+    </form>
+
+
+    <!-- AUTH MESSAGE -->
+    <div id="authMessage"></div>
+
+
+    <!-- AUTH SWITCH -->
+    <div class="auth-switch">
+
+      <button
+        type="button"
+        onclick="showLoginForm()"
+      >
+        Login
+      </button>
+
+      <button
+        type="button"
+        onclick="showRegisterForm()"
+      >
+        Register
+      </button>
+
+    </div>
+
+
+    <!-- FORGOT PASSWORD -->
+    <button
+      type="button"
+      onclick="showForgotPassword()"
+    >
+      Forgot Password?
+    </button>
+
+
+    <!-- MY ACCOUNT -->
+    <div
+      id="customerAccountPanel"
+      style="display:none"
+    >
+
+      <h3>
+        My Account
+      </h3>
+
+      <p id="customerAccountName"></p>
+
+      <p id="customerAccountPhone"></p>
+
+      <button
+        type="button"
+        class="btn full"
+        onclick="openMyOrders()"
+      >
+        📦 My Orders
+      </button>
+
+      <button
+        type="button"
+        onclick="customerLogout()"
+      >
+        Logout
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     MY ORDERS MODAL
+========================================================= -->
+<div
+  id="ordersModal"
+  style="display:none"
+>
+
+  <div class="orders-box">
+
+    <button
+      type="button"
+      class="x"
+      onclick="closeMyOrders()"
+    >
+      ×
+    </button>
+
+    <small>
+      MY ORDERS
+    </small>
+
+    <h2>
+      Order History
+    </h2>
+
+    <div id="myOrdersList">
+      Loading...
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
 <footer>
 
   Chef Sifat’s Kitchen
-
   • Kahalthuri, Shahedapur-3630,
   Kachua, Chandpur
-
   • © 2026
 
 </footer>
 
 
-
+<!-- =========================================================
+     LEAFLET
+========================================================= -->
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  crossorigin=""
 ></script>
 
+
+<!-- =========================================================
+     CUSTOMER AUTH
+     MUST LOAD BEFORE APP
+========================================================= -->
 <script src="/customer-auth.js"></script>
 
+
+<!-- =========================================================
+     MAIN APP
+========================================================= -->
 <script src="/app.js"></script>
+
+
+<!-- =========================================================
+     MOBILE NAV FALLBACK
+========================================================= -->
+<script>
+  function toggleMobileMenu() {
+    const nav = document.getElementById('mainNav');
+    const btn = document.getElementById('mobileMenuBtn');
+
+    if (!nav) return;
+
+    nav.classList.toggle('mobile-open');
+
+    const open = nav.classList.contains('mobile-open');
+
+    if (btn) {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+  }
+
+  function closeMobileMenu() {
+    const nav = document.getElementById('mainNav');
+    const btn = document.getElementById('mobileMenuBtn');
+
+    if (nav) {
+      nav.classList.remove('mobile-open');
+    }
+
+    if (btn) {
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  window.toggleMobileMenu = toggleMobileMenu;
+  window.closeMobileMenu = closeMobileMenu;
+</script>
 
 </body>
 </html>
