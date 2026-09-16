@@ -1,52 +1,806 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chef Sifat's Kitchen</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="/styles.css"></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <meta
+    name="description"
+    content="Chef Sifat's Kitchen — Freshly prepared Pizza, Momo, Continental food and Kacchi Biryani."
+  >
+
+  <meta name="theme-color" content="#080808">
+
+  <title>Chef Sifat's Kitchen</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
+  <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+
 <header class="site-header">
+
   <div class="brand">
-    <b>CSK</b>
-    <span>
-      Chef Sifat's Kitchen
+    <div class="brand-logo">CSK</div>
+
+    <div class="brand-text">
+      <strong>Chef Sifat's Kitchen</strong>
       <small>Freshly Made. Deliciously Delivered.</small>
-    </span>
+    </div>
   </div>
 
-  <nav class="main-nav" id="mainNav">
+
+  <!-- Desktop / Mobile Navigation -->
+
+  <nav
+    id="mainNav"
+    class="main-nav"
+    aria-label="Main navigation"
+  >
+
     <div class="nav-links">
+
       <a href="#home">Home</a>
+
       <a href="#menu">Menu</a>
+
       <a href="#about">About</a>
+
       <a href="#contact">Contact</a>
+
     </div>
 
+
     <div class="nav-actions">
-      <button class="nav-cart" type="button" onclick="openCart()">
-        🛒 Cart <i id="count">0</i>
+
+      <button
+        type="button"
+        class="nav-cart"
+        onclick="openCart()"
+      >
+        🛒 Cart
+        <span id="count">0</span>
       </button>
 
-      <!-- customer-auth.js will control this button -->
+
       <button
+        type="button"
         id="customerAccountBtn"
         class="nav-account"
-        type="button"
-        onclick="openAuthModal()"
+        onclick="openAuthModal('login')"
       >
         👤 Login
       </button>
+
     </div>
+
   </nav>
 
+
   <button
+    type="button"
     id="mobileMenuBtn"
     class="mobile-menu-btn"
-    type="button"
-    aria-label="Open menu"
+    aria-label="Open navigation menu"
+    aria-expanded="false"
     onclick="toggleMobileMenu()"
   >
     ☰
   </button>
+
 </header>
-<section id="home" class="hero"><div><p>★ BEACON Certified • Certificate F&B-78006001</p><h1>Premium food,<br><em>made with care.</em></h1><p>Freshly prepared Pizza, Momo, Continental dishes and Kacchi Biryani.</p><a class="btn" href="#menu">Order Now</a></div><div class="heroBox"><b>Home Delivery</b><span>GPS location • draggable map pin • automatic distance</span><span>COD in the COD zone</span></div></section>
-<section id="menu"><div class="head"><div><small>OUR MENU</small><h2>Choose your favourites</h2></div><input id="search" placeholder="Search food" oninput="render()"></div><div class="chips"><button onclick="cat='All';render()">All</button><button onclick="cat='Pizza';render()">Pizza</button><button onclick="cat='Momo';render()">Momo</button><button onclick="cat='Continental';render()">Continental</button><button onclick="cat='Kacchi';render()">Kacchi</button></div><div id="grid" class="grid"></div></section>
-<section id="about" class="dark"><small>ABOUT US</small><h2>Chef Sifat's Kitchen</h2><p>Owned and managed by <b>MD Sifat Islam</b>. Freshly prepared food, quality ingredients and made-to-order service.</p><div class="info"><div><b>Address</b><p>Kahalthuri, Shahedapur-3630, Kachua, Chandpur</p></div><div><b>Hours</b><p>Sun–Thu 11 AM–7 PM<br>Friday 3 PM–9 PM</p></div><div><b>Training</b><p>BEACON Academy Bangladesh — Food & Beverage Production, 3-Month Professional Course, Grade A+, August 2026.</p></div></div></section>
-<section id="contact"><small>CONTACT</small><h2>Get in touch</h2><div class="info"><div><b>Phone</b><p>01792494275<br>01815905178</p></div><div><b>Email</b><p>chefsifatskitchen@gmail.com</p></div><div><b>Facebook</b><p><a href="https://web.facebook.com/ChefSifatsKitchen" target="_blank">Chef Sifat's Kitchen</a></p></div></div></section>
-<div id="shade" onclick="closeCart()"></div><aside id="cart"><button onclick="closeCart()">×</button><h2>Your Cart</h2><div id="cartItems"></div><h3 id="subtotal">৳0</h3><button class="btn full" onclick="checkout()">Proceed to Checkout</button></aside>
-<div id="modal"><div class="box"><button class="x" onclick="closeCheckout()">×</button><small>CHECKOUT</small><h2>Choose delivery location</h2><div class="locBtns"><button class="btn" onclick="gps()">📍 Use my current location</button><button onclick="base()">🏫 Use shop base</button></div><div id="map"></div><div id="status">Drag the pin to your exact delivery location.</div><div class="form"><input id="name" placeholder="Customer Name *"><input id="phone" placeholder="Phone *"><input id="house" placeholder="House / Building"><input id="road" placeholder="Road / Area"><input id="time" placeholder="Delivery time (ASAP / 6:30 PM)"><textarea id="note" placeholder="Order note"></textarea></div><div id="pay" class="pay"></div><div id="sum"></div><button id="place" class="btn full" onclick="place()">Place Order</button><div id="result"></div></div></div>
-<footer>Chef Sifat's Kitchen • Kahalthuri, Shahedapur-3630, Kachua, Chandpur • © 2026</footer><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script src="/app.js"></script><script src="customer-auth.js"></script></body></html>
+
+
+
+<!-- =========================================================
+     HOME
+========================================================= -->
+
+<section id="home" class="hero">
+
+  <div class="hero-content">
+
+    <p class="eyebrow">
+      ★ BEACON Certified • Certificate F&B-78006001
+    </p>
+
+    <h1>
+      Premium food,
+      <br>
+      <em>made with care.</em>
+    </h1>
+
+    <p class="hero-description">
+      Freshly prepared Pizza, Momo, Continental dishes
+      and Kacchi Biryani.
+    </p>
+
+    <div class="hero-buttons">
+
+      <a
+        class="btn"
+        href="#menu"
+      >
+        Order Now
+      </a>
+
+      <a
+        class="btn secondary"
+        href="#about"
+      >
+        About Us
+      </a>
+
+    </div>
+
+  </div>
+
+
+  <div class="hero-box">
+
+    <strong>Home Delivery</strong>
+
+    <span>
+      📍 GPS location + draggable map pin
+    </span>
+
+    <span>
+      🚚 Automatic distance & delivery charge
+    </span>
+
+    <span>
+      💵 COD available inside COD zone
+    </span>
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     MENU
+========================================================= -->
+
+<section id="menu" class="menu-section">
+
+  <div class="section-head">
+
+    <div>
+
+      <small>OUR MENU</small>
+
+      <h2>
+        Choose your favourites
+      </h2>
+
+    </div>
+
+
+    <div class="search-box">
+
+      <input
+        id="search"
+        type="search"
+        placeholder="Search food..."
+        autocomplete="off"
+      >
+
+    </div>
+
+  </div>
+
+
+
+  <!-- Category buttons -->
+
+  <div
+    id="categoryButtons"
+    class="chips"
+  >
+
+    <button
+      type="button"
+      class="active"
+      onclick="setCategory('All')"
+    >
+      All
+    </button>
+
+    <button
+      type="button"
+      onclick="setCategory('Pizza')"
+    >
+      Pizza
+    </button>
+
+    <button
+      type="button"
+      onclick="setCategory('Momo')"
+    >
+      Momo
+    </button>
+
+    <button
+      type="button"
+      onclick="setCategory('Continental')"
+    >
+      Continental
+    </button>
+
+    <button
+      type="button"
+      onclick="setCategory('Kacchi')"
+    >
+      Kacchi
+    </button>
+
+  </div>
+
+
+
+  <!-- Products -->
+
+  <div
+    id="grid"
+    class="grid"
+  ></div>
+
+
+  <div
+    id="menuLoading"
+    class="loading"
+    style="display:none"
+  >
+    Loading menu...
+  </div>
+
+
+  <div
+    id="menuEmpty"
+    class="empty"
+    style="display:none"
+  >
+    No food found.
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     ABOUT
+========================================================= -->
+
+<section
+  id="about"
+  class="dark"
+>
+
+  <div class="section-container">
+
+    <small>ABOUT US</small>
+
+    <h2>
+      Chef Sifat's Kitchen
+    </h2>
+
+    <p>
+      Chef Sifat's Kitchen is dedicated to freshly prepared
+      food, quality ingredients and chef-crafted dishes.
+    </p>
+
+
+    <p>
+      Owned and managed by
+      <strong>MD Sifat Islam</strong>,
+      Owner & Managing Director and Head Chef of
+      Chef Sifat's Kitchen.
+    </p>
+
+
+    <div class="info-grid">
+
+      <div class="info-card">
+
+        <strong>Address</strong>
+
+        <p>
+          Kahalthuri, Shahedapur-3630,
+          Kachua, Chandpur
+        </p>
+
+      </div>
+
+
+      <div class="info-card">
+
+        <strong>Regular Hours</strong>
+
+        <p>
+          Sunday–Thursday
+          <br>
+          11:00 AM–7:00 PM
+        </p>
+
+      </div>
+
+
+      <div class="info-card">
+
+        <strong>Friday Hours</strong>
+
+        <p>
+          Friday
+          <br>
+          3:00 PM–9:00 PM
+        </p>
+
+      </div>
+
+
+      <div class="info-card">
+
+        <strong>Certification</strong>
+
+        <p>
+          BEACON Academy Bangladesh
+          <br>
+          Food & Beverage Production
+          <br>
+          Grade A+
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     CONTACT
+========================================================= -->
+
+<section id="contact">
+
+  <div class="section-container">
+
+    <small>CONTACT</small>
+
+    <h2>
+      Get in touch
+    </h2>
+
+
+    <div class="info-grid">
+
+      <div class="info-card">
+
+        <strong>Phone</strong>
+
+        <p>
+          01792494275
+          <br>
+          01815905178
+        </p>
+
+      </div>
+
+
+      <div class="info-card">
+
+        <strong>Email</strong>
+
+        <p>
+          chefsifatskitchen@gmail.com
+        </p>
+
+      </div>
+
+
+      <div class="info-card">
+
+        <strong>Facebook</strong>
+
+        <p>
+
+          <a
+            href="https://web.facebook.com/ChefSifatsKitchen"
+            target="_blank"
+            rel="noopener"
+          >
+            Chef Sifat's Kitchen
+          </a>
+
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     CART OVERLAY
+========================================================= -->
+
+<div
+  id="shade"
+  class="shade"
+  onclick="closeCart()"
+></div>
+
+
+<aside
+  id="cart"
+  class="cart"
+  aria-label="Shopping cart"
+>
+
+  <button
+    type="button"
+    class="cart-close"
+    onclick="closeCart()"
+    aria-label="Close cart"
+  >
+    ×
+  </button>
+
+
+  <h2>
+    Your Cart
+  </h2>
+
+
+  <div
+    id="cartItems"
+    class="cart-items"
+  ></div>
+
+
+  <div class="cart-total">
+
+    <span>
+      Subtotal
+    </span>
+
+    <strong id="subtotal">
+      ৳0
+    </strong>
+
+  </div>
+
+
+  <button
+    type="button"
+    class="btn full"
+    onclick="checkout()"
+  >
+    Proceed to Checkout
+  </button>
+
+</aside>
+
+
+
+<!-- =========================================================
+     CHECKOUT MODAL
+========================================================= -->
+
+<div
+  id="modal"
+  class="modal"
+  aria-hidden="true"
+>
+
+  <div class="checkout-box">
+
+    <button
+      type="button"
+      class="x"
+      onclick="closeCheckout()"
+      aria-label="Close checkout"
+    >
+      ×
+    </button>
+
+
+    <small>
+      CHECKOUT
+    </small>
+
+
+    <h2>
+      Delivery Information
+    </h2>
+
+
+
+    <!-- Login notice -->
+
+    <div
+      id="loginNotice"
+      class="notice"
+      style="display:none"
+    >
+      Please login before placing an order.
+    </div>
+
+
+
+    <!-- =====================================================
+         LOCATION
+    ====================================================== -->
+
+    <div class="checkout-section">
+
+      <h3>
+        📍 Delivery Location
+      </h3>
+
+
+      <div class="locBtns">
+
+        <button
+          type="button"
+          class="btn"
+          onclick="gps()"
+        >
+          📍 Use my current location
+        </button>
+
+
+        <button
+          type="button"
+          onclick="base()"
+        >
+          🏫 Use shop location
+        </button>
+
+      </div>
+
+
+      <div
+        id="map"
+        class="checkout-map"
+      ></div>
+
+
+      <div
+        id="status"
+        class="location-status"
+      >
+        Select your delivery location from the map.
+      </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         CUSTOMER INFORMATION
+    ====================================================== -->
+
+    <div class="checkout-section">
+
+      <h3>
+        👤 Customer Information
+      </h3>
+
+
+      <div class="form">
+
+        <input
+          id="name"
+          type="text"
+          placeholder="Customer Name *"
+          autocomplete="name"
+        >
+
+
+        <input
+          id="phone"
+          type="tel"
+          placeholder="Phone *"
+          autocomplete="tel"
+        >
+
+
+        <input
+          id="email"
+          type="email"
+          placeholder="Email"
+          autocomplete="email"
+          readonly
+        >
+
+
+        <input
+          id="house"
+          type="text"
+          placeholder="House / Building"
+          autocomplete="street-address"
+        >
+
+
+        <input
+          id="road"
+          type="text"
+          placeholder="Road / Area"
+        >
+
+      </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         DELIVERY TIME
+    ====================================================== -->
+
+    <div class="checkout-section">
+
+      <h3>
+        🕐 Delivery Time
+      </h3>
+
+
+      <div id="timeBox">
+
+        <select
+          id="time"
+        >
+          <option value="">
+            Select delivery time
+          </option>
+        </select>
+
+      </div>
+
+
+      <div
+        id="prebookBox"
+        style="display:none"
+      ></div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         PAYMENT
+    ====================================================== -->
+
+    <div class="checkout-section">
+
+      <h3>
+        💳 Payment
+      </h3>
+
+
+      <div
+        id="pay"
+        class="pay"
+      ></div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         ORDER NOTE
+    ====================================================== -->
+
+    <div class="checkout-section">
+
+      <textarea
+        id="note"
+        placeholder="Order note (optional)"
+        rows="3"
+      ></textarea>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         ORDER SUMMARY
+    ====================================================== -->
+
+    <div
+      id="sum"
+      class="order-summary"
+    ></div>
+
+
+
+    <!-- =====================================================
+         PLACE ORDER
+    ====================================================== -->
+
+    <button
+      id="place"
+      type="button"
+      class="btn full"
+      onclick="place()"
+    >
+      Place Order
+    </button>
+
+
+    <div
+      id="result"
+      class="result"
+    ></div>
+
+  </div>
+
+</div>
+
+
+
+<!-- =========================================================
+     FOOTER
+========================================================= -->
+
+<footer>
+
+  <strong>
+    Chef Sifat’s Kitchen
+  </strong>
+
+  <span>
+    • Kahalthuri, Shahedapur-3630, Kachua, Chandpur
+  </span>
+
+  <span>
+    • © 2026
+  </span>
+
+</footer>
+
+
+
+<!-- =========================================================
+     SCRIPTS
+========================================================= -->
+
+<script
+  src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
+
+
+<!-- IMPORTANT:
+     customer-auth.js loads FIRST.
+     app.js will NOT redefine customer authentication.
+-->
+
+<script src="/customer-auth.js"></script>
+
+<script src="/app.js"></script>
+
+
+</body>
+</html>
