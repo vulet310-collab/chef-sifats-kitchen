@@ -36,7 +36,9 @@ const esc = s =>
     if (!C.menu) C.menu = [];
     if (!C.settings) C.settings = {};
 
-    normalizeCart();
+    cart = cart.filter(x =>
+      C.menu.some(p => p.id === x.id)
+    );
 
     render();
     cartUI();
@@ -83,7 +85,11 @@ function render() {
         const minQty = Number(p.minQty) || 1;
         const maxQty = Number(p.maxQty) || 20;
 
-        const prebookEnabled =
+        /*
+          Pizza/Momo can never be pre-order.
+          Other categories use item's own prebook setting.
+        */
+        const showPrebook =
           itemIsPrebook(p);
 
         return `
@@ -105,7 +111,7 @@ function render() {
 
               <small>
                 ${esc(p.cat || '')}
-                ${prebookEnabled ? ' • PRE-BOOK' : ''}
+                ${showPrebook ? ' • PRE-BOOK' : ''}
               </small>
 
               <h3>${esc(p.name)}</h3>
@@ -152,37 +158,41 @@ function render() {
 }
 
 /* =========================
-   PRE-BOOK ITEM RULE
+   ITEM PRE-ORDER RULE
 ========================= */
-
-/*
-  Item-level pre-book rule.
-
-  Pizza  -> ALWAYS OFF
-  Momo   -> normally OFF
-  Continental/Kacchi:
-    - use admin p.prebook if explicitly boolean
-    - otherwise fallback ON for backward compatibility
-*/
 
 function itemIsPrebook(p) {
   if (!p) return false;
 
   const category =
-    String(p.cat || '').trim().toLowerCase();
+    String(p.cat || '')
+      .trim()
+      .toLowerCase();
 
-  if (category === 'pizza') {
+  /*
+    Pizza = NEVER pre-order
+    Momo  = NEVER pre-order
+  */
+  if (
+    category === 'pizza' ||
+    category === 'momo'
+  ) {
     return false;
   }
 
-  if (category === 'momo') {
-    return false;
-  }
-
+  /*
+    If admin has explicitly set prebook,
+    use that value.
+  */
   if (typeof p.prebook === 'boolean') {
     return p.prebook;
   }
 
+  /*
+    Backward compatibility:
+    Continental/Kacchi were previously
+    treated as pre-order categories.
+  */
   return (
     category === 'continental' ||
     category === 'kacchi'
@@ -230,16 +240,6 @@ function add(id) {
   openCart();
 }
 
-function normalizeCart() {
-  if (!Array.isArray(cart)) {
-    cart = [];
-  }
-
-  cart = cart.filter(x =>
-    C?.menu?.some(p => p.id === x.id)
-  );
-}
-
 function save() {
   localStorage.cskCart =
     JSON.stringify(cart);
@@ -253,7 +253,9 @@ function cartUI() {
   let subtotal = 0;
   let count = 0;
 
-  normalizeCart();
+  cart = cart.filter(x =>
+    C.menu.some(p => p.id === x.id)
+  );
 
   cart.forEach(x => {
     count += Number(x.qty) || 0;
@@ -379,12 +381,6 @@ function checkout() {
   }, 200);
 
   base();
-
-  /*
-    Rebuild payment/pre-book UI every time
-    checkout opens.
-  */
-  pay();
 }
 
 function closeCheckout() {
@@ -556,14 +552,13 @@ async function point(lat, lng) {
 }
 
 /* =========================
-   PRE-BOOK CART CHECK
+   PRE-BOOK CHECK
 ========================= */
 
 function pre() {
   if (!C) return false;
 
   return cart.some(x => {
-
     const p =
       C.menu.find(p => p.id === x.id);
 
@@ -605,15 +600,12 @@ function getShopHours(date = new Date()) {
     C?.settings || {};
 
   const hours =
-    settings.hours ||
-    settings.shopHours ||
-    {};
+    settings.hours || {};
 
   const day =
     date.getDay();
 
   /*
-    JavaScript:
     0 = Sunday
     1 = Monday
     ...
@@ -636,17 +628,17 @@ function getShopHours(date = new Date()) {
 }
 
 /* =========================
-   PRE-BOOK WINDOW
+   PRE-ORDER TIME WINDOW
 ========================= */
 
 /*
   FINAL RULE:
 
-  Opening + 1 hour
-  through
-  Closing - 1 hour
+  Shop opening + 1 hour
+  ->
+  Shop closing - 1 hour
 
-  Example:
+  Normal:
   11 AM - 7 PM
   => 12 PM - 6 PM
 
@@ -657,20 +649,20 @@ function getShopHours(date = new Date()) {
 
 function getPrebookWindow(date) {
 
-  const h =
+  const hours =
     getShopHours(date);
 
   const open =
-    Number(h.open);
+    Number(hours.open);
 
   const close =
-    Number(h.close);
+    Number(hours.close);
 
   return {
-    startMinutes:
+    start:
       Math.round((open + 1) * 60),
 
-    endMinutes:
+    end:
       Math.round((close - 1) * 60)
   };
 }
@@ -704,14 +696,9 @@ function dateFromKey(key) {
     return null;
   }
 
-  const y =
-    Number(parts[0]);
-
-  const m =
-    Number(parts[1]) - 1;
-
-  const d =
-    Number(parts[2]);
+  const y = Number(parts[0]);
+  const m = Number(parts[1]) - 1;
+  const d = Number(parts[2]);
 
   const date =
     new Date(y, m, d);
@@ -732,7 +719,9 @@ function formatDateLabel(date) {
   const today =
     new Date();
 
-  today.setHours(0, 0, 0, 0);
+  today.setHours(
+    0, 0, 0, 0
+  );
 
   const tomorrow =
     new Date(today);
@@ -744,7 +733,9 @@ function formatDateLabel(date) {
   const target =
     new Date(date);
 
-  target.setHours(0, 0, 0, 0);
+  target.setHours(
+    0, 0, 0, 0
+  );
 
   if (
     target.getTime() ===
@@ -775,86 +766,47 @@ function formatDateLabel(date) {
 
 function formatTime(minutes) {
 
-  const h24 =
+  const hour =
     Math.floor(minutes / 60);
 
-  const min =
+  const minute =
     minutes % 60;
 
   const suffix =
-    h24 >= 12
+    hour >= 12
       ? 'PM'
       : 'AM';
 
-  let h12 =
-    h24 % 12;
+  let displayHour =
+    hour % 12;
 
-  if (h12 === 0) {
-    h12 = 12;
+  if (displayHour === 0) {
+    displayHour = 12;
   }
 
   return (
-    h12 +
+    displayHour +
     ':' +
-    String(min).padStart(2, '0') +
+    String(minute).padStart(2, '0') +
     ' ' +
     suffix
   );
 }
 
 /* =========================
-   PRE-BOOK SLOT VALIDATION
-========================= */
-
-function isValidPrebookDateTime(date) {
-
-  if (!(date instanceof Date) ||
-      Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  /*
-    Pre-book must be in the future.
-  */
-  if (date.getTime() <= Date.now()) {
-    return false;
-  }
-
-  const window =
-    getPrebookWindow(date);
-
-  const minutes =
-    date.getHours() * 60 +
-    date.getMinutes();
-
-  /*
-    Only exact 30-minute slots.
-  */
-  if (date.getMinutes() !== 0 &&
-      date.getMinutes() !== 30) {
-    return false;
-  }
-
-  return (
-    minutes >= window.startMinutes &&
-    minutes <= window.endMinutes
-  );
-}
-
-/* =========================
-   BUILD PRE-BOOK SECTION
+   BUILD PRE-ORDER SECTION
 ========================= */
 
 function buildPrebookSection() {
 
-  const hasPrebook =
-    pre();
-
   /*
-    IMPORTANT:
-    Normal item = NO pre-order section.
+    VERY IMPORTANT:
+
+    No pre-order item =
+    No pre-order section.
   */
-  if (!hasPrebook) {
+
+  if (!pre()) {
     return '';
   }
 
@@ -862,7 +814,6 @@ function buildPrebookSection() {
 
     return `
       <div
-        class="payment"
         style="
           margin-top:12px;
           padding:12px;
@@ -878,20 +829,20 @@ function buildPrebookSection() {
     `;
   }
 
-  /*
-    Generate next 14 days.
-    Customer cannot type a date manually.
-  */
-
   const options = [];
 
-  const now =
+  const today =
     new Date();
+
+  /*
+    Offer next 14 days.
+    Customer cannot type a date.
+  */
 
   for (let i = 1; i <= 14; i++) {
 
     const d =
-      new Date(now);
+      new Date(today);
 
     d.setHours(
       0,
@@ -904,11 +855,8 @@ function buildPrebookSection() {
       d.getDate() + i
     );
 
-    const key =
-      dateKey(d);
-
     options.push(`
-      <option value="${key}">
+      <option value="${dateKey(d)}">
         ${esc(formatDateLabel(d))}
       </option>
     `);
@@ -927,14 +875,21 @@ function buildPrebookSection() {
 
       <b>Pre-order</b>
 
-      <small style="display:block;margin:6px 0 12px;">
+      <small
+        style="
+          display:block;
+          margin:6px 0 12px;
+        "
+      >
         Select your preferred date and time.
-        Available time is automatically based on shop hours.
       </small>
 
       <label
         for="prebookDate"
-        style="display:block;margin-bottom:5px;"
+        style="
+          display:block;
+          margin-bottom:5px;
+        "
       >
         Select date
       </label>
@@ -985,7 +940,7 @@ function buildPrebookSection() {
           opacity:.8;
         "
       >
-        Time slots: opening + 1 hour to closing − 1 hour.
+        Available time: Opening +1 hour → Closing −1 hour.
       </small>
 
     </div>
@@ -993,7 +948,7 @@ function buildPrebookSection() {
 }
 
 /* =========================
-   BUILD PRE-BOOK TIMES
+   BUILD 30-MINUTE SLOTS
 ========================= */
 
 function buildPrebookTimes() {
@@ -1050,9 +1005,13 @@ function buildPrebookTimes() {
 
   const slots = [];
 
+  /*
+    EXACT 30-minute increments.
+  */
+
   for (
-    let minutes = window.startMinutes;
-    minutes <= window.endMinutes;
+    let minutes = window.start;
+    minutes <= window.end;
     minutes += 30
   ) {
 
@@ -1063,50 +1022,32 @@ function buildPrebookTimes() {
     `);
   }
 
-  if (!slots.length) {
-
-    timeSelect.innerHTML =
-      '<option value="">No available time</option>';
-
-    timeSelect.disabled = true;
-
-    if (hidden) {
-      hidden.value = '';
-    }
-
-    if (hint) {
-      hint.textContent =
-        'No pre-order slots are available on this date.';
-    }
-
-    return;
-  }
-
   timeSelect.innerHTML = `
     <option value="">
       Select time
     </option>
+
     ${slots.join('')}
   `;
 
-  timeSelect.disabled = false;
-
-  if (hint) {
-    hint.textContent =
-      'Available: ' +
-      formatTime(window.startMinutes) +
-      ' – ' +
-      formatTime(window.endMinutes) +
-      ' • 30-minute slots';
-  }
+  timeSelect.disabled =
+    slots.length === 0;
 
   if (hidden) {
     hidden.value = '';
   }
+
+  if (hint) {
+
+    hint.textContent =
+      slots.length
+        ? `Available: ${formatTime(window.start)} – ${formatTime(window.end)} • 30-minute slots`
+        : 'No available time slots for this date.';
+  }
 }
 
 /* =========================
-   PRE-BOOK EVENTS
+   PRE-ORDER EVENTS
 ========================= */
 
 function setupPrebookEvents() {
@@ -1147,8 +1088,10 @@ function setupPrebookEvents() {
       const minutes =
         Number(timeSelect.value);
 
-      if (!key ||
-          !Number.isFinite(minutes)) {
+      if (
+        !key ||
+        !Number.isFinite(minutes)
+      ) {
 
         if (hidden) {
           hidden.value = '';
@@ -1161,11 +1104,6 @@ function setupPrebookEvents() {
         dateFromKey(key);
 
       if (!date) {
-
-        if (hidden) {
-          hidden.value = '';
-        }
-
         return;
       }
 
@@ -1200,6 +1138,161 @@ function setupPrebookEvents() {
 }
 
 /* =========================
+   PRE-ORDER VALIDATION
+========================= */
+
+function isValidPrebookDateTime(date) {
+
+  if (
+    !(date instanceof Date) ||
+    Number.isNaN(date.getTime())
+  ) {
+    return false;
+  }
+
+  /*
+    Must be in the future.
+  */
+
+  if (
+    date.getTime() <=
+    Date.now()
+  ) {
+    return false;
+  }
+
+  /*
+    Only 00 or 30 minutes.
+  */
+
+  if (
+    date.getMinutes() !== 0 &&
+    date.getMinutes() !== 30
+  ) {
+    return false;
+  }
+
+  const window =
+    getPrebookWindow(date);
+
+  const minutes =
+    date.getHours() * 60 +
+    date.getMinutes();
+
+  return (
+    minutes >= window.start &&
+    minutes <= window.end
+  );
+}
+
+function validatePrebookTime() {
+
+  if (!pre()) {
+
+    return {
+      ok: true,
+      value: null
+    };
+  }
+
+  if (!isPrebookAllowed()) {
+
+    return {
+      ok: false,
+      message:
+        'Pre-booking is currently disabled.'
+    };
+  }
+
+  const dateSelect =
+    $('#prebookDate');
+
+  const timeSelect =
+    $('#prebookTime');
+
+  if (
+    !dateSelect ||
+    !timeSelect
+  ) {
+
+    return {
+      ok: false,
+      message:
+        'Please select a pre-order date and time.'
+    };
+  }
+
+  const key =
+    dateSelect.value;
+
+  const selectedMinutes =
+    Number(timeSelect.value);
+
+  if (!key) {
+
+    return {
+      ok: false,
+      message:
+        'Please select a pre-order date.'
+    };
+  }
+
+  if (
+    !timeSelect.value ||
+    !Number.isFinite(selectedMinutes)
+  ) {
+
+    return {
+      ok: false,
+      message:
+        'Please select a pre-order time.'
+    };
+  }
+
+  const date =
+    dateFromKey(key);
+
+  if (!date) {
+
+    return {
+      ok: false,
+      message:
+        'Invalid pre-order date.'
+    };
+  }
+
+  date.setHours(
+    Math.floor(selectedMinutes / 60),
+    selectedMinutes % 60,
+    0,
+    0
+  );
+
+  if (!isValidPrebookDateTime(date)) {
+
+    const window =
+      getPrebookWindow(date);
+
+    return {
+      ok: false,
+      message:
+        'Selected time is outside the allowed pre-order window. ' +
+        'Available: ' +
+        formatTime(window.start) +
+        ' – ' +
+        formatTime(window.end) +
+        '.'
+    };
+  }
+
+  return {
+    ok: true,
+    value:
+      date.toISOString()
+  };
+}
+
+/* =========================
    PAYMENT
 ========================= */
 
@@ -1219,31 +1312,16 @@ function getPaymentNumbers() {
   };
 }
 
-function paymentOptionsHTML() {
-
-  const payment =
-    getPaymentNumbers();
-
-  return `
-    <option value="">
-      Select payment method
-    </option>
-
-    <option value="bKash">
-      bKash — Send Money
-    </option>
-
-    <option value="Nagad">
-      Nagad — Send Money
-    </option>
-  `;
-}
-
 function pay() {
 
-  const box = $('#pay');
+  const box =
+    $('#pay');
 
   if (!box) return;
+
+  /*
+    Location must be checked first.
+  */
 
   if (!loc?.allowed) {
 
@@ -1263,7 +1341,6 @@ function pay() {
 
     box.innerHTML = `
       <b>Pre-booking is currently unavailable.</b>
-
       <p>
         Please remove the pre-book item or try again later.
       </p>
@@ -1275,46 +1352,42 @@ function pay() {
   const payment =
     getPaymentNumbers();
 
-  const onlineRequired =
-    hasPrebook || !loc.cod;
-
   /*
     =========================
-    PRE-BOOK
+    PRE-ORDER
     =========================
 
-    Pre-book = Online only.
-    COD is never shown.
+    Online only.
+    COD is NOT shown.
   */
 
   if (hasPrebook) {
 
     box.innerHTML = `
 
-      <div>
+      <b>Payment method</b>
 
-        <b>Payment method</b>
+      <select
+        id="paymentMethod"
+        style="
+          width:100%;
+          margin-top:8px;
+        "
+      >
 
-        <select
-          id="paymentMethod"
-          style="width:100%;margin-top:8px;"
-        >
+        <option value="">
+          Select payment method
+        </option>
 
-          <option value="">
-            Select payment method
-          </option>
+        <option value="bKash">
+          bKash — Send Money Only
+        </option>
 
-          <option value="bKash">
-            bKash — Send Money Only
-          </option>
+        <option value="Nagad">
+          Nagad — Send Money Only
+        </option>
 
-          <option value="Nagad">
-            Nagad — Send Money Only
-          </option>
-
-        </select>
-
-      </div>
+      </select>
 
       <div
         id="paymentInfo"
@@ -1323,7 +1396,7 @@ function pay() {
 
       <div
         id="txWrap"
-        style="margin-top:10px;"
+        style="display:none;margin-top:10px;"
       >
         <input
           id="tx"
@@ -1339,52 +1412,54 @@ function pay() {
 
     /*
       =========================
-      NORMAL ITEM
+      NORMAL ORDER
       =========================
 
       COD available:
-        COD / bKash / Nagad
+        COD
+        bKash
+        Nagad
 
       COD unavailable:
-        bKash / Nagad only
+        bKash
+        Nagad
     */
 
     box.innerHTML = `
 
-      <div>
+      <b>Payment method</b>
 
-        <b>Payment method</b>
+      <select
+        id="paymentMethod"
+        style="
+          width:100%;
+          margin-top:8px;
+        "
+      >
 
-        <select
-          id="paymentMethod"
-          style="width:100%;margin-top:8px;"
-        >
+        <option value="">
+          Select payment method
+        </option>
 
-          <option value="">
-            Select payment method
-          </option>
+        ${
+          loc.cod
+            ? `
+              <option value="COD">
+                Cash on Delivery
+              </option>
+            `
+            : ''
+        }
 
-          ${
-            loc.cod
-              ? `
-                <option value="COD">
-                  Cash on Delivery
-                </option>
-              `
-              : ''
-          }
+        <option value="bKash">
+          bKash — Send Money Only
+        </option>
 
-          <option value="bKash">
-            bKash — Send Money Only
-          </option>
+        <option value="Nagad">
+          Nagad — Send Money Only
+        </option>
 
-          <option value="Nagad">
-            Nagad — Send Money Only
-          </option>
-
-        </select>
-
-      </div>
+      </select>
 
       <div
         id="paymentInfo"
@@ -1393,7 +1468,7 @@ function pay() {
 
       <div
         id="txWrap"
-        style="margin-top:10px;"
+        style="display:none;margin-top:10px;"
       >
         <input
           id="tx"
@@ -1404,12 +1479,22 @@ function pay() {
       ${
         loc.cod
           ? `
-            <small style="display:block;margin-top:8px;">
+            <small
+              style="
+                display:block;
+                margin-top:8px;
+              "
+            >
               Cash on Delivery is available at this location.
             </small>
           `
           : `
-            <small style="display:block;margin-top:8px;">
+            <small
+              style="
+                display:block;
+                margin-top:8px;
+              "
+            >
               COD is unavailable at this location.
               Please pay online.
             </small>
@@ -1429,7 +1514,7 @@ function pay() {
 }
 
 /* =========================
-   PAYMENT UI
+   PAYMENT CHANGE
 ========================= */
 
 function setupPaymentEvents() {
@@ -1464,20 +1549,17 @@ function updatePaymentUI() {
   const method =
     select.value;
 
-  const hasPrebook =
-    pre();
-
   const payment =
     getPaymentNumbers();
-
-  /*
-    Transaction ID:
-    ONLY online payment.
-  */
 
   const online =
     method === 'bKash' ||
     method === 'Nagad';
+
+  /*
+    Online:
+    Show transaction field.
+  */
 
   if (txWrap) {
 
@@ -1497,49 +1579,41 @@ function updatePaymentUI() {
     }
   }
 
-  if (info) {
+  if (!info) return;
 
-    if (method === 'bKash') {
+  if (method === 'bKash') {
 
-      info.innerHTML = `
-        <div class="payment">
-          <b>bKash Personal — Send Money Only</b>
-          <br>
-          ${esc(payment.bkash)}
-        </div>
-      `;
+    info.innerHTML = `
+      <div class="payment">
+        <b>bKash Personal — Send Money Only</b>
+        <br>
+        ${esc(payment.bkash)}
+      </div>
+    `;
 
-    } else if (method === 'Nagad') {
+  } else if (method === 'Nagad') {
 
-      info.innerHTML = `
-        <div class="payment">
-          <b>Nagad Personal — Send Money Only</b>
-          <br>
-          ${esc(payment.nagad)}
-        </div>
-      `;
+    info.innerHTML = `
+      <div class="payment">
+        <b>Nagad Personal — Send Money Only</b>
+        <br>
+        ${esc(payment.nagad)}
+      </div>
+    `;
 
-    } else if (method === 'COD') {
+  } else if (method === 'COD') {
 
-      info.innerHTML = `
-        <div class="payment">
-          <b>Cash on Delivery</b>
-          <br>
-          Transaction ID is not required.
-        </div>
-      `;
+    info.innerHTML = `
+      <div class="payment">
+        <b>Cash on Delivery</b>
+        <br>
+        Transaction ID is not required.
+      </div>
+    `;
 
-    } else {
+  } else {
 
-      info.innerHTML = '';
-    }
-
-    if (hasPrebook && method === 'COD') {
-      select.value = '';
-      info.innerHTML = `
-        <b>Pre-order items require online payment.</b>
-      `;
-    }
+    info.innerHTML = '';
   }
 }
 
@@ -1615,7 +1689,7 @@ function sum() {
 }
 
 /* =========================
-   CURRENT SHOP TIME
+   NORMAL DELIVERY TIME
 ========================= */
 
 function getCurrentHour() {
@@ -1643,8 +1717,10 @@ function shopIsOpen() {
   const current =
     getCurrentHour();
 
-  return current >= open &&
-    current <= close;
+  return (
+    current >= open &&
+    current <= close
+  );
 }
 
 function formatHour(hour) {
@@ -1668,8 +1744,9 @@ function formatHour(hour) {
   let display =
     hours % 12;
 
-  if (display === 0)
+  if (display === 0) {
     display = 12;
+  }
 
   return (
     display +
@@ -1693,8 +1770,10 @@ function validateDeliveryTime() {
     Empty / ASAP is allowed.
   */
 
-  if (!input ||
-      input.toUpperCase() === 'ASAP') {
+  if (
+    !input ||
+    input.toUpperCase() === 'ASAP'
+  ) {
 
     return {
       ok: true,
@@ -1728,11 +1807,13 @@ function validateDeliveryTime() {
   const ap =
     match[3];
 
-  if (ap === 'PM' && h < 12)
+  if (ap === 'PM' && h < 12) {
     h += 12;
+  }
 
-  if (ap === 'AM' && h === 12)
+  if (ap === 'AM' && h === 12) {
     h = 0;
+  }
 
   if (
     h < 0 ||
@@ -1777,138 +1858,6 @@ function validateDeliveryTime() {
 }
 
 /* =========================
-   PRE-BOOK TIME VALIDATION
-========================= */
-
-function validatePrebookTime() {
-
-  /*
-    Normal cart:
-    No pre-book validation.
-  */
-
-  if (!pre()) {
-
-    return {
-      ok: true,
-      value: null
-    };
-  }
-
-  if (!isPrebookAllowed()) {
-
-    return {
-      ok: false,
-      message:
-        'Pre-booking is currently disabled.'
-    };
-  }
-
-  const dateSelect =
-    $('#prebookDate');
-
-  const timeSelect =
-    $('#prebookTime');
-
-  if (!dateSelect ||
-      !timeSelect) {
-
-    return {
-      ok: false,
-      message:
-        'Please select a pre-order date and time.'
-    };
-  }
-
-  const dateKeyValue =
-    dateSelect.value;
-
-  const timeValue =
-    timeSelect.value;
-
-  if (!dateKeyValue) {
-
-    return {
-      ok: false,
-      message:
-        'Please select a pre-order date.'
-    };
-  }
-
-  if (!timeValue) {
-
-    return {
-      ok: false,
-      message:
-        'Please select a pre-order time.'
-    };
-  }
-
-  const date =
-    dateFromKey(dateKeyValue);
-
-  if (!date) {
-
-    return {
-      ok: false,
-      message:
-        'Invalid pre-order date.'
-    };
-  }
-
-  const minutes =
-    Number(timeValue);
-
-  if (!Number.isFinite(minutes)) {
-
-    return {
-      ok: false,
-      message:
-        'Invalid pre-order time.'
-    };
-  }
-
-  date.setHours(
-    Math.floor(minutes / 60),
-    minutes % 60,
-    0,
-    0
-  );
-
-  /*
-    FINAL validation:
-    - Future date/time
-    - Shop hours
-    - Opening +1 hour
-    - Closing -1 hour
-    - 30-minute slot
-  */
-
-  if (!isValidPrebookDateTime(date)) {
-
-    const window =
-      getPrebookWindow(date);
-
-    return {
-      ok: false,
-      message:
-        'Selected pre-order time is invalid. ' +
-        'Available time: ' +
-        formatTime(window.startMinutes) +
-        ' – ' +
-        formatTime(window.endMinutes) +
-        '.'
-    };
-  }
-
-  return {
-    ok: true,
-    value: date.toISOString(),
-    date
-  };
-}
-
-/* =========================
    PLACE ORDER
 ========================= */
 
@@ -1926,12 +1875,24 @@ async function place() {
     return;
   }
 
+  /*
+    =========================
+    LOCATION
+    =========================
+  */
+
   if (!loc?.allowed) {
     alert(
       'Please select a delivery location inside the service area.'
     );
     return;
   }
+
+  /*
+    =========================
+    CUSTOMER
+    =========================
+  */
 
   if (!$('#name').value.trim()) {
     alert('Customer name is required.');
@@ -1947,9 +1908,12 @@ async function place() {
 
   /*
     =========================
-    PRE-BOOK VALIDATION
+    PRE-ORDER VALIDATION
     =========================
   */
+
+  const hasPrebook =
+    pre();
 
   const prebookValidation =
     validatePrebookTime();
@@ -1969,9 +1933,6 @@ async function place() {
     =========================
   */
 
-  const hasPrebook =
-    pre();
-
   const paymentSelect =
     $('#paymentMethod');
 
@@ -1979,7 +1940,22 @@ async function place() {
     paymentSelect?.value || '';
 
   /*
-    Pre-book:
+    No payment selected.
+  */
+
+  if (!paymentMethod) {
+
+    alert(
+      'Please select a payment method.'
+    );
+
+    paymentSelect?.focus();
+
+    return;
+  }
+
+  /*
+    PRE-ORDER:
     Online payment ONLY.
   */
 
@@ -2001,53 +1977,27 @@ async function place() {
   }
 
   /*
-    Normal item:
-    If COD available, COD/bKash/Nagad.
-    If COD unavailable, only bKash/Nagad.
+    NORMAL ORDER:
+    COD only when location allows COD.
   */
 
-  if (!hasPrebook) {
+  if (
+    !hasPrebook &&
+    paymentMethod === 'COD' &&
+    !loc.cod
+  ) {
 
-    if (
-      paymentMethod !== 'COD' &&
-      paymentMethod !== 'bKash' &&
-      paymentMethod !== 'Nagad'
-    ) {
+    alert(
+      'Cash on Delivery is not available at this location.'
+    );
 
-      alert(
-        'Please select a payment method.'
-      );
-
-      paymentSelect?.focus();
-
-      return;
-    }
-
-    if (
-      paymentMethod === 'COD' &&
-      !loc.cod
-    ) {
-
-      alert(
-        'Cash on Delivery is not available at this location. Please select bKash or Nagad.'
-      );
-
-      paymentSelect?.focus();
-
-      return;
-    }
+    return;
   }
 
   /*
     =========================
     TRANSACTION ID
     =========================
-
-    Online:
-      REQUIRED
-
-    COD:
-      HIDDEN + NOT REQUIRED
   */
 
   const online =
@@ -2056,6 +2006,10 @@ async function place() {
 
   const tx =
     $('#tx')?.value.trim() || '';
+
+  /*
+    Online = required.
+  */
 
   if (online && !tx) {
 
@@ -2069,7 +2023,7 @@ async function place() {
   }
 
   /*
-    COD must never carry transaction ID.
+    COD = transaction ID ignored.
   */
 
   const transactionId =
@@ -2079,38 +2033,42 @@ async function place() {
 
   /*
     =========================
-    NORMAL DELIVERY TIME
+    DELIVERY / PRE-ORDER TIME
     =========================
-
-    Only used for normal items.
-
-    Pre-book uses the selected
-    pre-book date/time instead.
   */
 
-  let deliveryTime = 'ASAP';
+  let deliveryTime =
+    'ASAP';
 
   if (hasPrebook) {
+
+    /*
+      Pre-order date/time.
+    */
 
     deliveryTime =
       prebookValidation.value;
 
   } else {
 
-    const normalDeliveryTime =
+    /*
+      Normal order.
+    */
+
+    const deliveryValidation =
       validateDeliveryTime();
 
-    if (!normalDeliveryTime.ok) {
+    if (!deliveryValidation.ok) {
 
       alert(
-        normalDeliveryTime.message
+        deliveryValidation.message
       );
 
       return;
     }
 
     deliveryTime =
-      normalDeliveryTime.value;
+      deliveryValidation.value;
   }
 
   /*
@@ -2123,11 +2081,19 @@ async function place() {
     marker?.getLatLng();
 
   if (!position) {
+
     alert(
       'Please select your delivery location.'
     );
+
     return;
   }
+
+  /*
+    =========================
+    ADDRESS
+    =========================
+  */
 
   const address =
     [
@@ -2139,16 +2105,7 @@ async function place() {
 
   /*
     =========================
-    FINAL PAYMENT METHOD
-    =========================
-  */
-
-  const finalPaymentMethod =
-    paymentMethod;
-
-  /*
-    =========================
-    ORDER OBJECT
+    FINAL ORDER
     =========================
   */
 
@@ -2170,10 +2127,6 @@ async function place() {
 
     deliveryTime,
 
-    /*
-      Keep explicit pre-order data too.
-      This is useful for backend/admin.
-    */
     prebook:
       hasPrebook,
 
@@ -2187,8 +2140,7 @@ async function place() {
 
     transactionId,
 
-    paymentMethod:
-      finalPaymentMethod,
+    paymentMethod,
 
     items:
       cart.map(x => ({
@@ -2202,7 +2154,7 @@ async function place() {
 
   /*
     =========================
-    PLACE ORDER
+    SEND ORDER
     =========================
   */
 
@@ -2235,8 +2187,10 @@ async function place() {
     const result =
       await response.json();
 
-    if (!response.ok ||
-        result.error) {
+    if (
+      !response.ok ||
+      result.error
+    ) {
 
       throw new Error(
         result.error ||
@@ -2308,12 +2262,13 @@ async function place() {
     );
 
     button.disabled = false;
-    button.textContent = oldText;
+    button.textContent =
+      oldText;
   }
 }
 
 /* =========================
-   OPTIONAL KEYBOARD SUPPORT
+   KEYBOARD SUPPORT
 ========================= */
 
 document.addEventListener(
