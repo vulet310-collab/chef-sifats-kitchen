@@ -1,436 +1,145 @@
-/* =========================================================
-   CHEF SIFAT'S KITCHEN
-   CUSTOMER AUTH SYSTEM — FINAL VERSION
-   ========================================================= */
+(function () {
 
-const CUSTOMER_TOKEN_KEY = 'csk_customer_token';
-const CUSTOMER_DATA_KEY = 'csk_customer_data';
+  'use strict';
 
 
-/* =========================================================
-   CUSTOMER SESSION
-   ========================================================= */
-
-function getCustomerToken() {
-  return localStorage.getItem(CUSTOMER_TOKEN_KEY) || '';
-}
+  const TOKEN_KEY = 'csk_customer_token';
+  const DATA_KEY = 'csk_customer_data';
 
 
-function getCustomerData() {
-  try {
-    return JSON.parse(
-      localStorage.getItem(CUSTOMER_DATA_KEY) || 'null'
-    );
-  } catch (_) {
-    return null;
-  }
-}
 
+  function getToken() {
 
-function isCustomerLoggedIn() {
-  return !!getCustomerToken();
-}
-
-
-function saveCustomerSession(token, customer) {
-
-  if (token) {
-    localStorage.setItem(
-      CUSTOMER_TOKEN_KEY,
-      token
-    );
-  }
-
-  localStorage.setItem(
-    CUSTOMER_DATA_KEY,
-    JSON.stringify(customer || {})
-  );
-
-  updateCustomerNavbar();
-}
-
-
-function clearCustomerSession() {
-
-  localStorage.removeItem(
-    CUSTOMER_TOKEN_KEY
-  );
-
-  localStorage.removeItem(
-    CUSTOMER_DATA_KEY
-  );
-
-  updateCustomerNavbar();
-}
-
-
-/* =========================================================
-   HTML ESCAPE
-   ========================================================= */
-
-function escapeHTML(value) {
-
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-
-}
-
-
-/* =========================================================
-   CUSTOMER API
-   ========================================================= */
-
-async function customerAPI(
-  url,
-  options = {}
-) {
-
-  const headers = {
-    ...(options.headers || {})
-  };
-
-  const token = getCustomerToken();
-
-  if (token) {
-    headers.Authorization =
-      `Bearer ${token}`;
-  }
-
-  if (
-    options.body &&
-    typeof options.body !== 'string'
-  ) {
-
-    headers['Content-Type'] =
-      'application/json';
-
-    options = {
-      ...options,
-      body: JSON.stringify(options.body)
-    };
-
-  }
-
-  const response =
-    await fetch(url, {
-      ...options,
-      headers
-    });
-
-  let data = {};
-
-  try {
-    data = await response.json();
-  } catch (_) {
-    data = {};
-  }
-
-  if (!response.ok) {
-
-    throw new Error(
-      data.message ||
-      data.error ||
-      'Something went wrong.'
-    );
-
-  }
-
-  return data;
-}
-
-
-/* =========================================================
-   MOBILE NAVIGATION
-   ========================================================= */
-
-function toggleMobileMenu() {
-
-  const nav =
-    document.getElementById(
-      'mainNav'
-    );
-
-  if (!nav) return;
-
-  nav.classList.toggle(
-    'mobile-open'
-  );
-
-}
-
-
-/* Close mobile menu after link click */
-
-document.addEventListener(
-  'click',
-  function (event) {
-
-    const link =
-      event.target.closest(
-        '#mainNav a'
-      );
-
-    if (!link) return;
-
-    const nav =
-      document.getElementById(
-        'mainNav'
-      );
-
-    if (nav) {
-      nav.classList.remove(
-        'mobile-open'
-      );
+    try {
+      return localStorage.getItem(TOKEN_KEY) || '';
+    } catch {
+      return '';
     }
 
   }
-);
 
 
-/* =========================================================
-   NAVBAR ACCOUNT BUTTON
-   ========================================================= */
 
-function updateCustomerNavbar() {
+  function getData() {
 
-  const button =
-    document.getElementById(
-      'customerAccountBtn'
-    );
+    try {
 
-  if (!button) return;
+      const raw =
+        localStorage.getItem(DATA_KEY);
 
+      return raw
+        ? JSON.parse(raw)
+        : null;
 
-  /* LOGGED IN */
+    } catch {
 
-  if (isCustomerLoggedIn()) {
+      return null;
 
-    const customer =
-      getCustomerData() || {};
-
-    const name =
-      customer.name ||
-      customer.fullName ||
-      'My Account';
-
-    button.innerHTML =
-      `👤 ${escapeHTML(name)}`;
-
-    button.onclick =
-      function () {
-        openAccountMenu();
-      };
-
-    button.classList.add(
-      'logged-in'
-    );
+    }
 
   }
 
 
-  /* LOGGED OUT */
 
-  else {
+  function saveSession(token, data) {
 
-    button.innerHTML =
-      '👤 Login';
+    try {
 
-    button.onclick =
-      function () {
-        openAuthModal('login');
-      };
-
-    button.classList.remove(
-      'logged-in'
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   ACCOUNT DROPDOWN
-   ========================================================= */
-
-function openAccountMenu() {
-
-  closeAccountMenu();
-
-  const customer =
-    getCustomerData() || {};
-
-  const name =
-    customer.name ||
-    customer.fullName ||
-    'Customer';
-
-  const email =
-    customer.email || '';
-
-  const menu =
-    document.createElement(
-      'div'
-    );
-
-  menu.id =
-    'customerAccountMenu';
-
-  menu.innerHTML = `
-
-    <div class="account-menu-inner">
-
-      <div class="account-menu-user">
-
-        <strong>
-          👤 ${escapeHTML(name)}
-        </strong>
-
-        ${
-          email
-            ? `
-              <small>
-                ${escapeHTML(email)}
-              </small>
-            `
-            : ''
-        }
-
-      </div>
-
-
-      <button
-        type="button"
-        onclick="showMyOrders()"
-      >
-        📦 My Orders
-      </button>
-
-
-      <button
-        type="button"
-        onclick="showCustomerProfile()"
-      >
-        👤 My Profile
-      </button>
-
-
-      <button
-        type="button"
-        onclick="customerLogout()"
-      >
-        🚪 Logout
-      </button>
-
-    </div>
-
-  `;
-
-  document.body.appendChild(menu);
-
-  setTimeout(
-    function () {
-
-      document.addEventListener(
-        'click',
-        accountOutsideClick
+      localStorage.setItem(
+        TOKEN_KEY,
+        token || ''
       );
 
-    },
-    10
-  );
 
-}
+      localStorage.setItem(
+        DATA_KEY,
+        JSON.stringify(data || {})
+      );
 
-
-function accountOutsideClick(event) {
-
-  const menu =
-    document.getElementById(
-      'customerAccountMenu'
-    );
-
-  const button =
-    document.getElementById(
-      'customerAccountBtn'
-    );
-
-  if (
-    menu &&
-    !menu.contains(event.target) &&
-    event.target !== button
-  ) {
-
-    closeAccountMenu();
+    } catch {}
 
   }
 
-}
 
 
-function closeAccountMenu() {
+  function clearSession() {
 
-  const menu =
-    document.getElementById(
-      'customerAccountMenu'
-    );
+    try {
 
-  if (menu) {
-    menu.remove();
-  }
+      localStorage.removeItem(TOKEN_KEY);
 
-  document.removeEventListener(
-    'click',
-    accountOutsideClick
-  );
+      localStorage.removeItem(DATA_KEY);
 
-}
+    } catch {}
 
-
-/* =========================================================
-   AUTH MODAL
-   ========================================================= */
-
-function createAuthModal() {
-
-  if (
-    document.getElementById(
-      'customerAuthModal'
-    )
-  ) {
-    return;
   }
 
 
-  const modal =
-    document.createElement(
-      'div'
-    );
 
-  modal.id =
-    'customerAuthModal';
+  function loggedIn() {
 
-  modal.innerHTML = `
+    return !!getToken();
 
-    <div
-      class="customer-auth-overlay"
-      onclick="authOverlayClick(event)"
-    >
+  }
+
+
+
+  function esc(value) {
+
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  }
+
+
+
+  function ensureModal() {
+
+    let modal =
+      document.getElementById(
+        'authModal'
+      );
+
+    if (modal) return modal;
+
+
+    modal =
+      document.createElement('div');
+
+    modal.id = 'authModal';
+
+    modal.innerHTML = `
 
       <div
-        class="customer-auth-box"
-        onclick="event.stopPropagation()"
+        class="box"
+        style="
+          max-width:460px;
+          width:calc(100% - 30px);
+          margin:50px auto;
+          padding:25px;
+          background:#fff;
+          color:#111;
+          border-radius:16px;
+          position:relative;
+        "
       >
 
         <button
-          class="customer-auth-close"
           type="button"
-          aria-label="Close"
-          onclick="closeAuthModal()"
+          id="authClose"
+          style="
+            position:absolute;
+            right:15px;
+            top:10px;
+            border:0;
+            background:none;
+            font-size:28px;
+            cursor:pointer;
+          "
         >
           ×
         </button>
@@ -440,2128 +149,1081 @@ function createAuthModal() {
 
       </div>
 
-    </div>
+    `;
 
-  `;
-
-  document.body.appendChild(modal);
-
-}
-
-
-function authOverlayClick(event) {
-
-  if (
-    event.target.classList.contains(
-      'customer-auth-overlay'
-    )
-  ) {
-
-    closeAuthModal();
-
-  }
-
-}
+    modal.style.cssText = `
+      position:fixed;
+      inset:0;
+      z-index:99999;
+      background:rgba(0,0,0,.75);
+      overflow:auto;
+      padding:20px;
+    `;
 
 
-function openAuthModal(
-  mode = 'login'
-) {
+    document.body.appendChild(modal);
 
-  closeAccountMenu();
 
-  createAuthModal();
+    document
+      .getElementById('authClose')
+      .onclick = closeAuthModal;
 
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
+
+    modal.addEventListener(
+      'click',
+      function (e) {
+
+        if (e.target === modal) {
+          closeAuthModal();
+        }
+
+      }
     );
 
-  if (!modal) return;
 
-  modal.classList.add(
-    'show'
-  );
-
-  document.body.classList.add(
-    'auth-open'
-  );
-
-
-  if (mode === 'register') {
-
-    showRegister();
+    return modal;
 
   }
 
-  else if (mode === 'forgot') {
 
-    showForgotPassword();
 
-  }
+  function openAuthModal(mode = 'login') {
 
-  else if (mode === 'reset') {
+    const modal =
+      ensureModal();
 
-    showResetPassword();
+    modal.style.display = 'block';
 
-  }
+    modal.dataset.mode = mode;
 
-  else {
-
-    showLogin();
+    renderAuth(mode);
 
   }
 
-}
 
 
-function closeAuthModal() {
+  function closeAuthModal() {
 
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
+    const modal =
+      document.getElementById(
+        'authModal'
+      );
 
-  if (modal) {
-
-    modal.classList.remove(
-      'show'
-    );
+    if (modal) {
+      modal.style.display = 'none';
+    }
 
   }
 
-  document.body.classList.remove(
-    'auth-open'
-  );
-
-}
 
 
-/* =========================================================
-   LOGIN
-   ========================================================= */
+  function renderAuth(mode) {
 
-function showLogin() {
+    const box =
+      document.getElementById(
+        'authContent'
+      );
 
-  createAuthModal();
-
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
-
-  if (modal) {
-    modal.classList.add(
-      'show'
-    );
-  }
-
-  const box =
-    document.getElementById(
-      'authContent'
-    );
-
-  if (!box) return;
+    if (!box) return;
 
 
-  box.innerHTML = `
+    if (mode === 'register') {
 
-    <div class="auth-heading">
+      box.innerHTML = `
 
-      <small>
-        CUSTOMER ACCOUNT
-      </small>
+        <h2>Create Account</h2>
 
-      <h2>
-        Welcome Back
-      </h2>
+        <p>
+          Register before placing your order.
+        </p>
+
+
+        <input
+          id="regName"
+          type="text"
+          placeholder="Full Name *"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <input
+          id="regMobile"
+          type="tel"
+          placeholder="Mobile Number *"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <input
+          id="regEmail"
+          type="email"
+          placeholder="Email *"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <input
+          id="regPassword"
+          type="password"
+          placeholder="Password *"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <button
+          type="button"
+          class="btn full"
+          onclick="customerRegister()"
+          style="width:100%;margin-top:10px"
+        >
+          Register
+        </button>
+
+
+        <p id="authMessage"></p>
+
+
+        <button
+          type="button"
+          onclick="openAuthModal('login')"
+          style="border:0;background:none;cursor:pointer"
+        >
+          Already have an account? Login
+        </button>
+
+      `;
+
+      return;
+
+    }
+
+
+
+    if (mode === 'forgot') {
+
+      box.innerHTML = `
+
+        <h2>Forgot Password</h2>
+
+        <p>
+          Enter your registered email.
+        </p>
+
+
+        <input
+          id="forgotEmail"
+          type="email"
+          placeholder="Email"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <button
+          type="button"
+          class="btn full"
+          onclick="sendForgotCode()"
+          style="width:100%;margin-top:10px"
+        >
+          Send 6-Digit Code
+        </button>
+
+
+        <p id="authMessage"></p>
+
+
+        <button
+          type="button"
+          onclick="openAuthModal('login')"
+          style="border:0;background:none;cursor:pointer"
+        >
+          Back to Login
+        </button>
+
+      `;
+
+      return;
+
+    }
+
+
+
+    if (mode === 'reset') {
+
+      box.innerHTML = `
+
+        <h2>Reset Password</h2>
+
+
+        <input
+          id="resetEmail"
+          type="email"
+          placeholder="Email"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <input
+          id="resetCode"
+          type="text"
+          inputmode="numeric"
+          maxlength="6"
+          placeholder="6-digit code"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <input
+          id="resetPassword"
+          type="password"
+          placeholder="New password"
+          style="width:100%;padding:12px;margin:6px 0"
+        >
+
+
+        <button
+          type="button"
+          class="btn full"
+          onclick="resetCustomerPassword()"
+          style="width:100%;margin-top:10px"
+        >
+          Reset Password
+        </button>
+
+
+        <p id="authMessage"></p>
+
+      `;
+
+      return;
+
+    }
+
+
+
+    if (mode === 'orders') {
+
+      renderMyOrders();
+
+      return;
+
+    }
+
+
+
+    if (loggedIn()) {
+
+      const data = getData() || {};
+
+      box.innerHTML = `
+
+        <h2>
+          👤 ${esc(data.name || 'My Account')}
+        </h2>
+
+
+        <p>
+          ${esc(data.email || '')}
+        </p>
+
+
+        <p>
+          ${esc(data.mobile || data.phone || '')}
+        </p>
+
+
+        <button
+          type="button"
+          class="btn full"
+          onclick="openAuthModal('orders')"
+          style="width:100%;margin-top:10px"
+        >
+          📦 My Orders
+        </button>
+
+
+        <button
+          type="button"
+          onclick="customerLogout()"
+          style="
+            width:100%;
+            margin-top:10px;
+            padding:12px;
+            cursor:pointer;
+          "
+        >
+          Logout
+        </button>
+
+      `;
+
+      return;
+
+    }
+
+
+
+    box.innerHTML = `
+
+      <h2>Customer Login</h2>
 
       <p>
-        Login to continue your order.
+        Login to place your order.
       </p>
 
-    </div>
-
-
-    <form
-      id="customerLoginForm"
-    >
 
       <input
         id="loginEmail"
         type="email"
-        placeholder="Email *"
+        placeholder="Email"
         autocomplete="email"
-        required
+        style="width:100%;padding:12px;margin:6px 0"
       >
 
 
       <input
         id="loginPassword"
         type="password"
-        placeholder="Password *"
+        placeholder="Password"
         autocomplete="current-password"
-        required
+        style="width:100%;padding:12px;margin:6px 0"
       >
 
 
       <button
+        type="button"
         class="btn full"
-        type="submit"
+        onclick="customerLogin()"
+        style="width:100%;margin-top:10px"
       >
         Login
       </button>
 
-    </form>
 
+      <p id="authMessage"></p>
 
-    <div class="auth-links">
 
       <button
         type="button"
-        onclick="showForgotPassword()"
+        onclick="openAuthModal('register')"
+        style="border:0;background:none;cursor:pointer"
+      >
+        Create new account
+      </button>
+
+
+      <br>
+
+
+      <button
+        type="button"
+        onclick="openAuthModal('forgot')"
+        style="border:0;background:none;cursor:pointer"
       >
         Forgot Password?
       </button>
 
-
-      <button
-        type="button"
-        onclick="showRegister()"
-      >
-        Create Account
-      </button>
-
-    </div>
-
-
-    <div id="authMessage"></div>
-
-  `;
-
-
-  const form =
-    document.getElementById(
-      'customerLoginForm'
-    );
-
-  if (form) {
-
-    form.addEventListener(
-      'submit',
-      handleCustomerLogin
-    );
+    `;
 
   }
 
-}
 
 
-async function handleCustomerLogin(
-  event
-) {
+  async function customerLogin() {
 
-  event.preventDefault();
+    const email =
+      document
+        .getElementById('loginEmail')
+        ?.value
+        .trim();
 
-  const email =
-    document.getElementById(
-      'loginEmail'
-    )?.value.trim() || '';
-
-  const password =
-    document.getElementById(
-      'loginPassword'
-    )?.value || '';
-
-  const message =
-    document.getElementById(
-      'authMessage'
-    );
-
-  if (!email || !password) {
-    return;
-  }
+    const password =
+      document
+        .getElementById('loginPassword')
+        ?.value;
 
 
-  try {
+    if (!email || !password) {
 
-    if (message) {
-      message.innerHTML =
-        '<span>Logging in...</span>';
-    }
-
-
-    const result =
-      await customerAPI(
-        '/api/customer/login',
-        {
-          method: 'POST',
-
-          body: {
-            email,
-            password
-          }
-        }
+      showAuthMessage(
+        'Email and password required.'
       );
 
-
-    saveCustomerSession(
-      result.token,
-      result.customer
-    );
-
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="success">
-          Login successful.
-        </span>
-        `;
+      return;
 
     }
 
 
-    setTimeout(
-      function () {
-
-        closeAuthModal();
-
-      },
-      500
-    );
-
-
-  }
-
-  catch (error) {
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="error">
-          ${escapeHTML(
-            error.message
-          )}
-        </span>
-        `;
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   REGISTER
-   ========================================================= */
-
-function showRegister() {
-
-  createAuthModal();
-
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
-
-  if (modal) {
-    modal.classList.add(
-      'show'
-    );
-  }
-
-  const box =
-    document.getElementById(
-      'authContent'
-    );
-
-  if (!box) return;
-
-
-  box.innerHTML = `
-
-    <div class="auth-heading">
-
-      <small>
-        CUSTOMER ACCOUNT
-      </small>
-
-      <h2>
-        Create Account
-      </h2>
-
-      <p>
-        Register before placing your order.
-      </p>
-
-    </div>
-
-
-    <form
-      id="customerRegisterForm"
-    >
-
-      <input
-        id="registerName"
-        type="text"
-        placeholder="Full Name *"
-        autocomplete="name"
-        required
-      >
-
-
-      <input
-        id="registerMobile"
-        type="tel"
-        placeholder="Mobile Number *"
-        autocomplete="tel"
-        required
-      >
-
-
-      <input
-        id="registerEmail"
-        type="email"
-        placeholder="Email *"
-        autocomplete="email"
-        required
-      >
-
-
-      <input
-        id="registerPassword"
-        type="password"
-        placeholder="Password *"
-        minlength="6"
-        autocomplete="new-password"
-        required
-      >
-
-
-      <button
-        class="btn full"
-        type="submit"
-      >
-        Create Account
-      </button>
-
-    </form>
-
-
-    <div class="auth-links">
-
-      <button
-        type="button"
-        onclick="showLogin()"
-      >
-        Already have an account? Login
-      </button>
-
-    </div>
-
-
-    <div id="authMessage"></div>
-
-  `;
-
-
-  const form =
-    document.getElementById(
-      'customerRegisterForm'
-    );
-
-  if (form) {
-
-    form.addEventListener(
-      'submit',
-      handleCustomerRegister
-    );
-
-  }
-
-}
-
-
-async function handleCustomerRegister(
-  event
-) {
-
-  event.preventDefault();
-
-
-  const name =
-    document.getElementById(
-      'registerName'
-    )?.value.trim() || '';
-
-  const mobile =
-    document.getElementById(
-      'registerMobile'
-    )?.value.trim() || '';
-
-  const email =
-    document.getElementById(
-      'registerEmail'
-    )?.value.trim() || '';
-
-  const password =
-    document.getElementById(
-      'registerPassword'
-    )?.value || '';
-
-
-  const message =
-    document.getElementById(
-      'authMessage'
-    );
-
-
-  try {
-
-    if (message) {
-
-      message.innerHTML =
-        '<span>Creating account...</span>';
-
-    }
-
-
-    const result =
-      await customerAPI(
-        '/api/customer/register',
-        {
-          method: 'POST',
-
-          body: {
-            name,
-            mobile,
-            email,
-            password
+    try {
+
+      const response =
+        await fetch(
+          '/api/customer/login',
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              email,
+              password
+            })
           }
-        }
-      );
-
-
-    saveCustomerSession(
-      result.token,
-      result.customer
-    );
-
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="success">
-          Account created successfully.
-        </span>
-        `;
-
-    }
-
-
-    setTimeout(
-      function () {
-
-        closeAuthModal();
-
-      },
-      700
-    );
-
-
-  }
-
-  catch (error) {
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="error">
-          ${escapeHTML(
-            error.message
-          )}
-        </span>
-        `;
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   FORGOT PASSWORD
-   ========================================================= */
-
-function showForgotPassword() {
-
-  createAuthModal();
-
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
-
-  if (modal) {
-    modal.classList.add(
-      'show'
-    );
-  }
-
-  const box =
-    document.getElementById(
-      'authContent'
-    );
-
-  if (!box) return;
-
-
-  box.innerHTML = `
-
-    <div class="auth-heading">
-
-      <small>
-        ACCOUNT RECOVERY
-      </small>
-
-      <h2>
-        Forgot Password?
-      </h2>
-
-      <p>
-        Enter your registered email.
-      </p>
-
-    </div>
-
-
-    <form
-      id="forgotPasswordForm"
-    >
-
-      <input
-        id="forgotEmail"
-        type="email"
-        placeholder="Email *"
-        autocomplete="email"
-        required
-      >
-
-
-      <button
-        class="btn full"
-        type="submit"
-      >
-        Send Reset Code
-      </button>
-
-    </form>
-
-
-    <div class="auth-links">
-
-      <button
-        type="button"
-        onclick="showLogin()"
-      >
-        ← Back to Login
-      </button>
-
-    </div>
-
-
-    <div id="authMessage"></div>
-
-  `;
-
-
-  const form =
-    document.getElementById(
-      'forgotPasswordForm'
-    );
-
-  if (form) {
-
-    form.addEventListener(
-      'submit',
-      handleForgotPassword
-    );
-
-  }
-
-}
-
-
-async function handleForgotPassword(
-  event
-) {
-
-  event.preventDefault();
-
-
-  const email =
-    document.getElementById(
-      'forgotEmail'
-    )?.value.trim() || '';
-
-
-  const message =
-    document.getElementById(
-      'authMessage'
-    );
-
-
-  try {
-
-    if (message) {
-
-      message.innerHTML =
-        '<span>Sending reset code...</span>';
-
-    }
-
-
-    await customerAPI(
-      '/api/customer/forgot-password',
-      {
-        method: 'POST',
-
-        body: {
-          email
-        }
-      }
-    );
-
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="success">
-          Reset code sent to your email.
-        </span>
-        `;
-
-    }
-
-
-    setTimeout(
-      function () {
-
-        showResetPassword(
-          email
         );
 
-      },
-      800
-    );
 
+      const data =
+        await response.json();
 
-  }
 
-  catch (error) {
+      if (!response.ok || !data.ok) {
 
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="error">
-          ${escapeHTML(
-            error.message
-          )}
-        </span>
-        `;
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   RESET PASSWORD
-   ========================================================= */
-
-function showResetPassword(
-  email = ''
-) {
-
-  createAuthModal();
-
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
-
-  if (modal) {
-    modal.classList.add(
-      'show'
-    );
-  }
-
-  const box =
-    document.getElementById(
-      'authContent'
-    );
-
-  if (!box) return;
-
-
-  box.innerHTML = `
-
-    <div class="auth-heading">
-
-      <small>
-        ACCOUNT RECOVERY
-      </small>
-
-      <h2>
-        Reset Password
-      </h2>
-
-      <p>
-        Enter the 6-digit code sent to your email.
-      </p>
-
-    </div>
-
-
-    <form
-      id="resetPasswordForm"
-    >
-
-      <input
-        id="resetEmail"
-        type="email"
-        value="${escapeHTML(email)}"
-        placeholder="Email *"
-        required
-      >
-
-
-      <input
-        id="resetCode"
-        type="text"
-        inputmode="numeric"
-        maxlength="6"
-        pattern="[0-9]{6}"
-        placeholder="6-digit code *"
-        required
-      >
-
-
-      <input
-        id="resetPassword"
-        type="password"
-        minlength="6"
-        placeholder="New Password *"
-        autocomplete="new-password"
-        required
-      >
-
-
-      <button
-        class="btn full"
-        type="submit"
-      >
-        Reset Password
-      </button>
-
-    </form>
-
-
-    <div class="auth-links">
-
-      <button
-        type="button"
-        onclick="showLogin()"
-      >
-        ← Back to Login
-      </button>
-
-    </div>
-
-
-    <div id="authMessage"></div>
-
-  `;
-
-
-  const form =
-    document.getElementById(
-      'resetPasswordForm'
-    );
-
-  if (form) {
-
-    form.addEventListener(
-      'submit',
-      handleResetPassword
-    );
-
-  }
-
-}
-
-
-async function handleResetPassword(
-  event
-) {
-
-  event.preventDefault();
-
-
-  const email =
-    document.getElementById(
-      'resetEmail'
-    )?.value.trim() || '';
-
-  const code =
-    document.getElementById(
-      'resetCode'
-    )?.value.trim() || '';
-
-  const password =
-    document.getElementById(
-      'resetPassword'
-    )?.value || '';
-
-
-  const message =
-    document.getElementById(
-      'authMessage'
-    );
-
-
-  try {
-
-    if (message) {
-
-      message.innerHTML =
-        '<span>Resetting password...</span>';
-
-    }
-
-
-    await customerAPI(
-      '/api/customer/reset-password',
-      {
-        method: 'POST',
-
-        body: {
-          email,
-          code,
-          password
-        }
-      }
-    );
-
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="success">
-          Password reset successful.
-        </span>
-        `;
-
-    }
-
-
-    setTimeout(
-      function () {
-
-        showLogin();
-
-      },
-      900
-    );
-
-
-  }
-
-  catch (error) {
-
-    if (message) {
-
-      message.innerHTML =
-        `
-        <span class="error">
-          ${escapeHTML(
-            error.message
-          )}
-        </span>
-        `;
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   REQUIRE LOGIN BEFORE CHECKOUT
-   ========================================================= */
-
-function requireCustomerLogin() {
-
-  if (isCustomerLoggedIn()) {
-    return true;
-  }
-
-
-  openAuthModal(
-    'login'
-  );
-
-
-  setTimeout(
-    function () {
-
-      const message =
-        document.getElementById(
-          'authMessage'
+        throw new Error(
+          data.message ||
+          'Login failed.'
         );
 
-      if (message) {
-
-        message.innerHTML =
-          `
-          <span class="error">
-            Please login before placing an order.
-          </span>
-          `;
-
       }
 
-    },
-    50
-  );
 
-
-  return false;
-}
-
-
-/* =========================================================
-   MY ORDERS
-   ========================================================= */
-
-async function showMyOrders() {
-
-  closeAccountMenu();
-
-
-  if (!isCustomerLoggedIn()) {
-
-    openAuthModal(
-      'login'
-    );
-
-    return;
-
-  }
-
-
-  createAuthModal();
-
-
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
-
-  if (modal) {
-    modal.classList.add(
-      'show'
-    );
-  }
-
-
-  const box =
-    document.getElementById(
-      'authContent'
-    );
-
-  if (!box) return;
-
-
-  box.innerHTML = `
-
-    <div class="auth-heading">
-
-      <small>
-        MY ACCOUNT
-      </small>
-
-      <h2>
-        My Orders
-      </h2>
-
-    </div>
-
-
-    <div id="myOrdersList">
-      Loading orders...
-    </div>
-
-
-    <div class="auth-links">
-
-      <button
-        type="button"
-        onclick="closeAuthModal()"
-      >
-        Close
-      </button>
-
-    </div>
-
-  `;
-
-
-  try {
-
-    const result =
-      await customerAPI(
-        '/api/customer/orders'
+      saveSession(
+        data.token,
+        data.customer ||
+        data.user ||
+        {}
       );
 
 
-    const orders =
-      Array.isArray(
-        result.orders
-      )
-        ? result.orders
-        : Array.isArray(result)
-          ? result
-          : [];
-
-
-    const list =
-      document.getElementById(
-        'myOrdersList'
-      );
-
-
-    if (!list) return;
-
-
-    if (!orders.length) {
-
-      list.innerHTML =
-        `
-        <div class="empty-orders">
-          <p>No orders found yet.</p>
-        </div>
-        `;
-
-      return;
-
-    }
-
-
-    list.innerHTML =
-      orders
-        .map(
-          function (order) {
-
-            const orderId =
-              order.id ||
-              order.orderId ||
-              '';
-
-            const status =
-              order.status ||
-              'Pending';
-
-            const total =
-              Number(
-                order.total || 0
-              );
-
-
-            return `
-
-              <div class="customer-order">
-
-                <strong>
-                  Order #${escapeHTML(
-                    String(orderId)
-                  )}
-                </strong>
-
-                <span>
-                  ${escapeHTML(
-                    String(status)
-                  )}
-                </span>
-
-                <p>
-                  Total:
-                  ৳${total.toFixed(0)}
-                </p>
-
-              </div>
-
-            `;
-
-          }
-        )
-        .join('');
-
-
-  }
-
-  catch (error) {
-
-    const list =
-      document.getElementById(
-        'myOrdersList'
-      );
-
-    if (list) {
-
-      list.innerHTML =
-        `
-        <p class="error">
-          ${escapeHTML(
-            error.message
-          )}
-        </p>
-        `;
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   CUSTOMER PROFILE
-   ========================================================= */
-
-function showCustomerProfile() {
-
-  closeAccountMenu();
-
-  createAuthModal();
-
-
-  const customer =
-    getCustomerData() || {};
-
-
-  const modal =
-    document.getElementById(
-      'customerAuthModal'
-    );
-
-  if (modal) {
-    modal.classList.add(
-      'show'
-    );
-  }
-
-
-  const box =
-    document.getElementById(
-      'authContent'
-    );
-
-  if (!box) return;
-
-
-  box.innerHTML = `
-
-    <div class="auth-heading">
-
-      <small>
-        MY ACCOUNT
-      </small>
-
-      <h2>
-        My Profile
-      </h2>
-
-    </div>
-
-
-    <div class="profile-card">
-
-      <p>
-
-        <strong>
-          Name
-        </strong>
-
-        <br>
-
-        ${escapeHTML(
-          customer.name ||
-          customer.fullName ||
-          ''
-        )}
-
-      </p>
-
-
-      <p>
-
-        <strong>
-          Mobile
-        </strong>
-
-        <br>
-
-        ${escapeHTML(
-          customer.mobile ||
-          customer.phone ||
-          ''
-        )}
-
-      </p>
-
-
-      <p>
-
-        <strong>
-          Email
-        </strong>
-
-        <br>
-
-        ${escapeHTML(
-          customer.email ||
-          ''
-        )}
-
-      </p>
-
-    </div>
-
-
-    <button
-      class="btn full"
-      type="button"
-      onclick="closeAuthModal()"
-    >
-      Close
-    </button>
-
-  `;
-
-}
-
-
-/* =========================================================
-   LOGOUT
-   ========================================================= */
-
-function customerLogout() {
-
-  closeAccountMenu();
-
-  clearCustomerSession();
-
-  alert(
-    'You have been logged out.'
-  );
-
-}
-
-
-/* =========================================================
-   AUTH STYLES
-   ========================================================= */
-
-(function addCustomerAuthStyles() {
-
-  if (
-    document.getElementById(
-      'customerAuthStyles'
-    )
-  ) {
-    return;
-  }
-
-
-  const style =
-    document.createElement(
-      'style'
-    );
-
-  style.id =
-    'customerAuthStyles';
-
-
-  style.textContent = `
-
-    /* =====================================================
-       NAVBAR
-       ===================================================== */
-
-    .site-header {
-
-      position: relative;
-      z-index: 1000;
-
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      gap: 24px;
-
-    }
-
-
-    .main-nav {
-
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-
-      gap: 24px;
-
-      flex: 1;
-
-    }
-
-
-    .nav-links {
-
-      display: flex;
-      align-items: center;
-
-      gap: 22px;
-
-    }
-
-
-    .nav-actions {
-
-      display: flex;
-      align-items: center;
-
-      gap: 10px;
-
-      flex-shrink: 0;
-
-    }
-
-
-    .nav-links a,
-    .nav-cart,
-    .nav-account {
-
-      white-space: nowrap;
-
-    }
-
-
-    .nav-cart,
-    .nav-account {
-
-      border: 1px solid
-        rgba(255,255,255,.15);
-
-      border-radius: 999px;
-
-      padding: 10px 15px;
-
-      cursor: pointer;
-
-    }
-
-
-    .nav-account.logged-in {
-
-      max-width: 170px;
-
-      overflow: hidden;
-
-      text-overflow: ellipsis;
-
-    }
-
-
-    .mobile-menu-btn {
-
-      display: none;
-
-      border: 0;
-
-      background: transparent;
-
-      font-size: 25px;
-
-      cursor: pointer;
-
-    }
-
-
-    /* =====================================================
-       ACCOUNT DROPDOWN
-       ===================================================== */
-
-    #customerAccountMenu {
-
-      position: fixed;
-
-      top: 76px;
-
-      right: 24px;
-
-      z-index: 3000;
-
-      width: 250px;
-
-    }
-
-
-    .account-menu-inner {
-
-      padding: 12px;
-
-      border-radius: 16px;
-
-      background: #111;
-
-      border: 1px solid
-        rgba(255,255,255,.15);
-
-      box-shadow:
-        0 15px 45px
-        rgba(0,0,0,.35);
-
-    }
-
-
-    .account-menu-user {
-
-      padding:
-        10px 12px 14px;
-
-      border-bottom:
-        1px solid
-        rgba(255,255,255,.1);
-
-      margin-bottom: 8px;
-
-    }
-
-
-    .account-menu-user strong,
-    .account-menu-user small {
-
-      display: block;
-
-    }
-
-
-    .account-menu-user small {
-
-      margin-top: 4px;
-
-      opacity: .65;
-
-      word-break: break-word;
-
-    }
-
-
-    .account-menu-inner button {
-
-      width: 100%;
-
-      text-align: left;
-
-      border: 0;
-
-      background: transparent;
-
-      color: inherit;
-
-      padding: 11px 12px;
-
-      border-radius: 10px;
-
-      cursor: pointer;
-
-    }
-
-
-    .account-menu-inner button:hover {
-
-      background:
-        rgba(255,255,255,.08);
-
-    }
-
-
-    /* =====================================================
-       AUTH MODAL
-       ===================================================== */
-
-    body.auth-open {
-
-      overflow: hidden;
-
-    }
-
-
-    #customerAuthModal {
-
-      display: none;
-
-    }
-
-
-    #customerAuthModal.show {
-
-      display: block;
-
-    }
-
-
-    .customer-auth-overlay {
-
-      position: fixed;
-
-      inset: 0;
-
-      z-index: 4000;
-
-      display: flex;
-
-      align-items: center;
-
-      justify-content: center;
-
-      padding: 20px;
-
-      background:
-        rgba(0,0,0,.78);
-
-    }
-
-
-    .customer-auth-box {
-
-      position: relative;
-
-      width: min(430px, 100%);
-
-      max-height: 90vh;
-
-      overflow-y: auto;
-
-      padding: 30px;
-
-      border-radius: 20px;
-
-      background: #111;
-
-      color: inherit;
-
-      box-shadow:
-        0 20px 70px
-        rgba(0,0,0,.5);
-
-    }
-
-
-    /* =====================================================
-       CLOSE BUTTON
-       ===================================================== */
-
-    .customer-auth-close {
-
-      position: absolute;
-
-      top: 10px;
-
-      right: 12px;
-
-      width: 40px;
-
-      height: 40px;
-
-      display: flex;
-
-      align-items: center;
-      justify-content: center;
-
-      border: 0;
-
-      border-radius: 50%;
-
-      background: transparent;
-
-      color: inherit;
-
-      font-size: 30px;
-
-      line-height: 1;
-
-      cursor: pointer;
-
-      z-index: 10;
-
-    }
-
-
-    .customer-auth-close:hover {
-
-      background:
-        rgba(255,255,255,.10);
-
-    }
-
-
-    /* =====================================================
-       AUTH CONTENT
-       ===================================================== */
-
-    .auth-heading {
-
-      margin-bottom: 20px;
-
-      padding-right: 35px;
-
-    }
-
-
-    .auth-heading h2 {
-
-      margin: 5px 0;
-
-    }
-
-
-    .auth-heading p {
-
-      opacity: .7;
-
-      margin: 0;
-
-    }
-
-
-    #customerAuthModal input {
-
-      width: 100%;
-
-      box-sizing: border-box;
-
-      margin-bottom: 12px;
-
-    }
-
-
-    .auth-links {
-
-      display: flex;
-
-      flex-direction: column;
-
-      gap: 7px;
-
-      margin-top: 14px;
-
-    }
-
-
-    .auth-links button {
-
-      border: 0;
-
-      background: transparent;
-
-      color: inherit;
-
-      opacity: .75;
-
-      cursor: pointer;
-
-      padding: 7px;
-
-    }
-
-
-    .auth-links button:hover {
-
-      opacity: 1;
-
-      text-decoration: underline;
-
-    }
-
-
-    .success {
-
-      display: block;
-
-      margin-top: 12px;
-
-      font-weight: 600;
-
-    }
-
-
-    .error {
-
-      display: block;
-
-      margin-top: 12px;
-
-      font-weight: 600;
-
-    }
-
-
-    /* =====================================================
-       ORDERS / PROFILE
-       ===================================================== */
-
-    .customer-order,
-    .profile-card {
-
-      padding: 15px;
-
-      margin-bottom: 10px;
-
-      border-radius: 14px;
-
-      border: 1px solid
-        rgba(255,255,255,.1);
-
-    }
-
-
-    .customer-order {
-
-      display: flex;
-
-      flex-direction: column;
-
-      gap: 5px;
-
-    }
-
-
-    .empty-orders {
-
-      padding: 20px;
-
-      text-align: center;
-
-      opacity: .7;
-
-    }
-
-
-    /* =====================================================
-       MOBILE
-       ===================================================== */
-
-    @media (max-width: 850px) {
-
-      .site-header {
-
-        gap: 12px;
-
-      }
-
-
-      .main-nav {
-
-        display: none;
-
-        position: absolute;
-
-        top: 100%;
-
-        left: 0;
-
-        right: 0;
-
-        flex-direction: column;
-
-        align-items: stretch;
-
-        gap: 14px;
-
-        padding: 18px;
-
-        background: #111;
-
-        border-top:
-          1px solid
-          rgba(255,255,255,.1);
-
-        box-shadow:
-          0 15px 30px
-          rgba(0,0,0,.25);
-
-      }
-
-
-      .main-nav.mobile-open {
-
-        display: flex;
-
-      }
-
-
-      .nav-links {
-
-        flex-direction: column;
-
-        align-items: stretch;
-
-        gap: 0;
-
-      }
-
-
-      .nav-links a {
-
-        display: block;
-
-        padding: 12px;
-
-        border-radius: 10px;
-
-      }
-
-
-      .nav-links a:hover {
-
-        background:
-          rgba(255,255,255,.08);
-
-      }
-
-
-      .nav-actions {
-
-        display: grid;
-
-        grid-template-columns:
-          1fr 1fr;
-
-        gap: 10px;
-
-      }
-
-
-      .nav-cart,
-      .nav-account {
-
-        width: 100%;
-
-      }
-
-
-      .mobile-menu-btn {
-
-        display: block;
-
-      }
-
-
-      #customerAccountMenu {
-
-        top: 70px;
-
-        right: 15px;
-
-        left: 15px;
-
-        width: auto;
-
-      }
-
-
-      .customer-auth-overlay {
-
-        padding: 12px;
-
-      }
-
-
-      .customer-auth-box {
-
-        padding:
-          28px 20px 22px;
-
-        max-height: 92vh;
-
-      }
-
-    }
-
-  `;
-
-
-  document.head.appendChild(
-    style
-  );
-
-})();
-
-
-/* =========================================================
-   INITIALIZE
-   ========================================================= */
-
-document.addEventListener(
-  'DOMContentLoaded',
-  function () {
-
-    updateCustomerNavbar();
-
-  }
-);
-
-
-/* =========================================================
-   GLOBAL FUNCTIONS
-   app.js / index.html compatibility
-   ========================================================= */
-
-window.getCustomerToken =
-  getCustomerToken;
-
-window.getCustomerData =
-  getCustomerData;
-
-window.isCustomerLoggedIn =
-  isCustomerLoggedIn;
-
-window.saveCustomerSession =
-  saveCustomerSession;
-
-window.clearCustomerSession =
-  clearCustomerSession;
-
-window.openAuthModal =
-  openAuthModal;
-
-window.closeAuthModal =
-  closeAuthModal;
-
-window.showLogin =
-  showLogin;
-
-window.showRegister =
-  showRegister;
-
-window.showForgotPassword =
-  showForgotPassword;
-
-window.showResetPassword =
-  showResetPassword;
-
-window.showMyOrders =
-  showMyOrders;
-
-window.showCustomerProfile =
-  showCustomerProfile;
-
-window.customerLogout =
-  customerLogout;
-
-window.requireCustomerLogin =
-  requireCustomerLogin;
-
-window.updateCustomerNavbar =
-  updateCustomerNavbar;
-
-window.toggleMobileMenu =
-  toggleMobileMenu;
-
-
-/* =========================================================
-   BACKWARD COMPATIBILITY
-   Older app.js uses openCustomerAuth()
-   ========================================================= */
-
-window.openCustomerAuth =
-  function (mode = 'login') {
-
-    if (
-      typeof window.openAuthModal ===
-      'function'
-    ) {
-
-      window.openAuthModal(
-        mode
-      );
-
-      return;
-
-    }
-
-
-    console.error(
-      'Customer authentication system is not loaded.'
-    );
-
-
-    alert(
-      'Login system is loading. Please refresh the page and try again.'
-    );
-
-  };
-
-
-/* =========================================================
-   ESC KEY
-   ========================================================= */
-
-document.addEventListener(
-  'keydown',
-  function (event) {
-
-    if (
-      event.key !== 'Escape'
-    ) {
-      return;
-    }
-
-
-    const modal =
-      document.getElementById(
-        'customerAuthModal'
-      );
-
-
-    if (
-      modal &&
-      modal.classList.contains(
-        'show'
-      )
-    ) {
+      updateAccountButton();
 
       closeAuthModal();
 
+
+      if (
+        window.location.hash === '#checkout'
+      ) {
+        window.location.hash = '';
+      }
+
+
+      alert('Login successful.');
+
+    } catch (error) {
+
+      showAuthMessage(
+        error.message ||
+        'Login failed.'
+      );
+
+    }
+
+  }
+
+
+
+  async function customerRegister() {
+
+    const name =
+      document
+        .getElementById('regName')
+        ?.value
+        .trim();
+
+    const mobile =
+      document
+        .getElementById('regMobile')
+        ?.value
+        .trim();
+
+    const email =
+      document
+        .getElementById('regEmail')
+        ?.value
+        .trim();
+
+    const password =
+      document
+        .getElementById('regPassword')
+        ?.value;
+
+
+    if (
+      !name ||
+      !mobile ||
+      !email ||
+      !password
+    ) {
+
+      showAuthMessage(
+        'Please fill all required fields.'
+      );
+
+      return;
+
     }
 
 
-    closeAccountMenu();
+    try {
+
+      const response =
+        await fetch(
+          '/api/customer/register',
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              name,
+              mobile,
+              phone: mobile,
+              email,
+              password
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok || !data.ok) {
+
+        throw new Error(
+          data.message ||
+          'Registration failed.'
+        );
+
+      }
+
+
+      if (data.token) {
+
+        saveSession(
+          data.token,
+          data.customer ||
+          data.user ||
+          {}
+        );
+
+        updateAccountButton();
+
+        closeAuthModal();
+
+        alert('Registration successful.');
+
+      } else {
+
+        openAuthModal('login');
+
+        showAuthMessage(
+          'Registration successful. Please login.'
+        );
+
+      }
+
+    } catch (error) {
+
+      showAuthMessage(
+        error.message ||
+        'Registration failed.'
+      );
+
+    }
 
   }
-);
+
+
+
+  async function sendForgotCode() {
+
+    const email =
+      document
+        .getElementById('forgotEmail')
+        ?.value
+        .trim();
+
+
+    if (!email) {
+
+      showAuthMessage(
+        'Enter your email.'
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          '/api/customer/forgot-password',
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              email
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok || !data.ok) {
+
+        throw new Error(
+          data.message ||
+          'Could not send reset code.'
+        );
+
+      }
+
+
+      openAuthModal('reset');
+
+      document
+        .getElementById('resetEmail')
+        .value = email;
+
+
+      showAuthMessage(
+        'Check your email for the 6-digit code.'
+      );
+
+    } catch (error) {
+
+      showAuthMessage(
+        error.message
+      );
+
+    }
+
+  }
+
+
+
+  async function resetCustomerPassword() {
+
+    const email =
+      document
+        .getElementById('resetEmail')
+        ?.value
+        .trim();
+
+    const code =
+      document
+        .getElementById('resetCode')
+        ?.value
+        .trim();
+
+    const password =
+      document
+        .getElementById('resetPassword')
+        ?.value;
+
+
+    if (
+      !email ||
+      !code ||
+      !password
+    ) {
+
+      showAuthMessage(
+        'All fields are required.'
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          '/api/customer/reset-password',
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json'
+            },
+
+            body: JSON.stringify({
+              email,
+              code,
+              token: code,
+              password
+            })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok || !data.ok) {
+
+        throw new Error(
+          data.message ||
+          'Password reset failed.'
+        );
+
+      }
+
+
+      openAuthModal('login');
+
+      showAuthMessage(
+        'Password reset successful. Login now.'
+      );
+
+    } catch (error) {
+
+      showAuthMessage(
+        error.message
+      );
+
+    }
+
+  }
+
+
+
+  async function renderMyOrders() {
+
+    const box =
+      document.getElementById(
+        'authContent'
+      );
+
+    if (!box) return;
+
+
+    box.innerHTML = `
+      <h2>📦 My Orders</h2>
+      <p>Loading orders...</p>
+    `;
+
+
+    const token =
+      getToken();
+
+
+    if (!token) {
+
+      openAuthModal('login');
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          '/api/customer/orders',
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`
+            }
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        response.status === 401
+      ) {
+
+        clearSession();
+
+        updateAccountButton();
+
+        openAuthModal('login');
+
+        return;
+
+      }
+
+
+      if (!response.ok || !data.ok) {
+
+        throw new Error(
+          data.message ||
+          'Could not load orders.'
+        );
+
+      }
+
+
+      const orders =
+        data.orders ||
+        data.items ||
+        [];
+
+
+      if (!orders.length) {
+
+        box.innerHTML = `
+
+          <h2>📦 My Orders</h2>
+
+          <p>
+            You have no orders yet.
+          </p>
+
+          <button
+            type="button"
+            onclick="closeAuthModal()"
+          >
+            Continue Shopping
+          </button>
+
+        `;
+
+        return;
+
+      }
+
+
+      box.innerHTML = `
+
+        <h2>📦 My Orders</h2>
+
+        <div id="customerOrdersList"></div>
+
+      `;
+
+
+      const list =
+        document.getElementById(
+          'customerOrdersList'
+        );
+
+
+      orders.forEach(function (order) {
+
+        const div =
+          document.createElement('div');
+
+
+        div.style.cssText = `
+          border:1px solid #ddd;
+          padding:14px;
+          margin:10px 0;
+          border-radius:12px;
+        `;
+
+
+        const items =
+          order.items ||
+          [];
+
+
+        const itemText =
+          items.map(function (item) {
+
+            return `${esc(
+              item.name
+            )} × ${Number(
+              item.qty || 1
+            )}`;
+
+          }).join('<br>');
+
+
+        div.innerHTML = `
+
+          <strong>
+            Order #${esc(
+              order.id ||
+              order.orderId ||
+              ''
+            )}
+          </strong>
+
+          <br>
+
+          Status:
+          <strong>
+            ${esc(
+              order.status ||
+              'Pending'
+            )}
+          </strong>
+
+          <br><br>
+
+          ${itemText}
+
+          <br><br>
+
+          Total:
+          <strong>
+            ৳${Number(
+              order.total ||
+              order.grandTotal ||
+              0
+            ).toFixed(0)}
+          </strong>
+
+        `;
+
+
+        list.appendChild(div);
+
+      });
+
+
+    } catch (error) {
+
+      box.innerHTML = `
+
+        <h2>📦 My Orders</h2>
+
+        <p>
+          ${esc(
+            error.message ||
+            'Could not load orders.'
+          )}
+        </p>
+
+      `;
+
+    }
+
+  }
+
+
+
+  function customerLogout() {
+
+    clearSession();
+
+    updateAccountButton();
+
+    closeAuthModal();
+
+    alert('Logged out.');
+
+  }
+
+
+
+  function updateAccountButton() {
+
+    const button =
+      document.getElementById(
+        'customerAccountBtn'
+      );
+
+
+    if (!button) return;
+
+
+    if (loggedIn()) {
+
+      const data =
+        getData() || {};
+
+
+      button.textContent =
+        `👤 ${data.name || 'Account'}`;
+
+    } else {
+
+      button.textContent =
+        '👤 Login';
+
+    }
+
+  }
+
+
+
+  function showAuthMessage(message) {
+
+    const box =
+      document.getElementById(
+        'authMessage'
+      );
+
+
+    if (box) {
+
+      box.textContent =
+        message;
+
+      box.style.color =
+        '#c00';
+
+    }
+
+  }
+
+
+
+  window.getCustomerToken =
+    getToken;
+
+  window.getCustomerData =
+    getData;
+
+  window.isCustomerLoggedIn =
+    loggedIn;
+
+  window.openAuthModal =
+    openAuthModal;
+
+  window.closeAuthModal =
+    closeAuthModal;
+
+  window.customerLogin =
+    customerLogin;
+
+  window.customerRegister =
+    customerRegister;
+
+  window.customerLogout =
+    customerLogout;
+
+  window.sendForgotCode =
+    sendForgotCode;
+
+  window.resetCustomerPassword =
+    resetCustomerPassword;
+
+  window.renderMyOrders =
+    renderMyOrders;
+
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    updateAccountButton
+  );
+
+})();
