@@ -1,25 +1,24 @@
+'use strict';
+
 /* =========================================================
-   CHEF SIFAT'S KITCHEN
-   ADMIN.JS
-   Compatible with current server.js
-========================================================= */
+   CHEF SIFAT'S KITCHEN — ADMIN PANEL
+   ========================================================= */
 
-const API = '/api';
+const ADMIN_TOKEN_KEY = 'csk_admin_token';
 
-let TOKEN = localStorage.getItem('csk_admin_token') || '';
+let adminToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+let currentView = 'dashboard';
+let menuData = [];
+let settingsData = null;
 
 /* =========================================================
    BASIC HELPERS
-========================================================= */
+   ========================================================= */
 
-function $(id) {
-  return document.getElementById(id);
-}
+const $ = id => document.getElementById(id);
 
-function escapeHTML(value) {
-  if (value === null || value === undefined) return '';
-
-  return String(value)
+function esc(value) {
+  return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
@@ -28,68 +27,102 @@ function escapeHTML(value) {
 }
 
 function money(value) {
-  return `৳${Number(value || 0).toFixed(0)}`;
+  return `৳${Number(value || 0).toLocaleString('en-BD')}`;
 }
 
-function showMessage(text, type = '') {
-  return `
-    <div class="message ${type}">
-      ${escapeHTML(text)}
-    </div>
-  `;
+function formatDate(value) {
+  if (!value) return '—';
+
+  const d = new Date(value);
+
+  if (Number.isNaN(d.getTime())) {
+    return esc(value);
+  }
+
+  return d.toLocaleString('en-BD', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+}
+
+function showApp() {
+  const loginBox = $('login');
+  const appBox = $('app');
+
+  if (loginBox) loginBox.style.display = 'none';
+  if (appBox) appBox.style.display = 'flex';
+}
+
+function showLogin() {
+  const loginBox = $('login');
+  const appBox = $('app');
+
+  if (loginBox) loginBox.style.display = 'flex';
+  if (appBox) appBox.style.display = 'none';
+}
+
+function setView(html) {
+  const view = $('view');
+
+  if (!view) return;
+
+  view.innerHTML = html;
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
+function errorMessage(error) {
+  return error?.message || 'Something went wrong.';
 }
 
 /* =========================================================
    API HELPER
-========================================================= */
+   ========================================================= */
 
-async function api(path, options = {}) {
-
-  const headers = {
-    ...(options.headers || {})
+async function api(url, options = {}) {
+  const opts = {
+    ...options,
+    headers: {
+      ...(options.headers || {})
+    }
   };
 
-  if (TOKEN) {
-    headers.Authorization = `Bearer ${TOKEN}`;
+  if (adminToken) {
+    opts.headers.Authorization = `Bearer ${adminToken}`;
   }
 
   if (
-    options.body &&
-    !(options.body instanceof FormData)
+    opts.body &&
+    typeof opts.body !== 'string' &&
+    !(opts.body instanceof FormData)
   ) {
-    headers['Content-Type'] = 'application/json';
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
   }
 
-  const response = await fetch(API + path, {
-    ...options,
-    headers
-  });
+  const response = await fetch(url, opts);
 
   let data = null;
 
   try {
     data = await response.json();
   } catch {
-    data = {};
+    data = null;
   }
 
-  if (response.status === 401) {
-
-    localStorage.removeItem('csk_admin_token');
-    TOKEN = '';
-
+  if (response.status === 401 || response.status === 403) {
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
+    adminToken = null;
     showLogin();
-
-    throw new Error(
-      data.message || 'Admin session expired. Please login again.'
-    );
+    throw new Error(data?.error || 'Admin session expired. Please login again.');
   }
 
-  if (!response.ok || data.ok === false) {
-
+  if (!response.ok) {
     throw new Error(
-      data.message ||
-      data.error ||
+      data?.error ||
+      data?.message ||
       `Request failed (${response.status})`
     );
   }
@@ -98,460 +131,669 @@ async function api(path, options = {}) {
 }
 
 /* =========================================================
-   LOGIN
-========================================================= */
+   ADMIN LOGIN
+   ========================================================= */
 
 async function login() {
-
-  const username = $('username').value.trim();
-  const password = $('password').value;
-
-  $('loginError').textContent = '';
+  const username = $('u')?.value.trim();
+  const password = $('p')?.value || '';
+  const errorBox = $('e');
 
   if (!username || !password) {
-
-    $('loginError').textContent =
-      'Username and password are required.';
-
+    if (errorBox) {
+      errorBox.textContent = 'Enter username and password.';
+    }
     return;
   }
 
-  const button =
-    document.querySelector('.login-btn');
-
-  button.disabled = true;
-  button.textContent = 'Signing in...';
+  if (errorBox) {
+    errorBox.textContent = 'Signing in...';
+  }
 
   try {
-
-    const data = await fetch(`${API}/admin/login`, {
-
+    const data = await api('/api/admin/login', {
       method: 'POST',
-
-      headers: {
-        'Content-Type': 'application/json'
-      },
-
-      body: JSON.stringify({
+      body: {
         username,
         password
-      })
-
+      }
     });
 
-    const result = await data.json();
+    const token =
+      data?.token ||
+      data?.accessToken ||
+      data?.adminToken;
 
-    if (!data.ok || !result.ok) {
-
-      throw new Error(
-        result.message ||
-        result.error ||
-        'Invalid username or password.'
-      );
+    if (!token) {
+      throw new Error('Login succeeded but no admin token was returned.');
     }
 
-    TOKEN = result.token;
+    adminToken = token;
 
     localStorage.setItem(
-      'csk_admin_token',
-      TOKEN
+      ADMIN_TOKEN_KEY,
+      adminToken
     );
 
-    showApp();
+    if (errorBox) {
+      errorBox.textContent = '';
+    }
 
-    await dashboard();
+    showApp();
+    await dash();
 
   } catch (error) {
-
-    console.error(error);
-
-    $('loginError').textContent =
-      error.message || 'Login failed.';
-
-  } finally {
-
-    button.disabled = false;
-    button.textContent = 'Sign In';
-
+    if (errorBox) {
+      errorBox.textContent = errorMessage(error);
+    }
   }
 }
 
 /* =========================================================
-   SHOW / HIDE
-========================================================= */
+   LOGOUT
+   ========================================================= */
 
-function showLogin() {
+function logout() {
+  localStorage.removeItem(ADMIN_TOKEN_KEY);
+  adminToken = null;
 
-  $('login').style.display = 'flex';
-  $('app').style.display = 'none';
+  showLogin();
 
-}
-
-function showApp() {
-
-  $('login').style.display = 'none';
-  $('app').style.display = 'block';
-
-}
-
-/* =========================================================
-   INITIAL CHECK
-========================================================= */
-
-async function init() {
-
-  if (!TOKEN) {
-
-    showLogin();
-    return;
-
-  }
-
-  try {
-
-    await api('/admin/dashboard');
-
-    showApp();
-
-    await dashboard();
-
-  } catch (error) {
-
-    console.error(error);
-
-    TOKEN = '';
-
-    localStorage.removeItem(
-      'csk_admin_token'
-    );
-
-    showLogin();
-
-  }
-
+  if ($('u')) $('u').value = '';
+  if ($('p')) $('p').value = '';
+  if ($('e')) $('e').textContent = '';
 }
 
 /* =========================================================
    DASHBOARD
-========================================================= */
+   ========================================================= */
 
-async function dashboard() {
+async function dash() {
+  currentView = 'dashboard';
 
-  const view = $('view');
+  setView(`
+    <section class="admin-section">
+      <div class="page-head">
+        <div>
+          <small>ADMIN PANEL</small>
+          <h1>Dashboard</h1>
+          <p>Chef Sifat's Kitchen overview</p>
+        </div>
+      </div>
 
-  view.innerHTML = `
-    <h1 class="page-title">Dashboard</h1>
-    <div class="card">Loading...</div>
-  `;
+      <div id="dashboardLoading" class="loading">
+        Loading dashboard...
+      </div>
+
+      <div id="dashboardContent"></div>
+    </section>
+  `);
 
   try {
+    const [ordersResult, menuResult, reviewsResult, customersResult] =
+      await Promise.all([
+        api('/api/admin/orders'),
+        api('/api/admin/menu'),
+        api('/api/admin/reviews'),
+        api('/api/admin/customers')
+      ]);
 
-    const data =
-      await api('/admin/dashboard');
+    const orders =
+      ordersResult?.orders ||
+      ordersResult?.data ||
+      (Array.isArray(ordersResult) ? ordersResult : []);
 
-    const s = data.stats || {};
+    const menu =
+      menuResult?.menu ||
+      menuResult?.data ||
+      (Array.isArray(menuResult) ? menuResult : []);
 
-    view.innerHTML = `
+    const reviews =
+      reviewsResult?.reviews ||
+      reviewsResult?.data ||
+      (Array.isArray(reviewsResult) ? reviewsResult : []);
 
-      <h1 class="page-title">
-        Dashboard
-      </h1>
+    const customers =
+      customersResult?.customers ||
+      customersResult?.data ||
+      (Array.isArray(customersResult) ? customersResult : []);
 
-      <div class="stats">
+    const pendingOrders = orders.filter(
+      order =>
+        String(order.status || '').toLowerCase() === 'pending'
+    ).length;
 
-        <div class="stat">
-          Total Orders
-          <strong>
-            ${Number(s.totalOrders || 0)}
-          </strong>
+    const activeMenu = menu.filter(
+      item => item.active !== false
+    ).length;
+
+    const pendingReviews = reviews.filter(
+      review =>
+        review.approved === false ||
+        review.status === 'pending'
+    ).length;
+
+    const totalSales = orders.reduce(
+      (sum, order) => {
+        const status = String(order.status || '').toLowerCase();
+
+        if (
+          status === 'cancelled' ||
+          status === 'canceled' ||
+          status === 'rejected'
+        ) {
+          return sum;
+        }
+
+        return sum + Number(
+          order.total ||
+          order.grandTotal ||
+          order.amount ||
+          0
+        );
+      },
+      0
+    );
+
+    const loading = $('dashboardLoading');
+
+    if (loading) {
+      loading.style.display = 'none';
+    }
+
+    const content = $('dashboardContent');
+
+    if (!content) return;
+
+    content.innerHTML = `
+      <div class="stats-grid">
+
+        <div class="stat-card">
+          <span>Total Orders</span>
+          <strong>${orders.length}</strong>
         </div>
 
-        <div class="stat">
-          Pending
-          <strong>
-            ${Number(s.pendingOrders || 0)}
-          </strong>
+        <div class="stat-card">
+          <span>Pending Orders</span>
+          <strong>${pendingOrders}</strong>
         </div>
 
-        <div class="stat">
-          Customers
-          <strong>
-            ${Number(s.customers || 0)}
-          </strong>
+        <div class="stat-card">
+          <span>Active Menu Items</span>
+          <strong>${activeMenu}</strong>
         </div>
 
-        <div class="stat">
-          Revenue
-          <strong>
-            ${money(s.revenue || 0)}
-          </strong>
+        <div class="stat-card">
+          <span>Customers</span>
+          <strong>${customers.length}</strong>
+        </div>
+
+        <div class="stat-card">
+          <span>Pending Reviews</span>
+          <strong>${pendingReviews}</strong>
+        </div>
+
+        <div class="stat-card">
+          <span>Total Order Value</span>
+          <strong>${money(totalSales)}</strong>
         </div>
 
       </div>
 
-      <div class="card">
+      <div class="dashboard-grid">
 
-        <h2>Admin Panel</h2>
+        <div class="admin-card">
+          <h2>Quick Actions</h2>
 
-        <p>
-          Welcome to Chef Sifat's Kitchen
-          administration panel.
-        </p>
+          <div class="quick-actions">
+            <button class="admin-btn" onclick="orders()">
+              📦 Orders
+            </button>
 
-        <p>
-          Use the menu on the left to manage
-          orders, menu, reviews, customers and
-          delivery settings.
-        </p>
+            <button class="admin-btn" onclick="menu()">
+              🍕 Menu
+            </button>
+
+            <button class="admin-btn" onclick="customers()">
+              👥 Customers
+            </button>
+
+            <button class="admin-btn" onclick="reviews()">
+              ⭐ Reviews
+            </button>
+
+            <button class="admin-btn" onclick="settings()">
+              ⚙️ Settings
+            </button>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <h2>Restaurant</h2>
+
+          <p>
+            <strong>Chef Sifat's Kitchen</strong>
+          </p>
+
+          <p>
+            Kahalthuri, Shahedapur-3630,
+            Kachua, Chandpur
+          </p>
+
+          <p>
+            Delivery base:
+            Kahalthuri Hamidia High School
+          </p>
+        </div>
 
       </div>
     `;
-
   } catch (error) {
+    const loading = $('dashboardLoading');
 
-    view.innerHTML =
-      showMessage(error.message, 'error');
-
+    if (loading) {
+      loading.innerHTML = `
+        <div class="error-box">
+          ${esc(errorMessage(error))}
+        </div>
+      `;
+    }
   }
 }
 
 /* =========================================================
    ORDERS
-========================================================= */
+   ========================================================= */
 
 async function orders() {
+  currentView = 'orders';
 
-  const view = $('view');
+  setView(`
+    <section class="admin-section">
 
-  view.innerHTML = `
-    <h1 class="page-title">
-      Orders
-    </h1>
+      <div class="page-head">
+        <div>
+          <small>ORDER MANAGEMENT</small>
+          <h1>Orders</h1>
+          <p>View and update customer orders.</p>
+        </div>
 
-    <div class="card">
-      Loading orders...
-    </div>
-  `;
+        <button class="admin-btn" onclick="orders()">
+          ↻ Refresh
+        </button>
+      </div>
+
+      <div id="ordersLoading" class="loading">
+        Loading orders...
+      </div>
+
+      <div id="ordersList"></div>
+
+    </section>
+  `);
 
   try {
+    const result = await api('/api/admin/orders');
 
-    const data =
-      await api('/admin/orders');
+    const orderList =
+      result?.orders ||
+      result?.data ||
+      (Array.isArray(result) ? result : []);
 
-    const list =
-      Array.isArray(data.orders)
-        ? data.orders
-        : [];
+    const loading = $('ordersLoading');
 
-    if (!list.length) {
+    if (loading) {
+      loading.style.display = 'none';
+    }
 
-      view.innerHTML = `
-        <h1 class="page-title">
-          Orders
-        </h1>
+    const list = $('ordersList');
 
-        <div class="card">
+    if (!list) return;
+
+    if (!orderList.length) {
+      list.innerHTML = `
+        <div class="empty-box">
           No orders found.
         </div>
       `;
-
       return;
     }
 
-    view.innerHTML = `
+    list.innerHTML = orderList
+      .map(orderCard)
+      .join('');
 
-      <h1 class="page-title">
-        Orders
-      </h1>
+  } catch (error) {
+    const loading = $('ordersLoading');
 
-      <div class="card">
+    if (loading) {
+      loading.innerHTML = `
+        <div class="error-box">
+          ${esc(errorMessage(error))}
+        </div>
+      `;
+    }
+  }
+}
 
-        <div style="overflow:auto">
+function orderCard(order) {
+  const id =
+    order.id ||
+    order.orderId ||
+    order._id ||
+    '';
 
-          <table>
+  const status =
+    String(order.status || 'pending').toLowerCase();
 
-            <thead>
+  const customer =
+    order.customer ||
+    {};
 
-              <tr>
-                <th>Order</th>
-                <th>Customer</th>
-                <th>Total</th>
-                <th>Payment</th>
-                <th>Status</th>
-                <th>Note</th>
-                <th>Action</th>
-              </tr>
+  const customerName =
+    order.customerName ||
+    customer.name ||
+    order.name ||
+    'Customer';
 
-            </thead>
+  const phone =
+    order.phone ||
+    customer.phone ||
+    order.mobile ||
+    '';
 
-            <tbody>
+  const items =
+    Array.isArray(order.items)
+      ? order.items
+      : [];
 
-              ${list.map(order => `
+  const total =
+    Number(
+      order.total ||
+      order.grandTotal ||
+      order.amount ||
+      0
+    );
 
-                <tr>
+  const deliveryCharge =
+    Number(
+      order.deliveryCharge ||
+      0
+    );
 
-                  <td>
-                    <strong>
-                      #${escapeHTML(order.id || '')}
-                    </strong>
+  const distance =
+    Number(
+      order.distanceKm ||
+      order.distance ||
+      0
+    );
 
-                    <br>
+  const paymentMethod =
+    order.paymentMethod ||
+    order.payment ||
+    '—';
 
-                    <small>
-                      ${escapeHTML(
-                        order.createdAt || ''
-                      )}
-                    </small>
-                  </td>
+  const deliveryTime =
+    order.deliveryTime ||
+    order.orderTime ||
+    '';
 
-                  <td>
+  const address =
+    order.address ||
+    order.deliveryAddress ||
+    '';
 
-                    ${escapeHTML(
-                      order.customerName ||
-                      order.name ||
-                      ''
-                    )}
+  const note =
+    order.note ||
+    order.orderNote ||
+    '';
 
-                    <br>
+  const adminNote =
+    order.adminNote ||
+    '';
 
-                    ${escapeHTML(
-                      order.phone || ''
-                    )}
+  const itemsHtml = items.length
+    ? items.map(item => {
 
-                    <br>
+        const name =
+          item.name ||
+          item.title ||
+          'Item';
 
-                    <small>
-                      ${escapeHTML(
-                        order.customerEmail || ''
-                      )}
-                    </small>
+        const qty =
+          Number(item.qty || item.quantity || 1);
 
-                  </td>
+        const choice =
+          item.choice ||
+          item.size ||
+          '';
 
-                  <td>
-                    ${money(
-                      order.total ||
-                      order.grandTotal ||
-                      0
-                    )}
-                  </td>
+        const price =
+          Number(
+            item.price ||
+            item.unitPrice ||
+            0
+          );
 
-                  <td>
-                    ${escapeHTML(
-                      order.paymentMethod ||
-                      order.payment ||
-                      ''
-                    )}
-                  </td>
+        return `
+          <div class="order-item-row">
+            <div>
+              <strong>${esc(name)}</strong>
 
-                  <td>
+              ${
+                choice
+                  ? `<small>${esc(choice)}</small>`
+                  : ''
+              }
+            </div>
 
-                    <select
-                      id="status-${escapeHTML(order.id)}"
-                    >
+            <span>
+              × ${qty}
+            </span>
 
-                      ${statusOptions(
-                        order.status
-                      )}
+            <b>
+              ${money(price * qty)}
+            </b>
+          </div>
+        `;
+      }).join('')
+    : '<p>No item information.</p>';
 
-                    </select>
+  return `
+    <article class="order-card">
 
-                  </td>
+      <div class="order-head">
 
-                  <td>
+        <div>
+          <small>ORDER</small>
+          <h2>#${esc(id)}</h2>
+          <span>
+            ${formatDate(order.createdAt || order.date)}
+          </span>
+        </div>
 
-                    <textarea
-                      id="note-${escapeHTML(order.id)}"
-                      placeholder="Admin note"
-                    >${escapeHTML(
-                      order.adminNote || ''
-                    )}</textarea>
+        <span class="status-badge status-${esc(status)}">
+          ${esc(status.toUpperCase())}
+        </span>
 
-                  </td>
+      </div>
 
-                  <td>
+      <div class="order-columns">
 
-                    <button
-                      class="btn green"
-                      onclick="updateOrder('${escapeHTML(order.id)}')"
-                    >
-                      Save
-                    </button>
+        <div class="order-block">
 
-                  </td>
+          <h3>Customer</h3>
 
-                </tr>
+          <p>
+            <strong>${esc(customerName)}</strong>
+          </p>
 
-              `).join('')}
+          <p>
+            📞 ${esc(phone || '—')}
+          </p>
 
-            </tbody>
+        </div>
 
-          </table>
+        <div class="order-block">
+
+          <h3>Delivery</h3>
+
+          <p>
+            ${esc(address || 'Location coordinates saved')}
+          </p>
+
+          ${
+            distance
+              ? `<p>Distance: ${distance.toFixed(2)} km</p>`
+              : ''
+          }
+
+          ${
+            deliveryTime
+              ? `<p>Time: ${formatDate(deliveryTime)}</p>`
+              : ''
+          }
+
+        </div>
+
+        <div class="order-block">
+
+          <h3>Payment</h3>
+
+          <p>
+            Method:
+            <strong>${esc(paymentMethod)}</strong>
+          </p>
+
+          ${
+            order.transactionId
+              ? `<p>Transaction: ${esc(order.transactionId)}</p>`
+              : ''
+          }
+
+          ${
+            order.paymentStatus
+              ? `<p>Status: ${esc(order.paymentStatus)}</p>`
+              : ''
+          }
 
         </div>
 
       </div>
 
-    `;
+      <div class="order-items">
 
-  } catch (error) {
+        <h3>Items</h3>
 
-    view.innerHTML =
-      showMessage(error.message, 'error');
+        ${itemsHtml}
 
-  }
+      </div>
+
+      <div class="order-total">
+
+        <div>
+          <span>Delivery</span>
+          <b>${money(deliveryCharge)}</b>
+        </div>
+
+        <div>
+          <strong>Total</strong>
+          <strong>${money(total)}</strong>
+        </div>
+
+      </div>
+
+      ${
+        note
+          ? `
+            <div class="note-box">
+              <strong>Customer Note</strong>
+              <p>${esc(note)}</p>
+            </div>
+          `
+          : ''
+      }
+
+      <div class="order-actions">
+
+        <label>
+          Order Status
+
+          <select id="status-${esc(id)}">
+            ${statusOptions(status)}
+          </select>
+        </label>
+
+        <label>
+          Admin Note
+
+          <input
+            id="note-${esc(id)}"
+            value="${esc(adminNote)}"
+            placeholder="Add admin note"
+          >
+        </label>
+
+        <button
+          class="admin-btn"
+          onclick="updateOrder('${esc(id)}')"
+        >
+          Save Order
+        </button>
+
+      </div>
+
+    </article>
+  `;
 }
 
 function statusOptions(current) {
-
   const statuses = [
-
-    ['pending', 'Pending'],
-    ['confirmed', 'Confirmed'],
-    ['preparing', 'Preparing'],
-    ['out_for_delivery', 'Out for Delivery'],
-    ['delivered', 'Delivered'],
-    ['cancelled', 'Cancelled']
-
+    'pending',
+    'confirmed',
+    'preparing',
+    'ready',
+    'out_for_delivery',
+    'delivered',
+    'cancelled'
   ];
 
-  return statuses.map(
-    ([value, label]) => `
-
+  return statuses
+    .map(status => `
       <option
-        value="${value}"
-        ${current === value ? 'selected' : ''}
+        value="${status}"
+        ${status === current ? 'selected' : ''}
       >
-        ${label}
+        ${status.replace(/_/g, ' ')}
       </option>
-
-    `
-  ).join('');
+    `)
+    .join('');
 }
 
 async function updateOrder(id) {
+  const statusElement =
+    $(`status-${id}`);
+
+  const noteElement =
+    $(`note-${id}`);
 
   const status =
-    document.getElementById(
-      `status-${id}`
-    ).value;
+    statusElement?.value ||
+    'pending';
 
   const adminNote =
-    document.getElementById(
-      `note-${id}`
-    ).value;
+    noteElement?.value.trim() ||
+    '';
 
   try {
-
     await api(
-      `/admin/orders/${encodeURIComponent(id)}`,
+      `/api/admin/orders/${encodeURIComponent(id)}`,
       {
         method: 'PATCH',
-
-        body: JSON.stringify({
+        body: {
           status,
           adminNote
-        })
+        }
       }
     );
 
@@ -560,1557 +802,2324 @@ async function updateOrder(id) {
     await orders();
 
   } catch (error) {
-
-    alert(error.message);
-
+    alert(errorMessage(error));
   }
 }
 
 /* =========================================================
    MENU
-========================================================= */
+   ========================================================= */
 
 async function menu() {
+  currentView = 'menu';
 
-  const view = $('view');
+  setView(`
+    <section class="admin-section">
 
-  view.innerHTML = `
-    <h1 class="page-title">
-      Menu Management
-    </h1>
+      <div class="page-head">
 
-    <div class="card">
-      Loading menu...
-    </div>
-  `;
+        <div>
+          <small>MENU MANAGEMENT</small>
+          <h1>Menu</h1>
+          <p>
+            Edit food items, prices, images and pre-order settings.
+          </p>
+        </div>
+
+        <div class="head-actions">
+          <button class="admin-btn" onclick="menu()">
+            ↻ Refresh
+          </button>
+
+          <button class="admin-btn primary" onclick="addMenuItem()">
+            + Add Item
+          </button>
+        </div>
+
+      </div>
+
+      <div id="menuLoading" class="loading">
+        Loading menu...
+      </div>
+
+      <div id="menuList"></div>
+
+    </section>
+  `);
 
   try {
+    const result = await api('/api/admin/menu');
 
-    const data =
-      await api('/admin/menu');
+    menuData =
+      result?.menu ||
+      result?.data ||
+      (Array.isArray(result) ? result : []);
 
-    const list =
-      Array.isArray(data.menu)
-        ? data.menu
-        : [];
+    const loading = $('menuLoading');
 
-    view.innerHTML = `
+    if (loading) {
+      loading.style.display = 'none';
+    }
 
-      <h1 class="page-title">
-        Menu Management
-      </h1>
-
-      <div id="menuMessage"></div>
-
-      <div class="card">
-
-        <h2>Add New Item</h2>
-
-        <div class="form-grid">
-
-          <div class="form-group">
-            <label>Name</label>
-            <input id="newName">
-          </div>
-
-          <div class="form-group">
-            <label>Category</label>
-
-            <select id="newCat">
-
-              <option value="Pizza">
-                Pizza
-              </option>
-
-              <option value="Momo">
-                Momo
-              </option>
-
-              <option value="Continental">
-                Continental
-              </option>
-
-              <option value="Kacchi">
-                Kacchi
-              </option>
-
-            </select>
-
-          </div>
-
-          <div class="form-group">
-            <label>Price</label>
-            <input
-              id="newPrice"
-              type="number"
-              min="0"
-            >
-          </div>
-
-          <div class="form-group">
-            <label>Image URL</label>
-            <input id="newImage">
-          </div>
-
-          <div class="form-group full">
-
-            <label>
-              Description
-            </label>
-
-            <textarea
-              id="newDescription"
-            ></textarea>
-
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Pre-order
-            </label>
-
-            <select id="newPrebook">
-
-              <option value="false">
-                OFF
-              </option>
-
-              <option value="true">
-                ON
-              </option>
-
-            </select>
-
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Active
-            </label>
-
-            <select id="newActive">
-
-              <option value="true">
-                YES
-              </option>
-
-              <option value="false">
-                NO
-              </option>
-
-            </select>
-
-          </div>
-
-        </div>
-
-        <button
-          class="btn green"
-          onclick="addMenuItem()"
-        >
-          + Add Item
-        </button>
-
-      </div>
-
-      <div class="card">
-
-        <h2>
-          Existing Items
-        </h2>
-
-        <div id="menuList">
-
-          ${list.map(
-            item => menuEditor(item)
-          ).join('')}
-
-        </div>
-
-        <button
-          class="btn green"
-          onclick="saveAllMenu()"
-        >
-          💾 Save All Menu
-        </button>
-
-      </div>
-
-    `;
+    renderMenuEditor();
 
   } catch (error) {
+    const loading = $('menuLoading');
 
-    view.innerHTML =
-      showMessage(error.message, 'error');
-
+    if (loading) {
+      loading.innerHTML = `
+        <div class="error-box">
+          ${esc(errorMessage(error))}
+        </div>
+      `;
+    }
   }
 }
 
-function menuEditor(item) {
+function renderMenuEditor() {
+  const list = $('menuList');
 
-  const id =
-    escapeHTML(item.id || '');
+  if (!list) return;
 
+  if (!menuData.length) {
+    list.innerHTML = `
+      <div class="empty-box">
+        No menu items found.
+        <button class="admin-btn" onclick="addMenuItem()">
+          Add first item
+        </button>
+      </div>
+    `;
+
+    return;
+  }
+
+  list.innerHTML = menuData
+    .map((item, index) => menuEditorCard(item, index))
+    .join('');
+}
+
+function menuEditorCard(item, index) {
   const sizes =
     Array.isArray(item.sizes)
       ? item.sizes
       : [];
 
-  const sizesText =
-    sizes.map(size => {
+  const image =
+    item.image ||
+    '';
 
-      const label =
-        size.label ||
-        size.name ||
-        size.title ||
-        '';
+  const category =
+    item.cat ||
+    item.category ||
+    'Pizza';
 
-      return `${label}=${size.price || 0}`;
-
-    }).join(', ');
+  const prebook =
+    item.prebook === true &&
+    String(category).toLowerCase() !== 'pizza';
 
   return `
+    <article class="menu-editor-card">
 
-    <div
-      class="menu-item"
-      data-id="${id}"
-    >
+      <div class="menu-editor-top">
 
-      <div class="menu-item-grid">
+        <div class="menu-image-wrap">
 
-        <div>
+          ${
+            image
+              ? `
+                <img
+                  src="${esc(image)}"
+                  alt="${esc(item.name || '')}"
+                  class="menu-admin-image"
+                  onerror="this.style.display='none'"
+                >
+              `
+              : `
+                <div class="menu-image-placeholder">
+                  No Image
+                </div>
+              `
+          }
 
-          <img
-            class="menu-image"
-            src="${escapeHTML(
-              item.image ||
-              item.imageUrl ||
-              '/assets/placeholder.jpg'
-            )}"
-            onerror="
-              this.style.display='none'
-            "
+          <input
+            type="file"
+            id="image-${index}"
+            accept="image/*"
           >
+
+          <button
+            class="admin-btn small"
+            onclick="uploadMenuImage(${index})"
+          >
+            Upload Image
+          </button>
 
         </div>
 
-        <div>
+        <div class="menu-main-fields">
 
-          <div class="form-grid">
+          <label>
+            Name
 
-            <div class="form-group">
+            <input
+              id="name-${index}"
+              value="${esc(item.name || '')}"
+            >
+          </label>
 
-              <label>
-                Name
-              </label>
+          <label>
+            Category
 
-              <input
-                data-field="name"
-                value="${escapeHTML(
-                  item.name || ''
-                )}"
-              >
+            <select id="cat-${index}">
+              ${categoryOptions(category)}
+            </select>
+          </label>
 
-            </div>
+          <label>
+            Description
 
-            <div class="form-group">
+            <textarea
+              id="description-${index}"
+              rows="3"
+            >${esc(item.description || '')}</textarea>
+          </label>
 
-              <label>
-                Category
-              </label>
+          <label class="check-row">
 
-              <select data-field="cat">
+            <input
+              type="checkbox"
+              id="active-${index}"
+              ${item.active !== false ? 'checked' : ''}
+            >
 
-                ${categoryOptions(
-                  item.cat ||
-                  item.category
-                )}
+            <span>Active / Visible</span>
 
-              </select>
+          </label>
 
-            </div>
+          <label class="check-row">
 
-            <div class="form-group">
+            <input
+              type="checkbox"
+              id="prebook-${index}"
+              ${prebook ? 'checked' : ''}
+              ${
+                String(category).toLowerCase() === 'pizza'
+                  ? 'disabled'
+                  : ''
+              }
+            >
 
-              <label>
-                Price
-              </label>
+            <span>
+              Pre-order enabled
+              ${
+                String(category).toLowerCase() === 'pizza'
+                  ? '(Pizza always OFF)'
+                  : ''
+              }
+            </span>
 
-              <input
-                data-field="price"
-                type="number"
-                min="0"
-                value="${Number(
-                  item.price || 0
-                )}"
-              >
-
-            </div>
-
-            <div class="form-group">
-
-              <label>
-                Sizes
-              </label>
-
-              <input
-                data-field="sizes"
-                value="${escapeHTML(
-                  sizesText
-                )}"
-                placeholder="6 pcs=300, 8 pcs=380"
-              >
-
-            </div>
-
-            <div class="form-group full">
-
-              <label>
-                Description
-              </label>
-
-              <textarea
-                data-field="description"
-              >${escapeHTML(
-                item.description || ''
-              )}</textarea>
-
-            </div>
-
-            <div class="form-group">
-
-              <label>
-                Image URL
-              </label>
-
-              <input
-                data-field="image"
-                value="${escapeHTML(
-                  item.image ||
-                  item.imageUrl ||
-                  ''
-                )}"
-              >
-
-            </div>
-
-            <div class="form-group">
-
-              <label>
-                Pre-order
-              </label>
-
-              <select data-field="prebook">
-
-                <option
-                  value="false"
-                  ${
-                    !item.prebook
-                      ? 'selected'
-                      : ''
-                  }
-                >
-                  OFF
-                </option>
-
-                <option
-                  value="true"
-                  ${
-                    item.prebook
-                      ? 'selected'
-                      : ''
-                  }
-                >
-                  ON
-                </option>
-
-              </select>
-
-            </div>
-
-            <div class="form-group">
-
-              <label>
-                Active
-              </label>
-
-              <select data-field="active">
-
-                <option
-                  value="true"
-                  ${
-                    item.active !== false
-                      ? 'selected'
-                      : ''
-                  }
-                >
-                  YES
-                </option>
-
-                <option
-                  value="false"
-                  ${
-                    item.active === false
-                      ? 'selected'
-                      : ''
-                  }
-                >
-                  NO
-                </option>
-
-              </select>
-
-            </div>
-
-          </div>
-
-          <button
-            class="btn red"
-            onclick="deleteMenuItem('${id}')"
-          >
-            Delete
-          </button>
+          </label>
 
         </div>
 
       </div>
 
-    </div>
+      <div class="sizes-editor">
 
+        <div class="sizes-head">
+          <h3>Sizes / Prices</h3>
+
+          <button
+            class="admin-btn small"
+            onclick="addSize(${index})"
+          >
+            + Add Size
+          </button>
+        </div>
+
+        <div id="sizes-${index}">
+          ${sizesEditor(sizes, index)}
+        </div>
+
+      </div>
+
+      <div class="menu-editor-actions">
+
+        <button
+          class="admin-btn primary"
+          onclick="saveMenuItem(${index})"
+        >
+          Save Item
+        </button>
+
+        <button
+          class="admin-btn danger"
+          onclick="deleteMenuItem(${index})"
+        >
+          Delete
+        </button>
+
+      </div>
+
+    </article>
   `;
 }
 
 function categoryOptions(current) {
-
-  const cats = [
+  const categories = [
     'Pizza',
     'Momo',
     'Continental',
     'Kacchi'
   ];
 
-  return cats.map(
-    cat => `
-
+  return categories
+    .map(category => `
       <option
-        value="${cat}"
+        value="${category}"
         ${
-          current === cat
+          String(current).toLowerCase() ===
+          category.toLowerCase()
             ? 'selected'
             : ''
         }
       >
-        ${cat}
+        ${category}
       </option>
-
-    `
-  ).join('');
+    `)
+    .join('');
 }
 
-/* =========================================================
-   SIZE PARSER
-========================================================= */
-
-function parseSizes(text) {
-
-  if (!text || !text.trim()) {
-    return [];
+function sizesEditor(sizes, itemIndex) {
+  if (!Array.isArray(sizes) || !sizes.length) {
+    return `
+      <div class="empty-size">
+        No sizes added.
+      </div>
+    `;
   }
 
-  return text
-    .split(',')
-    .map(x => x.trim())
-    .filter(Boolean)
-    .map(x => {
+  return sizes
+    .map((size, sizeIndex) => {
 
-      const parts =
-        x.split('=');
-
-      return {
-
-        label:
-          (parts[0] || '').trim(),
-
-        price:
-          Number(
-            (parts[1] || 0).trim()
-          )
-
-      };
-
-    })
-    .filter(x =>
-      x.label &&
-      x.price > 0
-    );
-}
-
-/* =========================================================
-   ADD MENU ITEM
-========================================================= */
-
-async function addMenuItem() {
-
-  const name =
-    $('newName').value.trim();
-
-  const cat =
-    $('newCat').value;
-
-  const price =
-    Number($('newPrice').value || 0);
-
-  const image =
-    $('newImage').value.trim();
-
-  const description =
-    $('newDescription').value.trim();
-
-  const prebook =
-    $('newPrebook').value === 'true';
-
-  const active =
-    $('newActive').value === 'true';
-
-  if (!name) {
-
-    alert('Please enter item name.');
-    return;
-
-  }
-
-  if (price <= 0) {
-
-    alert('Please enter a valid price.');
-    return;
-
-  }
-
-  try {
-
-    await api('/admin/menu', {
-
-      method: 'POST',
-
-      body: JSON.stringify({
-
-        name,
-        cat,
-        price,
-        image,
-        description,
-        prebook:
-          cat === 'Pizza' ||
-          cat === 'Momo'
-            ? false
-            : prebook,
-        active
-
-      })
-
-    });
-
-    alert('Menu item added.');
-
-    await menu();
-
-  } catch (error) {
-
-    alert(error.message);
-
-  }
-}
-
-/* =========================================================
-   SAVE ALL MENU
-========================================================= */
-
-async function saveAllMenu() {
-
-  const items =
-    Array.from(
-      document.querySelectorAll(
-        '.menu-item'
-      )
-    );
-
-  const menuData =
-    items.map(box => {
-
-      const id =
-        box.dataset.id;
-
-      const get =
-        field =>
-          box.querySelector(
-            `[data-field="${field}"]`
-          );
-
-      const cat =
-        get('cat').value;
-
-      const sizes =
-        parseSizes(
-          get('sizes').value
-        );
+      const label =
+        Array.isArray(size)
+          ? size[0]
+          : size?.label || '';
 
       const price =
-        Number(
-          get('price').value || 0
-        );
+        Array.isArray(size)
+          ? size[1]
+          : size?.price || '';
 
-      return {
+      return `
+        <div class="size-row">
 
-        id,
+          <input
+            class="size-label-${itemIndex}"
+            data-size-index="${sizeIndex}"
+            value="${esc(label)}"
+            placeholder="Size / Choice"
+          >
 
-        name:
-          get('name').value.trim(),
+          <input
+            class="size-price-${itemIndex}"
+            data-size-index="${sizeIndex}"
+            type="number"
+            min="0"
+            step="1"
+            value="${esc(price)}"
+            placeholder="Price"
+          >
 
-        cat,
+          <button
+            class="admin-btn danger small"
+            onclick="removeSize(${itemIndex}, ${sizeIndex})"
+          >
+            ×
+          </button>
 
-        category: cat,
+        </div>
+      `;
+    })
+    .join('');
+}
 
-        price:
+function addSize(itemIndex) {
+  if (!menuData[itemIndex]) return;
 
-          sizes.length
-            ? Number(
-                sizes[0].price
-              )
-            : price,
+  if (!Array.isArray(menuData[itemIndex].sizes)) {
+    menuData[itemIndex].sizes = [];
+  }
 
-        sizes,
+  menuData[itemIndex].sizes.push([
+    '',
+    0
+  ]);
 
-        description:
-          get('description')
-            .value.trim(),
+  renderMenuEditor();
+}
 
-        image:
-          get('image')
-            .value.trim(),
+function removeSize(itemIndex, sizeIndex) {
+  if (!menuData[itemIndex]) return;
 
-        prebook:
-          cat === 'Pizza' ||
-          cat === 'Momo'
-            ? false
-            : get('prebook').value === 'true',
+  if (!Array.isArray(menuData[itemIndex].sizes)) {
+    return;
+  }
 
-        active:
-          get('active').value === 'true'
+  menuData[itemIndex].sizes.splice(
+    sizeIndex,
+    1
+  );
 
-      };
+  renderMenuEditor();
+}
 
-    });
+function collectMenuItem(index) {
+  const item =
+    menuData[index];
 
-  try {
+  if (!item) {
+    throw new Error('Menu item not found.');
+  }
 
-    await api('/admin/menu', {
+  const name =
+    $(`name-${index}`)?.value.trim();
 
-      method: 'PUT',
+  if (!name) {
+    throw new Error('Food name is required.');
+  }
 
-      body: JSON.stringify({
-        menu: menuData
-      })
+  const category =
+    $(`cat-${index}`)?.value ||
+    'Pizza';
 
-    });
+  const description =
+    $(`description-${index}`)?.value.trim() ||
+    '';
 
-    alert(
-      'Menu saved successfully.'
+  const active =
+    Boolean(
+      $(`active-${index}`)?.checked
     );
+
+  let prebook =
+    Boolean(
+      $(`prebook-${index}`)?.checked
+    );
+
+  if (
+    String(category).toLowerCase() ===
+    'pizza'
+  ) {
+    prebook = false;
+  }
+
+  const sizeRows =
+    document.querySelectorAll(
+      `.size-label-${index}`
+    );
+
+  const priceRows =
+    document.querySelectorAll(
+      `.size-price-${index}`
+    );
+
+  const sizes = [];
+
+  for (let i = 0; i < sizeRows.length; i++) {
+    const label =
+      sizeRows[i].value.trim();
+
+    const price =
+      Number(priceRows[i]?.value || 0);
+
+    if (!label) {
+      continue;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      throw new Error(
+        `Invalid price for ${label}.`
+      );
+    }
+
+    sizes.push([
+      label,
+      price
+    ]);
+  }
+
+  const updated = {
+    ...item,
+    name,
+    cat: category,
+    description,
+    active,
+    prebook,
+    sizes
+  };
+
+  if (item.image) {
+    updated.image = item.image;
+  }
+
+  return updated;
+}
+
+async function saveMenuItem(index) {
+  try {
+    const updated =
+      collectMenuItem(index);
+
+    menuData[index] = updated;
+
+    await api('/api/admin/menu', {
+      method: 'PUT',
+      body: {
+        menu: menuData
+      }
+    });
+
+    alert('Menu item saved.');
 
     await menu();
 
   } catch (error) {
-
-    alert(error.message);
-
+    alert(errorMessage(error));
   }
 }
 
-/* =========================================================
-   DELETE MENU ITEM
-========================================================= */
+async function saveEntireMenu() {
+  try {
+    const updatedMenu =
+      menuData.map((_, index) =>
+        collectMenuItem(index)
+      );
 
-async function deleteMenuItem(id) {
+    menuData = updatedMenu;
 
-  if (
-    !confirm(
-      'Are you sure you want to delete this item?'
-    )
-  ) {
-    return;
+    await api('/api/admin/menu', {
+      method: 'PUT',
+      body: {
+        menu: menuData
+      }
+    });
+
+    alert('Menu saved successfully.');
+
+  } catch (error) {
+    alert(errorMessage(error));
   }
+}
+
+async function addMenuItem() {
+  const newItem = {
+    id:
+      'item-' +
+      Date.now(),
+
+    name:
+      'New Food Item',
+
+    cat:
+      'Pizza',
+
+    price:
+      0,
+
+    sizes:
+      [
+        ['Regular', 0]
+      ],
+
+    image:
+      '',
+
+    description:
+      '',
+
+    choice:
+      '',
+
+    options:
+      [],
+
+    minQty:
+      1,
+
+    maxQty:
+      99,
+
+    prebook:
+      false,
+
+    active:
+      true
+  };
+
+  menuData.push(newItem);
 
   try {
+    await api('/api/admin/menu', {
+      method: 'PUT',
+      body: {
+        menu: menuData
+      }
+    });
 
+    await menu();
+
+  } catch (error) {
+    menuData.pop();
+    alert(errorMessage(error));
+  }
+}
+
+async function deleteMenuItem(index) {
+  const item =
+    menuData[index];
+
+  if (!item) return;
+
+  const confirmed =
+    confirm(
+      `Delete "${item.name || 'this item'}"?`
+    );
+
+  if (!confirmed) return;
+
+  try {
     await api(
-      `/admin/menu/${encodeURIComponent(id)}`,
+      `/api/admin/menu/${encodeURIComponent(
+        item.id
+      )}`,
       {
         method: 'DELETE'
       }
     );
 
-    alert(
-      'Menu item deleted.'
-    );
+    alert('Menu item deleted.');
 
     await menu();
 
   } catch (error) {
 
-    alert(error.message);
+    /*
+      If the server does not provide
+      individual DELETE, fall back
+      to full-menu PUT.
+    */
 
+    try {
+
+      menuData.splice(index, 1);
+
+      await api('/api/admin/menu', {
+        method: 'PUT',
+        body: {
+          menu: menuData
+        }
+      });
+
+      alert('Menu item deleted.');
+
+      await menu();
+
+    } catch (fallbackError) {
+      alert(errorMessage(fallbackError));
+    }
+  }
+}
+
+/* =========================================================
+   IMAGE UPLOAD
+   ========================================================= */
+
+async function uploadMenuImage(index) {
+  const fileInput =
+    $(`image-${index}`);
+
+  const file =
+    fileInput?.files?.[0];
+
+  if (!file) {
+    alert('Please select an image first.');
+    return;
+  }
+
+  const item =
+    menuData[index];
+
+  if (!item) {
+    alert('Menu item not found.');
+    return;
+  }
+
+  const formData =
+    new FormData();
+
+  formData.append(
+    'image',
+    file
+  );
+
+  formData.append(
+    'id',
+    item.id
+  );
+
+  try {
+
+    const result =
+      await api(
+        '/api/admin/menu/image',
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+    const imageUrl =
+      result?.image ||
+      result?.url ||
+      result?.path ||
+      result?.imageUrl;
+
+    if (imageUrl) {
+      menuData[index].image =
+        imageUrl;
+    }
+
+    alert('Image uploaded.');
+
+    await menu();
+
+  } catch (error) {
+    alert(errorMessage(error));
   }
 }
 
 /* =========================================================
    REVIEWS
-========================================================= */
+   ========================================================= */
 
 async function reviews() {
+  currentView = 'reviews';
 
-  const view = $('view');
+  setView(`
+    <section class="admin-section">
 
-  view.innerHTML = `
-    <h1 class="page-title">
-      Reviews
-    </h1>
+      <div class="page-head">
 
-    <div class="card">
-      Loading reviews...
-    </div>
-  `;
-
-  try {
-
-    const data =
-      await api('/admin/reviews');
-
-    const list =
-      Array.isArray(data.reviews)
-        ? data.reviews
-        : [];
-
-    if (!list.length) {
-
-      view.innerHTML = `
-        <h1 class="page-title">
-          Reviews
-        </h1>
-
-        <div class="card">
-          No reviews found.
+        <div>
+          <small>CUSTOMER FEEDBACK</small>
+          <h1>Reviews</h1>
+          <p>Approve or reject customer reviews.</p>
         </div>
-      `;
 
-      return;
-    }
-
-    view.innerHTML = `
-
-      <h1 class="page-title">
-        Reviews
-      </h1>
-
-      <div class="card">
-
-        <div style="overflow:auto">
-
-          <table>
-
-            <thead>
-
-              <tr>
-                <th>Customer</th>
-                <th>Rating</th>
-                <th>Review</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-
-            </thead>
-
-            <tbody>
-
-              ${list.map(review => `
-
-                <tr>
-
-                  <td>
-                    ${escapeHTML(
-                      review.name ||
-                      review.customerName ||
-                      ''
-                    )}
-                  </td>
-
-                  <td>
-                    ⭐
-                    ${Number(
-                      review.rating || 0
-                    )}
-                  </td>
-
-                  <td>
-                    ${escapeHTML(
-                      review.comment ||
-                      review.text ||
-                      ''
-                    )}
-                  </td>
-
-                  <td>
-                    ${
-                      review.approved
-                        ? 'Approved'
-                        : 'Pending'
-                    }
-                  </td>
-
-                  <td>
-
-                    <button
-                      class="btn green"
-                      onclick="
-                        updateReview(
-                          '${escapeHTML(review.id)}',
-                          true
-                        )
-                      "
-                    >
-                      Approve
-                    </button>
-
-                    <button
-                      class="btn red"
-                      onclick="
-                        updateReview(
-                          '${escapeHTML(review.id)}',
-                          false
-                        )
-                      "
-                    >
-                      Reject
-                    </button>
-
-                  </td>
-
-                </tr>
-
-              `).join('')}
-
-            </tbody>
-
-          </table>
-
-        </div>
+        <button class="admin-btn" onclick="reviews()">
+          ↻ Refresh
+        </button>
 
       </div>
 
-    `;
+      <div id="reviewsLoading" class="loading">
+        Loading reviews...
+      </div>
+
+      <div id="reviewsList"></div>
+
+    </section>
+  `);
+
+  try {
+    const result =
+      await api('/api/admin/reviews');
+
+    const reviewList =
+      result?.reviews ||
+      result?.data ||
+      (Array.isArray(result) ? result : []);
+
+    const loading =
+      $('reviewsLoading');
+
+    if (loading) {
+      loading.style.display = 'none';
+    }
+
+    const list =
+      $('reviewsList');
+
+    if (!list) return;
+
+    if (!reviewList.length) {
+      list.innerHTML = `
+        <div class="empty-box">
+          No reviews found.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML =
+      reviewList
+        .map(reviewCard)
+        .join('');
 
   } catch (error) {
+    const loading =
+      $('reviewsLoading');
 
-    view.innerHTML =
-      showMessage(error.message, 'error');
-
+    if (loading) {
+      loading.innerHTML = `
+        <div class="error-box">
+          ${esc(errorMessage(error))}
+        </div>
+      `;
+    }
   }
 }
 
-async function updateReview(id, approved) {
+function reviewCard(review) {
+  const id =
+    review.id ||
+    review._id ||
+    '';
 
+  const rating =
+    Number(
+      review.rating ||
+      0
+    );
+
+  const name =
+    review.name ||
+    review.customerName ||
+    review.customer?.name ||
+    'Customer';
+
+  const text =
+    review.text ||
+    review.comment ||
+    review.review ||
+    '';
+
+  const approved =
+    review.approved === true ||
+    review.status === 'approved';
+
+  return `
+    <article class="review-card">
+
+      <div class="review-head">
+
+        <div>
+          <strong>
+            ${esc(name)}
+          </strong>
+
+          <div class="stars">
+            ${'★'.repeat(Math.max(0, Math.min(5, rating)))}
+            ${'☆'.repeat(Math.max(0, 5 - rating))}
+          </div>
+        </div>
+
+        <span class="status-badge">
+          ${
+            approved
+              ? 'APPROVED'
+              : 'PENDING'
+          }
+        </span>
+
+      </div>
+
+      <p class="review-text">
+        ${esc(text)}
+      </p>
+
+      <small>
+        ${formatDate(review.createdAt || review.date)}
+      </small>
+
+      <div class="review-actions">
+
+        <button
+          class="admin-btn primary"
+          onclick="updateReview('${esc(id)}', true)"
+        >
+          ✓ Approve
+        </button>
+
+        <button
+          class="admin-btn danger"
+          onclick="updateReview('${esc(id)}', false)"
+        >
+          ✕ Reject
+        </button>
+
+      </div>
+
+    </article>
+  `;
+}
+
+async function updateReview(id, approved) {
   try {
 
     await api(
-      `/admin/reviews/${encodeURIComponent(id)}`,
+      `/api/admin/reviews/${encodeURIComponent(id)}`,
       {
         method: 'PATCH',
-
-        body: JSON.stringify({
+        body: {
           approved
-        })
+        }
       }
+    );
+
+    alert(
+      approved
+        ? 'Review approved.'
+        : 'Review rejected.'
     );
 
     await reviews();
 
   } catch (error) {
-
-    alert(error.message);
-
+    alert(errorMessage(error));
   }
 }
 
 /* =========================================================
    CUSTOMERS
-========================================================= */
+   ========================================================= */
 
 async function customers() {
+  currentView = 'customers';
 
-  const view = $('view');
+  setView(`
+    <section class="admin-section">
 
-  view.innerHTML = `
-    <h1 class="page-title">
-      Customers
-    </h1>
+      <div class="page-head">
 
-    <div class="card">
-      Loading customers...
+        <div>
+          <small>CUSTOMER MANAGEMENT</small>
+          <h1>Customers</h1>
+          <p>View registered customer accounts and order history.</p>
+        </div>
+
+        <button class="admin-btn" onclick="customers()">
+          ↻ Refresh
+        </button>
+
+      </div>
+
+      <div id="customersLoading" class="loading">
+        Loading customers...
+      </div>
+
+      <div id="customersList"></div>
+
+      <div id="customerDetails"></div>
+
+    </section>
+  `);
+
+  try {
+
+    const result =
+      await api('/api/admin/customers');
+
+    const customerList =
+      result?.customers ||
+      result?.data ||
+      (Array.isArray(result) ? result : []);
+
+    const loading =
+      $('customersLoading');
+
+    if (loading) {
+      loading.style.display = 'none';
+    }
+
+    const list =
+      $('customersList');
+
+    if (!list) return;
+
+    if (!customerList.length) {
+      list.innerHTML = `
+        <div class="empty-box">
+          No registered customers.
+        </div>
+      `;
+      return;
+    }
+
+    list.innerHTML = `
+      <div class="customer-table-wrap">
+
+        <table class="admin-table">
+
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Mobile</th>
+              <th>Email</th>
+              <th>Orders</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            ${
+              customerList
+                .map(customerRow)
+                .join('')
+            }
+
+          </tbody>
+
+        </table>
+
+      </div>
+    `;
+
+  } catch (error) {
+
+    const loading =
+      $('customersLoading');
+
+    if (loading) {
+      loading.innerHTML = `
+        <div class="error-box">
+          ${esc(errorMessage(error))}
+        </div>
+      `;
+    }
+  }
+}
+
+function customerRow(customer) {
+  const id =
+    customer.id ||
+    customer._id ||
+    '';
+
+  const name =
+    customer.name ||
+    '—';
+
+  const phone =
+    customer.phone ||
+    customer.mobile ||
+    '—';
+
+  const email =
+    customer.email ||
+    '—';
+
+  const orderCount =
+    Number(
+      customer.orderCount ||
+      customer.ordersCount ||
+      0
+    );
+
+  return `
+    <tr>
+
+      <td>
+        ${esc(name)}
+      </td>
+
+      <td>
+        ${esc(phone)}
+      </td>
+
+      <td>
+        ${esc(email)}
+      </td>
+
+      <td>
+        ${orderCount}
+      </td>
+
+      <td>
+
+        <button
+          class="admin-btn small"
+          onclick="customerDetails('${esc(id)}')"
+        >
+          View
+        </button>
+
+      </td>
+
+    </tr>
+  `;
+}
+
+async function customerDetails(id) {
+  if (!id) return;
+
+  const box =
+    $('customerDetails');
+
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="loading">
+      Loading customer details...
     </div>
   `;
 
   try {
 
-    const data =
-      await api('/admin/customers');
+    const result =
+      await api(
+        `/api/admin/customers/${encodeURIComponent(id)}`
+      );
 
-    const list =
-      Array.isArray(data.customers)
-        ? data.customers
-        : [];
+    const customer =
+      result?.customer ||
+      result?.data ||
+      result;
 
-    view.innerHTML = `
+    const ordersList =
+      result?.orders ||
+      customer?.orders ||
+      [];
 
-      <h1 class="page-title">
-        Customers
-      </h1>
+    box.innerHTML = `
+      <div class="admin-card customer-details">
 
-      <div class="card">
+        <div class="page-head">
+          <div>
+            <small>CUSTOMER DETAILS</small>
+            <h2>
+              ${esc(customer.name || 'Customer')}
+            </h2>
+          </div>
+
+          <button
+            class="admin-btn"
+            onclick="this.closest('.customer-details').remove()"
+          >
+            Close
+          </button>
+        </div>
+
+        <div class="customer-info-grid">
+
+          <div>
+            <strong>Name</strong>
+            <p>${esc(customer.name || '—')}</p>
+          </div>
+
+          <div>
+            <strong>Mobile</strong>
+            <p>${esc(customer.phone || customer.mobile || '—')}</p>
+          </div>
+
+          <div>
+            <strong>Email</strong>
+            <p>${esc(customer.email || '—')}</p>
+          </div>
+
+          <div>
+            <strong>Joined</strong>
+            <p>${formatDate(customer.createdAt)}</p>
+          </div>
+
+        </div>
+
+        <h3>Order History</h3>
 
         ${
-          !list.length
-            ? 'No customers found.'
-            : `
-              <div style="overflow:auto">
+          ordersList.length
+            ? `
+              <div class="customer-orders">
 
-                <table>
+                ${
+                  ordersList
+                    .map(order => `
+                      <div class="customer-order-row">
 
-                  <thead>
-
-                    <tr>
-                      <th>Name</th>
-                      <th>Mobile</th>
-                      <th>Email</th>
-                      <th>Orders</th>
-                    </tr>
-
-                  </thead>
-
-                  <tbody>
-
-                    ${list.map(customer => `
-
-                      <tr>
-
-                        <td>
-                          ${escapeHTML(
-                            customer.name || ''
-                          )}
-                        </td>
-
-                        <td>
-                          ${escapeHTML(
-                            customer.mobile ||
-                            customer.phone ||
+                        <strong>
+                          #${esc(
+                            order.id ||
+                            order.orderId ||
+                            order._id ||
                             ''
                           )}
-                        </td>
+                        </strong>
 
-                        <td>
-                          ${escapeHTML(
-                            customer.email || ''
-                          )}
-                        </td>
-
-                        <td>
-                          ${Number(
-                            customer.orderCount ||
-                            customer.ordersCount ||
+                        <span>
+                          ${money(
+                            order.total ||
+                            order.grandTotal ||
                             0
                           )}
-                        </td>
+                        </span>
 
-                      </tr>
+                        <span>
+                          ${esc(
+                            order.status ||
+                            'pending'
+                          )}
+                        </span>
 
-                    `).join('')}
-
-                  </tbody>
-
-                </table>
+                      </div>
+                    `)
+                    .join('')
+                }
 
               </div>
+            `
+            : `
+              <p>
+                No order history found.
+              </p>
             `
         }
 
       </div>
-
     `;
 
   } catch (error) {
 
-    view.innerHTML =
-      showMessage(error.message, 'error');
-
+    box.innerHTML = `
+      <div class="error-box">
+        ${esc(errorMessage(error))}
+      </div>
+    `;
   }
 }
 
 /* =========================================================
    SETTINGS
-========================================================= */
+   ========================================================= */
 
 async function settings() {
+  currentView = 'settings';
 
-  const view = $('view');
+  setView(`
+    <section class="admin-section">
 
-  view.innerHTML = `
-    <h1 class="page-title">
-      Delivery & Settings
-    </h1>
+      <div class="page-head">
 
-    <div class="card">
-      Loading settings...
-    </div>
-  `;
+        <div>
+          <small>RESTAURANT CONFIGURATION</small>
+          <h1>Delivery & Settings</h1>
+          <p>
+            Manage delivery radius, payment and shop hours.
+          </p>
+        </div>
+
+        <button
+          class="admin-btn"
+          onclick="settings()"
+        >
+          ↻ Reload
+        </button>
+
+      </div>
+
+      <div id="settingsLoading" class="loading">
+        Loading settings...
+      </div>
+
+      <div id="settingsContent"></div>
+
+    </section>
+  `);
 
   try {
 
-    const data =
-      await api('/admin/settings');
+    const result =
+      await api('/api/admin/settings');
 
-    const s =
-      data.settings || {};
+    settingsData =
+      result?.settings ||
+      result?.data ||
+      result;
 
-    const delivery =
-      s.delivery || {};
+    const loading =
+      $('settingsLoading');
 
-    const payment =
-      s.payment || {};
+    if (loading) {
+      loading.style.display = 'none';
+    }
 
-    const hours =
-      s.hours || {};
+    renderSettings();
 
-    const normal =
-      hours.normal || {};
+  } catch (error) {
 
-    const friday =
-      hours.friday || {};
+    const loading =
+      $('settingsLoading');
 
-    view.innerHTML = `
+    if (loading) {
+      loading.innerHTML = `
+        <div class="error-box">
+          ${esc(errorMessage(error))}
+        </div>
+      `;
+    }
+  }
+}
 
-      <h1 class="page-title">
-        Delivery & Settings
-      </h1>
+function renderSettings() {
+  const s =
+    settingsData || {};
 
-      <div id="settingsMessage"></div>
+  const delivery =
+    s.delivery || {};
 
-      <div class="card">
+  const payment =
+    s.payment || {};
+
+  const hours =
+    s.hours || {};
+
+  const normal =
+    hours.normal || {
+      open: 11,
+      close: 19
+    };
+
+  const friday =
+    hours.friday || {
+      open: 15,
+      close: 21
+    };
+
+  const prebook =
+    s.prebook || {};
+
+  const box =
+    $('settingsContent');
+
+  if (!box) return;
+
+  box.innerHTML = `
+
+    <div class="settings-grid">
+
+      <div class="admin-card">
 
         <h2>Delivery</h2>
 
-        <div class="form-grid">
+        <label>
+          Base Location Name
 
-          <div class="form-group full">
+          <input
+            id="setBaseName"
+            value="${esc(
+              delivery.baseName ||
+              delivery.name ||
+              'Kahalthuri Hamidia High School'
+            )}"
+          >
+        </label>
 
-            <label>
-              Base Location Name
-            </label>
+        <label>
+          Base Latitude
 
-            <input
-              id="baseName"
-              value="${escapeHTML(
-                delivery.baseName || ''
-              )}"
-            >
+          <input
+            id="setLat"
+            type="number"
+            step="0.0000001"
+            value="${esc(
+              delivery.lat ??
+              delivery.baseLat ??
+              23.3022494
+            )}"
+          >
+        </label>
 
-          </div>
+        <label>
+          Base Longitude
 
-          <div class="form-group">
+          <input
+            id="setLng"
+            type="number"
+            step="0.0000001"
+            value="${esc(
+              delivery.lng ??
+              delivery.baseLng ??
+              90.9187528
+            )}"
+          >
+        </label>
 
-            <label>
-              Base Latitude
-            </label>
+        <label>
+          COD Radius (KM)
 
-            <input
-              id="baseLat"
-              type="number"
-              step="any"
-              value="${
-                delivery.baseLat ??
-                23.3022494
-              }"
-            >
+          <input
+            id="setCodRadius"
+            type="number"
+            min="0"
+            step="0.1"
+            value="${esc(
+              delivery.codRadiusKm ??
+              1
+            )}"
+          >
+        </label>
 
-          </div>
+        <label>
+          Maximum Delivery Radius (KM)
 
-          <div class="form-group">
+          <input
+            id="setMaxRadius"
+            type="number"
+            min="0"
+            step="0.1"
+            value="${esc(
+              delivery.maxRadiusKm ??
+              4
+            )}"
+          >
+        </label>
 
-            <label>
-              Base Longitude
-            </label>
+        <label>
+          Delivery Rate Per KM
 
-            <input
-              id="baseLng"
-              type="number"
-              step="any"
-              value="${
-                delivery.baseLng ??
-                90.9187528
-              }"
-            >
+          <input
+            id="setRate"
+            type="number"
+            min="0"
+            step="1"
+            value="${esc(
+              delivery.ratePerKm ??
+              10
+            )}"
+          >
+        </label>
 
-          </div>
+        <label>
+          COD Delivery Charge
 
-          <div class="form-group">
-
-            <label>
-              COD Radius (KM)
-            </label>
-
-            <input
-              id="codRadius"
-              type="number"
-              step="0.1"
-              value="${
-                delivery.codRadius ??
-                1
-              }"
-            >
-
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Maximum Delivery Radius (KM)
-            </label>
-
-            <input
-              id="maxRadius"
-              type="number"
-              step="0.1"
-              value="${
-                delivery.maxRadius ??
-                4
-              }"
-            >
-
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Delivery Rate / KM
-            </label>
-
-            <input
-              id="ratePerKm"
-              type="number"
-              value="${
-                delivery.ratePerKm ??
-                10
-              }"
-            >
-
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              COD Charge
-            </label>
-
-            <input
-              id="codCharge"
-              type="number"
-              value="${
-                delivery.codCharge ??
-                0
-              }"
-            >
-
-          </div>
-
-        </div>
+          <input
+            id="setCodCharge"
+            type="number"
+            min="0"
+            step="1"
+            value="${esc(
+              delivery.codCharge ??
+              0
+            )}"
+          >
+        </label>
 
       </div>
 
 
-      <div class="card">
+      <div class="admin-card">
 
         <h2>Payment</h2>
 
-        <div class="form-grid">
+        <label>
+          bKash Number
 
-          <div class="form-group">
+          <input
+            id="setBkash"
+            value="${esc(
+              payment.bkash ||
+              payment.bkashNumber ||
+              '01792494275'
+            )}"
+          >
+        </label>
 
-            <label>
-              bKash
-            </label>
+        <label>
+          Nagad Number
 
-            <input
-              id="bkash"
-              value="${escapeHTML(
-                payment.bKash ||
-                payment.bkash ||
-                '01792494275'
-              )}"
+          <input
+            id="setNagad"
+            value="${esc(
+              payment.nagad ||
+              payment.nagadNumber ||
+              '01792494275'
+            )}"
+          >
+        </label>
+
+        <label>
+          Payment Method
+
+          <select id="setPaymentMethod">
+
+            <option
+              value="Send Money Only"
+              ${
+                String(
+                  payment.method ||
+                  'Send Money Only'
+                ).toLowerCase() ===
+                'send money only'
+                  ? 'selected'
+                  : ''
+              }
             >
+              Send Money Only
+            </option>
 
-          </div>
+          </select>
+        </label>
 
-          <div class="form-group">
+        <div class="info-box">
+          <strong>Payment Rule</strong>
 
-            <label>
-              Nagad
-            </label>
+          <p>
+            COD is available only inside the COD radius.
+            Outside the COD zone, online payment is required.
+          </p>
 
-            <input
-              id="nagad"
-              value="${escapeHTML(
-                payment.Nagad ||
-                payment.nagad ||
-                '01792494275'
-              )}"
-            >
-
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Payment Method
-            </label>
-
-            <input
-              id="paymentMethod"
-              value="${escapeHTML(
-                payment.method ||
-                'Send Money'
-              )}"
-            >
-
-          </div>
-
+          <p>
+            bKash and Nagad use
+            <strong>Send Money Only</strong>.
+          </p>
         </div>
 
       </div>
 
 
-      <div class="card">
+      <div class="admin-card">
 
-        <h2>
-          Shop Hours — Normal Days
-        </h2>
+        <h2>Shop Hours</h2>
 
-        <div class="form-grid">
+        <h3>Sunday – Thursday</h3>
 
-          <div class="form-group">
+        <div class="two-fields">
 
-            <label>
-              Opening
-            </label>
+          <label>
+            Opening
 
             <input
               id="normalOpen"
               type="number"
               min="0"
               max="23"
-              value="${
-                normal.open ??
-                11
-              }"
+              value="${esc(normal.open)}"
             >
+          </label>
 
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Closing
-            </label>
+          <label>
+            Closing
 
             <input
               id="normalClose"
               type="number"
-              min="0"
-              max="23"
-              value="${
-                normal.close ??
-                19
-              }"
+              min="1"
+              max="24"
+              value="${esc(normal.close)}"
             >
-
-          </div>
+          </label>
 
         </div>
 
-      </div>
+        <h3>Friday</h3>
 
+        <div class="two-fields">
 
-      <div class="card">
-
-        <h2>
-          Shop Hours — Friday
-        </h2>
-
-        <div class="form-grid">
-
-          <div class="form-group">
-
-            <label>
-              Opening
-            </label>
+          <label>
+            Opening
 
             <input
               id="fridayOpen"
               type="number"
               min="0"
               max="23"
-              value="${
-                friday.open ??
-                15
-              }"
+              value="${esc(friday.open)}"
             >
+          </label>
 
-          </div>
-
-          <div class="form-group">
-
-            <label>
-              Closing
-            </label>
+          <label>
+            Closing
 
             <input
               id="fridayClose"
               type="number"
-              min="0"
-              max="23"
-              value="${
-                friday.close ??
-                21
-              }"
+              min="1"
+              max="24"
+              value="${esc(friday.close)}"
             >
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="card">
-
-        <h2>
-          Pre-order
-        </h2>
-
-        <div class="form-group">
-
-          <label>
-            Pre-order System
           </label>
 
-          <select id="prebookEnabled">
+        </div>
 
-            <option
-              value="true"
-              ${
-                s.prebook?.enabled !== false
-                  ? 'selected'
-                  : ''
-              }
-            >
-              ON
-            </option>
+        <div class="info-box">
 
-            <option
-              value="false"
-              ${
-                s.prebook?.enabled === false
-                  ? 'selected'
-                  : ''
-              }
-            >
-              OFF
-            </option>
+          <strong>Customer Order Time Rule</strong>
 
-          </select>
+          <p>
+            Customer order slots automatically run from
+            <strong>opening + 1 hour</strong>
+            to
+            <strong>closing − 1 hour</strong>.
+          </p>
+
+          <p>
+            Slots are every
+            <strong>30 minutes</strong>.
+          </p>
+
+          <p>
+            Example:
+            11 AM–7 PM shop hours →
+            12 PM–6 PM order slots.
+          </p>
+
+          <p>
+            Friday:
+            3 PM–9 PM →
+            4 PM–8 PM order slots.
+          </p>
 
         </div>
 
       </div>
 
 
-      <div class="card">
+      <div class="admin-card">
 
-        <button
-          class="btn green"
-          onclick="saveSettings()"
-        >
-          💾 Save Settings
-        </button>
+        <h2>Pre-order</h2>
+
+        <label class="check-row">
+
+          <input
+            id="prebookEnabled"
+            type="checkbox"
+            ${
+              prebook.enabled !== false
+                ? 'checked'
+                : ''
+            }
+          >
+
+          <span>
+            Allow pre-order system
+          </span>
+
+        </label>
+
+        <div class="info-box">
+
+          <strong>Important</strong>
+
+          <p>
+            Pre-order time slots use the same
+            opening + 1 hour / closing − 1 hour rule.
+          </p>
+
+          <p>
+            Time slots are generated every 30 minutes.
+          </p>
+
+          <p>
+            Pizza items are always
+            <strong>pre-order OFF</strong>.
+          </p>
+
+          <p>
+            Individual menu items can have
+            pre-order ON/OFF.
+          </p>
+
+        </div>
 
       </div>
 
-    `;
+    </div>
 
-  } catch (error) {
 
-    view.innerHTML =
-      showMessage(error.message, 'error');
+    <div class="settings-save">
 
-  }
+      <button
+        class="admin-btn primary large"
+        onclick="saveSettings()"
+      >
+        💾 Save All Settings
+      </button>
+
+    </div>
+
+  `;
 }
-
-/* =========================================================
-   SAVE SETTINGS
-========================================================= */
 
 async function saveSettings() {
-
-  const settingsData = {
-
-    delivery: {
-
-      baseName:
-        $('baseName').value.trim(),
-
-      baseLat:
-        Number($('baseLat').value),
-
-      baseLng:
-        Number($('baseLng').value),
-
-      codRadius:
-        Number($('codRadius').value),
-
-      maxRadius:
-        Number($('maxRadius').value),
-
-      ratePerKm:
-        Number($('ratePerKm').value),
-
-      codCharge:
-        Number($('codCharge').value)
-
-    },
-
-    payment: {
-
-      bKash:
-        $('bkash').value.trim(),
-
-      Nagad:
-        $('nagad').value.trim(),
-
-      method:
-        $('paymentMethod').value.trim()
-
-    },
-
-    hours: {
-
-      normal: {
-
-        open:
-          Number($('normalOpen').value),
-
-        close:
-          Number($('normalClose').value)
-
-      },
-
-      friday: {
-
-        open:
-          Number($('fridayOpen').value),
-
-        close:
-          Number($('fridayClose').value)
-
-      }
-
-    },
-
-    prebook: {
-
-      enabled:
-        $('prebookEnabled').value === 'true'
-
-    }
-
-  };
-
   try {
 
-    await api('/admin/settings', {
-
-      method: 'PUT',
-
-      body:
-        JSON.stringify(settingsData)
-
-    });
-
-    $('settingsMessage').innerHTML =
-      showMessage(
-        'Settings saved successfully.',
-        'success'
+    const lat =
+      Number(
+        $('setLat')?.value
       );
+
+    const lng =
+      Number(
+        $('setLng')?.value
+      );
+
+    const codRadiusKm =
+      Number(
+        $('setCodRadius')?.value
+      );
+
+    const maxRadiusKm =
+      Number(
+        $('setMaxRadius')?.value
+      );
+
+    const ratePerKm =
+      Number(
+        $('setRate')?.value
+      );
+
+    const codCharge =
+      Number(
+        $('setCodCharge')?.value
+      );
+
+    const normalOpen =
+      Number(
+        $('normalOpen')?.value
+      );
+
+    const normalClose =
+      Number(
+        $('normalClose')?.value
+      );
+
+    const fridayOpen =
+      Number(
+        $('fridayOpen')?.value
+      );
+
+    const fridayClose =
+      Number(
+        $('fridayClose')?.value
+      );
+
+    if (
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng)
+    ) {
+      throw new Error(
+        'Invalid base location coordinates.'
+      );
+    }
+
+    if (
+      codRadiusKm < 0 ||
+      maxRadiusKm <= 0 ||
+      codRadiusKm > maxRadiusKm
+    ) {
+      throw new Error(
+        'Check COD and maximum delivery radius.'
+      );
+    }
+
+    if (
+      ratePerKm < 0 ||
+      codCharge < 0
+    ) {
+      throw new Error(
+        'Delivery charges cannot be negative.'
+      );
+    }
+
+    if (
+      normalOpen < 0 ||
+      normalOpen >= normalClose ||
+      normalClose > 24
+    ) {
+      throw new Error(
+        'Invalid Sunday–Thursday shop hours.'
+      );
+    }
+
+    if (
+      fridayOpen < 0 ||
+      fridayOpen >= fridayClose ||
+      fridayClose > 24
+    ) {
+      throw new Error(
+        'Invalid Friday shop hours.'
+      );
+    }
+
+    const payload = {
+      delivery: {
+        ...(
+          settingsData?.delivery ||
+          {}
+        ),
+
+        baseName:
+          $('setBaseName')?.value.trim() ||
+          'Kahalthuri Hamidia High School',
+
+        name:
+          $('setBaseName')?.value.trim() ||
+          'Kahalthuri Hamidia High School',
+
+        lat,
+        lng,
+
+        baseLat:
+          lat,
+
+        baseLng:
+          lng,
+
+        codRadiusKm,
+        maxRadiusKm,
+        ratePerKm,
+        codCharge
+      },
+
+      payment: {
+        ...(
+          settingsData?.payment ||
+          {}
+        ),
+
+        bkash:
+          $('setBkash')?.value.trim() ||
+          '01792494275',
+
+        nagad:
+          $('setNagad')?.value.trim() ||
+          '01792494275',
+
+        method:
+          $('setPaymentMethod')?.value ||
+          'Send Money Only'
+      },
+
+      hours: {
+        normal: {
+          open: normalOpen,
+          close: normalClose
+        },
+
+        friday: {
+          open: fridayOpen,
+          close: fridayClose
+        }
+      },
+
+      prebook: {
+        ...(
+          settingsData?.prebook ||
+          {}
+        ),
+
+        enabled:
+          Boolean(
+            $('prebookEnabled')?.checked
+          )
+      }
+    };
+
+    const result =
+      await api('/api/admin/settings', {
+        method: 'PUT',
+        body: payload
+      });
+
+    settingsData =
+      result?.settings ||
+      result?.data ||
+      result ||
+      payload;
+
+    alert(
+      'Settings saved successfully.'
+    );
+
+    renderSettings();
 
   } catch (error) {
-
-    $('settingsMessage').innerHTML =
-      showMessage(
-        error.message,
-        'error'
-      );
-
+    alert(errorMessage(error));
   }
 }
 
 /* =========================================================
-   LOGOUT
-========================================================= */
-
-function logout() {
-
-  TOKEN = '';
-
-  localStorage.removeItem(
-    'csk_admin_token'
-  );
-
-  showLogin();
-
-}
-
-/* =========================================================
-   ENTER KEY LOGIN
-========================================================= */
+   KEYBOARD LOGIN
+   ========================================================= */
 
 document.addEventListener(
   'keydown',
-  function(event) {
+  event => {
 
     if (
       event.key === 'Enter' &&
+      $('login') &&
       $('login').style.display !== 'none'
     ) {
-
       login();
-
     }
 
   }
 );
 
 /* =========================================================
-   START
-========================================================= */
+   INITIALIZATION
+   ========================================================= */
 
-window.addEventListener(
-  'DOMContentLoaded',
-  init
-);
+async function initAdmin() {
+
+  if (!adminToken) {
+    showLogin();
+    return;
+  }
+
+  showApp();
+
+  try {
+    await dash();
+  } catch {
+    logout();
+  }
+}
+
+/* =========================================================
+   GLOBAL FUNCTIONS
+   ========================================================= */
+
+window.login = login;
+window.logout = logout;
+
+window.dash = dash;
+window.orders = orders;
+window.menu = menu;
+window.reviews = reviews;
+window.customers = customers;
+window.settings = settings;
+
+window.updateOrder = updateOrder;
+window.updateReview = updateReview;
+
+window.customerDetails =
+  customerDetails;
+
+window.saveMenuItem =
+  saveMenuItem;
+
+window.saveEntireMenu =
+  saveEntireMenu;
+
+window.addMenuItem =
+  addMenuItem;
+
+window.deleteMenuItem =
+  deleteMenuItem;
+
+window.addSize =
+  addSize;
+
+window.removeSize =
+  removeSize;
+
+window.uploadMenuImage =
+  uploadMenuImage;
+
+window.saveSettings =
+  saveSettings;
+
+/* =========================================================
+   ADMIN CSS FALLBACK
+   ========================================================= */
+
+(function injectAdminFallbackStyles() {
+
+  if (document.getElementById('adminJsStyles')) {
+    return;
+  }
+
+  const style =
+    document.createElement('style');
+
+  style.id =
+    'adminJsStyles';
+
+  style.textContent = `
+
+    #app {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    #app aside {
+      width: 240px;
+      flex-shrink: 0;
+    }
+
+    #app main {
+      flex: 1;
+      padding: 30px;
+      min-width: 0;
+    }
+
+    .admin-section {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .page-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+
+    .page-head h1,
+    .page-head h2 {
+      margin: 5px 0;
+    }
+
+    .page-head p {
+      opacity: .7;
+      margin: 5px 0;
+    }
+
+    .head-actions,
+    .quick-actions,
+    .review-actions,
+    .menu-editor-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .loading,
+    .empty-box,
+    .error-box,
+    .info-box,
+    .note-box {
+      padding: 18px;
+      border-radius: 12px;
+      margin: 15px 0;
+    }
+
+    .error-box {
+      border: 1px solid #b33;
+    }
+
+    .empty-box {
+      border: 1px dashed #777;
+      text-align: center;
+    }
+
+    .info-box {
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.03);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(170px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .stat-card,
+    .admin-card,
+    .order-card,
+    .review-card,
+    .menu-editor-card {
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 18px;
+      background: rgba(255,255,255,.025);
+    }
+
+    .stat-card span {
+      display: block;
+      opacity: .7;
+      margin-bottom: 8px;
+    }
+
+    .stat-card strong {
+      font-size: 28px;
+    }
+
+    .dashboard-grid,
+    .settings-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+    }
+
+    .order-head,
+    .review-head,
+    .order-total > div,
+    .customer-order-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .order-columns {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin: 20px 0;
+    }
+
+    .order-block {
+      padding: 15px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.03);
+    }
+
+    .order-item-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 15px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .order-item-row small {
+      display: block;
+      opacity: .65;
+      margin-top: 3px;
+    }
+
+    .order-total {
+      margin-top: 18px;
+      padding-top: 15px;
+      border-top: 1px solid rgba(255,255,255,.12);
+    }
+
+    .order-total > div {
+      padding: 5px 0;
+    }
+
+    .order-actions {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 14px;
+    }
+
+    label > input,
+    label > select,
+    label > textarea {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 7px;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .check-row input {
+      width: auto;
+      margin: 0;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(255,255,255,.08);
+    }
+
+    .menu-editor-top {
+      display: grid;
+      grid-template-columns:
+        230px 1fr;
+      gap: 25px;
+    }
+
+    .menu-admin-image {
+      width: 100%;
+      height: 170px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+
+    .menu-image-placeholder {
+      height: 170px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      border: 1px dashed #777;
+      margin-bottom: 10px;
+    }
+
+    .size-row {
+      display: grid;
+      grid-template-columns:
+        1fr 150px auto;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .sizes-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      margin-bottom: 10px;
+    }
+
+    .review-text {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .customer-table-wrap {
+      overflow-x: auto;
+    }
+
+    .admin-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .admin-table th,
+    .admin-table td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+    }
+
+    .customer-info-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .customer-orders {
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .customer-order-row {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    .two-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .settings-save {
+      margin-top: 20px;
+    }
+
+    .admin-btn {
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 9px;
+      padding: 10px 15px;
+      background: rgba(255,255,255,.06);
+      color: inherit;
+      font-weight: 600;
+    }
+
+    .admin-btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .admin-btn.small {
+      padding: 7px 10px;
+      font-size: 13px;
+    }
+
+    .admin-btn.large {
+      padding: 13px 22px;
+      font-size: 15px;
+    }
+
+    .admin-btn.primary {
+      font-weight: 700;
+    }
+
+    .admin-btn.danger {
+      border-color: rgba(255,80,80,.5);
+    }
+
+    @media (max-width: 800px) {
+
+      #app {
+        display: block;
+      }
+
+      #app aside {
+        width: 100%;
+      }
+
+      #app main {
+        padding: 18px;
+      }
+
+      .page-head {
+        flex-direction: column;
+      }
+
+      .menu-editor-top {
+        grid-template-columns: 1fr;
+      }
+
+      .size-row {
+        grid-template-columns: 1fr;
+      }
+
+      .two-fields {
+        grid-template-columns: 1fr;
+      }
+
+      .order-item-row {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+  `;
+
+  document.head.appendChild(style);
+
+})();
+
+/* =========================================================
+   START
+   ========================================================= */
+
+initAdmin();
