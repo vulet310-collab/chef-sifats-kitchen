@@ -1,8 +1,1 @@
-{
-  "name":"chef-sifats-kitchen-secure",
-  "version":"1.0.0",
-  "private":true,
-  "scripts":{"start":"node server.js"},
-  "engines":{"node":">=20"},
-  "dependencies":{"bcryptjs":"^2.4.3","express":"^5.1.0","express-rate-limit":"^8.1.0","helmet":"^8.1.0"}
-}
+{"name":"chef-sifats-kitchen","version":"1.0.0","private":true,"main":"server.js","scripts":{"start":"node server.js"},"dependencies":{"bcryptjs":"^2.4.3","express":"^4.21.2","express-rate-limit":"^7.5.0","helmet":"^8.1.0","jsonwebtoken":"^9.0.2","multer":"^1.4.5-lts.1"}}
