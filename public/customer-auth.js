@@ -1393,3 +1393,39 @@ document.addEventListener(
 
   }
 );
+/* =========================================================
+   GLOBAL CUSTOMER AUTH FUNCTIONS
+========================================================= */
+
+window.openAuthModal =
+  openAuthModal;
+
+window.closeAuthModal =
+  closeAuthModal;
+
+window.showLogin =
+  showLogin;
+
+window.showRegister =
+  showRegister;
+
+window.showForgotPassword =
+  showForgotPassword;
+
+window.showResetPassword =
+  showResetPassword;
+
+window.showMyOrders =
+  showMyOrders;
+
+window.showCustomerProfile =
+  showCustomerProfile;
+
+window.customerLogout =
+  customerLogout;
+
+window.requireCustomerLogin =
+  requireCustomerLogin;
+
+window.updateCustomerNavbar =
+  updateCustomerNavbar;
