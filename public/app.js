@@ -1,323 +1,528 @@
-/* =========================================================
-   CHEF SIFAT'S KITCHEN
-   FINAL CORRECTED APP.JS
-   Compatible with customer-auth.js
-========================================================= */
-
 'use strict';
 
 
+
 /* =========================================================
-   GLOBAL STATE
+   SETTINGS
 ========================================================= */
 
-let C = null;
-let cart = [];
-let cat = 'All';
+const SETTINGS = {
+
+  baseLat: 23.3022494,
+
+  baseLng: 90.9187528,
+
+  baseName:
+    'Kahalthuri Hamidia High School',
+
+  codRadiusKm: 1,
+
+  maxRadiusKm: 4,
+
+  deliveryRatePerKm: 10,
+
+  codCharge: 0
+
+};
+
+
+
+/* =========================================================
+   APP STATE
+========================================================= */
+
+let menuData = [];
+
+let cartData = [];
+
+let currentCategory = 'All';
 
 let map = null;
+
 let marker = null;
-let loc = null;
+
+let selectedLocation = null;
+
+let deliveryInfo = null;
+
+let configData = null;
 
 
-/* =========================================================
-   CART LOAD
-========================================================= */
 
 try {
-  const savedCart =
+
+  cartData =
     JSON.parse(
-      localStorage.getItem('cskCart') || '[]'
+      localStorage.getItem(
+        'chefSifatCart5'
+      ) || '[]'
     );
 
-  cart =
-    Array.isArray(savedCart)
-      ? savedCart
-      : [];
+  if (!Array.isArray(cartData)) {
+    cartData = [];
+  }
 
-} catch (_) {
-  cart = [];
+} catch {
+
+  cartData = [];
+
 }
+
 
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
-const $ = selector =>
-  document.querySelector(selector);
+function money(value) {
 
+  return '৳' +
+    Number(value || 0)
+      .toLocaleString('en-BD', {
+        maximumFractionDigits: 0
+      });
 
-const money = value =>
-  '৳' +
-  (Number(value) || 0).toLocaleString('en-BD');
-
-
-const esc = value =>
-  String(value ?? '').replace(
-    /[&<>"']/g,
-    char => ({
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#039;'
-    }[char])
-  );
-
-
-function getNumber(value, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
 }
 
 
-/* =========================================================
-   CUSTOMER AUTH COMPATIBILITY
-   customer-auth.js is the source of truth
-========================================================= */
 
-function getLoggedCustomerToken() {
+function esc(value) {
 
-  try {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 
-    if (
-      typeof window.getCustomerToken ===
-      'function'
-    ) {
-      return (
-        window.getCustomerToken() ||
-        ''
-      );
-    }
-
-  } catch (_) {}
-
-  return (
-    localStorage.getItem(
-      'csk_customer_token'
-    ) || ''
-  );
 }
 
 
-function getLoggedCustomerData() {
 
-  try {
+function saveCart() {
 
-    if (
-      typeof window.getCustomerData ===
-      'function'
-    ) {
-      return (
-        window.getCustomerData() ||
-        null
-      );
-    }
+  localStorage.setItem(
+    'chefSifatCart5',
+    JSON.stringify(cartData)
+  );
 
-  } catch (_) {}
+  updateCartCount();
 
-  try {
+}
 
-    return JSON.parse(
-      localStorage.getItem(
-        'csk_customer_data'
-      ) || 'null'
-    );
 
-  } catch (_) {
 
-    return null;
+function getToken() {
+
+  if (
+    typeof window.getCustomerToken ===
+    'function'
+  ) {
+
+    return window.getCustomerToken() || '';
 
   }
 
+  return '';
+
 }
 
 
-function isLoggedCustomer() {
-  return !!getLoggedCustomerToken();
-}
 
+function getCustomer() {
 
-function openCustomerLogin(mode = 'login') {
+  if (
+    typeof window.getCustomerData ===
+    'function'
+  ) {
 
-  try {
-
-    if (
-      typeof window.openAuthModal ===
-      'function'
-    ) {
-
-      window.openAuthModal(mode);
-      return;
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      'openAuthModal error:',
-      error
-    );
+    return window.getCustomerData() || null;
 
   }
 
-
-  try {
-
-    if (
-      typeof window.openCustomerAuth ===
-      'function'
-    ) {
-
-      window.openCustomerAuth(mode);
-      return;
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      'openCustomerAuth error:',
-      error
-    );
-
-  }
-
-
-  alert(
-    'Login system is loading. Please refresh the page.'
-  );
+  return null;
 
 }
 
 
-function requireLoggedCustomer() {
 
-  if (isLoggedCustomer()) {
+function loggedIn() {
+
+  if (
+    typeof window.isCustomerLoggedIn ===
+    'function'
+  ) {
+
+    return !!window.isCustomerLoggedIn();
+
+  }
+
+  return !!getToken();
+
+}
+
+
+
+function requireLogin() {
+
+  if (loggedIn()) {
     return true;
   }
 
-  openCustomerLogin('login');
+
+  if (
+    typeof window.openAuthModal ===
+    'function'
+  ) {
+
+    window.openAuthModal('login');
+
+  } else {
+
+    alert(
+      'Please login before ordering.'
+    );
+
+  }
+
 
   return false;
+
 }
+
 
 
 /* =========================================================
-   PRODUCT HELPERS
+   MOBILE NAV
 ========================================================= */
 
-function getProduct(id) {
+function toggleMobileMenu() {
 
-  if (!C || !Array.isArray(C.menu)) {
-    return null;
+  const nav =
+    document.getElementById(
+      'mainNav'
+    );
+
+  const button =
+    document.getElementById(
+      'mobileMenuBtn'
+    );
+
+
+  if (!nav) return;
+
+
+  nav.classList.toggle(
+    'mobile-open'
+  );
+
+
+  if (button) {
+
+    button.setAttribute(
+      'aria-expanded',
+      nav.classList.contains(
+        'mobile-open'
+      )
+    );
+
   }
 
-  return C.menu.find(
-    product =>
-      String(product.id) ===
-      String(id)
-  ) || null;
 }
 
 
-function getProductSizes(product) {
+
+document.addEventListener(
+  'click',
+  function (event) {
+
+    const nav =
+      document.getElementById(
+        'mainNav'
+      );
+
+    const button =
+      document.getElementById(
+        'mobileMenuBtn'
+      );
+
+
+    if (
+      !nav ||
+      !button
+    ) return;
+
+
+    if (
+      nav.contains(event.target) ||
+      button.contains(event.target)
+    ) return;
+
+
+    nav.classList.remove(
+      'mobile-open'
+    );
+
+  }
+);
+
+
+
+/* =========================================================
+   CATEGORY
+========================================================= */
+
+function setCategory(category) {
+
+  currentCategory =
+    category || 'All';
+
+
+  document
+    .querySelectorAll(
+      '#categoryButtons button'
+    )
+    .forEach(function (button) {
+
+      button.classList.toggle(
+        'active',
+        button.textContent
+          .trim()
+          .toLowerCase() ===
+        currentCategory
+          .toLowerCase()
+      );
+
+    });
+
+
+  render();
+
+}
+
+
+
+/* =========================================================
+   MENU
+========================================================= */
+
+async function loadMenu() {
+
+  const loading =
+    document.getElementById(
+      'menuLoading'
+    );
+
+
+  if (loading) {
+    loading.style.display =
+      'block';
+  }
+
+
+  try {
+
+    let response =
+      await fetch('/api/menu');
+
+
+    if (!response.ok) {
+
+      response =
+        await fetch('/api/config');
+
+    }
+
+
+    const data =
+      await response.json();
+
+
+    let items =
+      data.menu ||
+      data.items ||
+      [];
+
+
+    if (!items.length) {
+
+      if (Array.isArray(data)) {
+        items = data;
+      }
+
+    }
+
+
+    menuData =
+      Array.isArray(items)
+        ? items.filter(
+            item =>
+              item.active !== false
+          )
+        : [];
+
+
+    render();
+
+
+  } catch (error) {
+
+    console.error(
+      'Menu loading error:',
+      error
+    );
+
+
+    menuData = [];
+
+    render();
+
+  } finally {
+
+    if (loading) {
+      loading.style.display =
+        'none';
+    }
+
+  }
+
+}
+
+
+
+function normalizeSizes(product) {
 
   if (
-    product &&
-    Array.isArray(product.sizes) &&
-    product.sizes.length
+    !Array.isArray(
+      product.sizes
+    )
   ) {
-    return product.sizes;
+
+    return [];
+
   }
 
-  return [];
+
+  return product.sizes
+    .map(function (size) {
+
+      if (Array.isArray(size)) {
+
+        return {
+          label:
+            String(
+              size[0] ?? ''
+            ),
+
+          price:
+            Number(
+              size[1]
+            ) || 0
+        };
+
+      }
+
+
+      return {
+
+        label:
+          String(
+            size?.label ??
+            size?.name ??
+            ''
+          ),
+
+        price:
+          Number(
+            size?.price
+          ) || 0
+
+      };
+
+    })
+    .filter(
+      size =>
+        size.price >= 0
+    );
+
 }
 
 
-function getSizeData(product, sizeIndex = 0) {
+
+function getPricing(product, cartItem) {
 
   const sizes =
-    getProductSizes(product);
+    normalizeSizes(product);
 
-  if (!sizes.length) {
+
+  if (sizes.length) {
+
+    let index =
+      Number(
+        cartItem?.sizeIndex
+      );
+
+
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= sizes.length
+    ) {
+
+      index = 0;
+
+    }
+
 
     return {
-      index: 0,
+
+      sizeIndex: index,
+
       label:
-        product?.choice ||
-        '',
+        sizes[index].label,
+
       price:
-        getNumber(product?.price, 0)
-    };
+        sizes[index].price
 
-  }
-
-
-  let index =
-    Number(sizeIndex);
-
-  if (
-    !Number.isInteger(index) ||
-    index < 0 ||
-    index >= sizes.length
-  ) {
-    index = 0;
-  }
-
-
-  const size =
-    sizes[index];
-
-
-  if (Array.isArray(size)) {
-
-    return {
-      index,
-      label:
-        String(size[0] ?? ''),
-      price:
-        getNumber(size[1], 0)
-    };
-
-  }
-
-
-  if (
-    size &&
-    typeof size === 'object'
-  ) {
-
-    return {
-      index,
-      label:
-        String(
-          size.label ??
-          size.name ??
-          ''
-        ),
-      price:
-        getNumber(
-          size.price,
-          0
-        )
     };
 
   }
 
 
   return {
-    index,
-    label: '',
-    price: 0
+
+    sizeIndex: null,
+
+    label:
+      product.choice ||
+      product.unit ||
+      '',
+
+    price:
+      Number(
+        product.price
+      ) || 0
+
   };
 
 }
 
 
+
+function findProduct(id) {
+
+  return menuData.find(
+    product =>
+      String(product.id) ===
+      String(id)
+  );
+
+}
+
+
+
 /* =========================================================
-   PRE-ORDER RULE
+   PRE-ORDER
 ========================================================= */
 
 function itemIsPrebook(product) {
@@ -330,486 +535,48 @@ function itemIsPrebook(product) {
   const category =
     String(
       product.cat || ''
-    )
-      .trim()
-      .toLowerCase();
+    ).toLowerCase();
 
 
-  /* Pizza and Momo NEVER pre-book */
+  /* Pizza and Momo NEVER prebook */
 
   if (
     category === 'pizza' ||
     category === 'momo'
   ) {
+
     return false;
-  }
-
-
-  /* Admin controls other categories */
-
-  if (
-    typeof product.prebook ===
-    'boolean'
-  ) {
-
-    return product.prebook;
 
   }
 
 
-  return false;
+  return product.prebook === true;
 
 }
+
 
 
 function cartHasPrebook() {
 
-  if (!C) {
-    return false;
-  }
+  return cartData.some(
+    function (item) {
 
-  return cart.some(item => {
-
-    const product =
-      getProduct(item.id);
-
-    return itemIsPrebook(product);
-
-  });
-
-}
-
-
-/* =========================================================
-   CONFIG + MENU
-========================================================= */
-
-async function loadConfigAndMenu() {
-
-  let config = {};
-
-
-  /* -------------------------------------------------------
-     CONFIG
-  ------------------------------------------------------- */
-
-  try {
-
-    const response =
-      await fetch(
-        '/api/config',
-        {
-          cache: 'no-store'
-        }
-      );
-
-
-    if (response.ok) {
-
-      const data =
-        await response.json();
-
-
-      if (
-        data &&
-        typeof data === 'object'
-      ) {
-
-        config = data;
-
-      }
-
-    }
-
-  } catch (error) {
-
-    console.warn(
-      'Config request failed:',
-      error
-    );
-
-  }
-
-
-  /* -------------------------------------------------------
-     MENU
-  ------------------------------------------------------- */
-
-  let menu = null;
-
-
-  if (
-    Array.isArray(config.menu)
-  ) {
-
-    menu =
-      config.menu;
-
-  }
-
-
-  if (!menu) {
-
-    try {
-
-      const response =
-        await fetch(
-          '/api/menu',
-          {
-            cache: 'no-store'
-          }
+      const product =
+        findProduct(
+          item.productId ||
+          item.id
         );
 
 
-      if (response.ok) {
-
-        const data =
-          await response.json();
-
-
-        if (
-          Array.isArray(data)
-        ) {
-
-          menu = data;
-
-        } else if (
-          Array.isArray(data.menu)
-        ) {
-
-          menu = data.menu;
-
-        } else if (
-          Array.isArray(data.items)
-        ) {
-
-          menu = data.items;
-
-        }
-
-      }
-
-    } catch (error) {
-
-      console.warn(
-        'Menu request failed:',
-        error
+      return itemIsPrebook(
+        product
       );
 
     }
-
-  }
-
-
-  /* -------------------------------------------------------
-     SETTINGS
-  ------------------------------------------------------- */
-
-  const rawSettings =
-    config.settings &&
-    typeof config.settings === 'object'
-      ? config.settings
-      : {};
-
-
-  const delivery =
-    rawSettings.delivery || {};
-
-
-  const baseSource =
-    rawSettings.base ||
-    delivery.base ||
-    null;
-
-
-  const baseLocation =
-    baseSource || {
-
-      lat:
-        delivery.lat ??
-        delivery.baseLat ??
-        23.3022494,
-
-      lng:
-        delivery.lng ??
-        delivery.baseLng ??
-        90.9187528,
-
-      name:
-        delivery.baseName ||
-        delivery.name ||
-        'Kahalthuri Hamidia High School'
-
-    };
-
-
-  const normalizedDelivery = {
-
-    ...delivery,
-
-    lat:
-      getNumber(
-        baseLocation.lat ??
-        delivery.lat ??
-        delivery.baseLat,
-        23.3022494
-      ),
-
-    lng:
-      getNumber(
-        baseLocation.lng ??
-        delivery.lng ??
-        delivery.baseLng,
-        90.9187528
-      ),
-
-    baseName:
-      baseLocation.name ||
-      delivery.baseName ||
-      delivery.name ||
-      'Kahalthuri Hamidia High School',
-
-    codRadiusKm:
-      getNumber(
-        delivery.codRadiusKm,
-        1
-      ),
-
-    maxRadiusKm:
-      getNumber(
-        delivery.maxRadiusKm,
-        4
-      ),
-
-    ratePerKm:
-      getNumber(
-        delivery.ratePerKm,
-        10
-      ),
-
-    codCharge:
-      getNumber(
-        delivery.codCharge,
-        0
-      )
-
-  };
-
-
-  const normalizedHours =
-    rawSettings.hours || {
-
-      normal: {
-        open: 11,
-        close: 19
-      },
-
-      friday: {
-        open: 15,
-        close: 21
-      }
-
-    };
-
-
-  const normalizedPrebook =
-    rawSettings.prebook || {
-
-      enabled: true
-
-    };
-
-
-  C = {
-
-    ...config,
-
-    menu:
-      Array.isArray(menu)
-        ? menu
-        : [],
-
-    settings: {
-
-      ...rawSettings,
-
-      delivery:
-        normalizedDelivery,
-
-      base:
-        normalizedDelivery,
-
-      payment:
-        rawSettings.payment || {},
-
-      hours:
-        normalizedHours,
-
-      prebook:
-        normalizedPrebook
-
-    }
-
-  };
-
-
-  /* -------------------------------------------------------
-     FORCE PIZZA PREBOOK OFF
-  ------------------------------------------------------- */
-
-  C.menu =
-    C.menu.map(product => {
-
-      const category =
-        String(
-          product.cat || ''
-        )
-          .trim()
-          .toLowerCase();
-
-
-      if (
-        category === 'pizza' ||
-        category === 'momo'
-      ) {
-
-        return {
-          ...product,
-          prebook: false
-        };
-
-      }
-
-
-      return product;
-
-    });
-
-
-  /* -------------------------------------------------------
-     CLEAN CART
-  ------------------------------------------------------- */
-
-  cart =
-    cart.filter(item => {
-
-      const product =
-        getProduct(item.id);
-
-      return !!product;
-
-    });
-
-
-  localStorage.setItem(
-    'cskCart',
-    JSON.stringify(cart)
   );
 
 }
 
-
-/* =========================================================
-   INITIALIZE
-========================================================= */
-
-(async function init() {
-
-  try {
-
-    await loadConfigAndMenu();
-
-    render();
-    cartUI();
-
-    console.log(
-      'Chef Sifat Kitchen loaded:',
-      {
-        menuItems:
-          C?.menu?.length || 0
-      }
-    );
-
-
-    if (
-      !C ||
-      !Array.isArray(C.menu) ||
-      !C.menu.length
-    ) {
-
-      const grid =
-        $('#grid');
-
-
-      if (grid) {
-
-        grid.innerHTML = `
-
-          <div
-            style="
-              grid-column:1/-1;
-              padding:30px;
-              text-align:center;
-            "
-          >
-
-            <h3>
-              Menu is temporarily unavailable.
-            </h3>
-
-            <p>
-              Please refresh the page and try again.
-            </p>
-
-          </div>
-
-        `;
-
-      }
-
-    }
-
-  } catch (error) {
-
-    console.error(
-      'Website initialization error:',
-      error
-    );
-
-
-    const grid =
-      $('#grid');
-
-
-    if (grid) {
-
-      grid.innerHTML = `
-
-        <div
-          style="
-            grid-column:1/-1;
-            padding:30px;
-            text-align:center;
-          "
-        >
-
-          <h3>
-            Unable to load menu.
-          </h3>
-
-          <p>
-            Please refresh the page and try again.
-          </p>
-
-        </div>
-
-      `;
-
-    }
-
-  }
-
-})();
 
 
 /* =========================================================
@@ -818,264 +585,269 @@ async function loadConfigAndMenu() {
 
 function render() {
 
-  if (!C) {
-    return;
-  }
+  const grid =
+    document.getElementById(
+      'grid'
+    );
+
+  const empty =
+    document.getElementById(
+      'menuEmpty'
+    );
+
+
+  if (!grid) return;
 
 
   const search =
     (
-      $('#search')?.value ||
+      document.getElementById(
+        'search'
+      )?.value ||
       ''
     )
       .trim()
       .toLowerCase();
 
 
-  const items =
-    C.menu.filter(product => {
+  const filtered =
+    menuData.filter(
+      function (product) {
 
-      const categoryOK =
-        cat === 'All' ||
-        String(product.cat || '')
-          .toLowerCase() ===
-        String(cat)
-          .toLowerCase();
-
-
-      const nameOK =
-        String(product.name || '')
-          .toLowerCase()
-          .includes(search);
+        const categoryMatch =
+          currentCategory ===
+          'All' ||
+          String(
+            product.cat || ''
+          ).toLowerCase() ===
+          currentCategory
+            .toLowerCase();
 
 
-      return (
-        categoryOK &&
-        nameOK &&
-        product.active !== false
-      );
-
-    });
+        const text =
+          (
+            product.name ||
+            ''
+          ).toLowerCase();
 
 
-  const grid =
-    $('#grid');
+        const searchMatch =
+          !search ||
+          text.includes(search);
 
 
-  if (!grid) {
+        return (
+          categoryMatch &&
+          searchMatch
+        );
+
+      }
+    );
+
+
+  grid.innerHTML = '';
+
+
+  if (!filtered.length) {
+
+    if (empty) {
+      empty.style.display =
+        'block';
+    }
+
     return;
+
   }
 
 
-  if (!items.length) {
-
-    grid.innerHTML =
-      '<p>No food found.</p>';
-
-    return;
-
+  if (empty) {
+    empty.style.display =
+      'none';
   }
 
 
-  grid.innerHTML =
-    items
-      .map(product => {
+  filtered.forEach(
+    function (product) {
 
-        const sizes =
-          getProductSizes(product);
-
-
-        const minQty =
-          Math.max(
-            1,
-            getNumber(
-              product.minQty,
-              1
-            )
-          );
+      const sizes =
+        normalizeSizes(
+          product
+        );
 
 
-        const maxQty =
-          Math.max(
-            minQty,
-            getNumber(
-              product.maxQty,
-              20
-            )
-          );
+      const image =
+        product.image ||
+        '/assets/food.jpg';
 
 
-        const prebook =
-          itemIsPrebook(product);
+      let sizeHTML = '';
 
 
-        return `
+      if (sizes.length) {
 
-          <article class="food">
+        sizeHTML = `
 
-            <div class="pic">
+          <select
+            class="product-size"
+            data-product-id="${esc(
+              product.id
+            )}"
+          >
 
-              ${
-                product.image
+            ${sizes.map(
+              function (size, index) {
 
-                  ? `
+                return `
 
-                    <img
-                      src="${esc(product.image)}"
-                      alt="${esc(product.name)}"
-                      loading="lazy"
-                      onerror="
-                        this.remove();
-                        this.parentElement.textContent='Food image';
-                      "
-                    >
+                  <option value="${index}">
 
-                  `
+                    ${esc(
+                      size.label
+                    )}
+                    — ${money(
+                      size.price
+                    )}
 
-                  : 'Food image'
+                  </option>
+
+                `;
+
               }
+            ).join('')}
 
-            </div>
-
-
-            <div class="foodbody">
-
-              <small>
-
-                ${esc(product.cat || '')}
-
-                ${
-                  prebook
-                    ? ' • PRE-BOOK'
-                    : ''
-                }
-
-              </small>
-
-
-              <h3>
-                ${esc(product.name)}
-              </h3>
-
-
-              ${
-                sizes.length
-
-                  ? `
-
-                    <select
-                      id="s-${esc(product.id)}"
-                    >
-
-                      ${sizes
-                        .map(
-                          (size, index) => {
-
-                            const data =
-                              getSizeData(
-                                product,
-                                index
-                              );
-
-
-                            return `
-
-                              <option
-                                value="${index}"
-                              >
-
-                                ${esc(data.label)}
-
-                                —
-                                ${money(data.price)}
-
-                              </option>
-
-                            `;
-
-                          }
-                        )
-                        .join('')}
-
-                    </select>
-
-                  `
-
-                  : `
-
-                    <p class="price">
-
-                      ${money(
-                        getNumber(
-                          product.price,
-                          0
-                        )
-                      )}
-
-                    </p>
-
-                  `
-              }
-
-
-              <div class="foodrow">
-
-                <input
-                  id="q-${esc(product.id)}"
-                  type="number"
-                  min="${minQty}"
-                  max="${maxQty}"
-                  value="${minQty}"
-                >
-
-
-                <button
-                  class="btn"
-                  type="button"
-                  onclick="add(${JSON.stringify(String(product.id))})"
-                >
-                  Add
-                </button>
-
-              </div>
-
-            </div>
-
-          </article>
+          </select>
 
         `;
 
-      })
-      .join('');
+      } else {
+
+        sizeHTML = `
+
+          <strong>
+            ${money(
+              product.price
+            )}
+          </strong>
+
+        `;
+
+      }
+
+
+      const prebook =
+        itemIsPrebook(
+          product
+        );
+
+
+      const card =
+        document.createElement(
+          'article'
+        );
+
+
+      card.className =
+        'food-card';
+
+
+      card.innerHTML = `
+
+        <img
+          src="${esc(image)}"
+          alt="${esc(
+            product.name
+          )}"
+          loading="lazy"
+          onerror="
+            this.src='/assets/food.jpg'
+          "
+        >
+
+
+        <div class="food-card-body">
+
+          <small>
+            ${esc(
+              product.cat || ''
+            )}
+          </small>
+
+
+          <h3>
+            ${esc(
+              product.name
+            )}
+          </h3>
+
+
+          <p>
+            ${esc(
+              product.description ||
+              ''
+            )}
+          </p>
+
+
+          ${
+            prebook
+              ? `
+                <span>
+                  📅 Pre-order available
+                </span>
+              `
+              : ''
+          }
+
+
+          <div class="product-bottom">
+
+            ${sizeHTML}
+
+
+            <button
+              type="button"
+              class="btn"
+              onclick="add('${esc(
+                product.id
+              )}')"
+            >
+              🛒 Add
+            </button>
+
+          </div>
+
+        </div>
+
+      `;
+
+
+      grid.appendChild(
+        card
+      );
+
+    }
+  );
 
 }
 
 
+
 /* =========================================================
-   CART
+   ADD TO CART
 ========================================================= */
 
-function add(id) {
-
-  if (!C) {
-
-    alert(
-      'Menu is still loading. Please try again.'
-    );
-
-    return;
-
-  }
-
+function add(productId) {
 
   const product =
-    getProduct(id);
+    findProduct(
+      productId
+    );
 
 
   if (!product) {
 
     alert(
-      'Food item not found.'
+      'This item is unavailable.'
     );
 
     return;
@@ -1084,738 +856,803 @@ function add(id) {
 
 
   const sizes =
-    getProductSizes(product);
+    normalizeSizes(
+      product
+    );
 
 
-  let sizeIndex = 0;
+  let sizeIndex =
+    null;
 
 
   if (sizes.length) {
 
-    const sizeElement =
-      document.getElementById(
-        's-' + String(id)
+    const select =
+      document.querySelector(
+        `.product-size[data-product-id="${CSS.escape(
+          String(productId)
+        )}"]`
       );
 
 
-    if (sizeElement) {
-
-      sizeIndex =
-        Number(
-          sizeElement.value
-        );
-
-
-      if (
-        !Number.isInteger(sizeIndex) ||
-        sizeIndex < 0 ||
-        sizeIndex >= sizes.length
-      ) {
-
-        sizeIndex = 0;
-
-      }
-
-    }
+    sizeIndex =
+      Number(
+        select?.value || 0
+      );
 
   }
 
-
-  const quantityElement =
-    document.getElementById(
-      'q-' + String(id)
-    );
-
-
-  const enteredQty =
-    Number(
-      quantityElement?.value || 1
-    );
-
-
-  const minQty =
-    Math.max(
-      1,
-      getNumber(
-        product.minQty,
-        1
-      )
-    );
-
-
-  const maxQty =
-    Math.max(
-      minQty,
-      getNumber(
-        product.maxQty,
-        20
-      )
-    );
-
-
-  if (
-    !Number.isFinite(enteredQty)
-  ) {
-
-    alert(
-      'Please enter a valid quantity.'
-    );
-
-    return;
-
-  }
-
-
-  const qty =
-    Math.max(
-      minQty,
-      Math.min(
-        maxQty,
-        Math.floor(enteredQty)
-      )
-    );
-
-
-  /*
-     If same product + same size already exists,
-     increase quantity instead of creating duplicate line.
-  */
 
   const existing =
-    cart.find(item =>
-      String(item.id) ===
-        String(product.id) &&
-      Number(item.sizeIndex || 0) ===
-        Number(sizeIndex)
+    cartData.find(
+      function (item) {
+
+        return (
+          String(
+            item.productId
+          ) ===
+          String(
+            productId
+          ) &&
+          Number(
+            item.sizeIndex
+          ) ===
+          Number(
+            sizeIndex
+          )
+
+        );
+
+      }
     );
 
 
   if (existing) {
 
     existing.qty =
-      Math.min(
-        maxQty,
-        Number(existing.qty || 0) +
-        qty
-      );
+      Number(
+        existing.qty || 0
+      ) + 1;
 
   } else {
 
-    cart.push({
+    cartData.push({
 
-      id:
+      productId:
         product.id,
 
-      sizeIndex:
-        sizeIndex,
+      qty: 1,
 
-      qty:
-        qty
+      sizeIndex:
+
+        sizeIndex
 
     });
 
   }
 
 
-  save();
+  saveCart();
+
+  cartUI();
 
   openCart();
 
 }
 
 
+
 /* =========================================================
-   SAVE CART
+   CART
 ========================================================= */
 
-function save() {
+function updateCartCount() {
 
-  localStorage.setItem(
-    'cskCart',
-    JSON.stringify(cart)
+  const count =
+    document.getElementById(
+      'count'
+    );
+
+
+  if (!count) return;
+
+
+  count.textContent =
+    cartData.reduce(
+      function (sum, item) {
+
+        return (
+          sum +
+          Number(
+            item.qty || 0
+          )
+        );
+
+      },
+      0
+    );
+
+}
+
+
+
+function getCartItemsDetailed() {
+
+  return cartData
+    .map(function (item) {
+
+      const product =
+        findProduct(
+          item.productId
+        );
+
+
+      if (!product) {
+        return null;
+      }
+
+
+      const pricing =
+        getPricing(
+          product,
+          item
+        );
+
+
+      return {
+
+        item,
+
+        product,
+
+        pricing
+
+      };
+
+    })
+    .filter(Boolean);
+
+}
+
+
+
+function getSubtotal() {
+
+  return getCartItemsDetailed()
+    .reduce(
+      function (
+        total,
+        row
+      ) {
+
+        return (
+          total +
+          row.pricing.price *
+          Number(
+            row.item.qty || 0
+          )
+        );
+
+      },
+      0
+    );
+
+}
+
+
+
+function cartUI() {
+
+  const box =
+    document.getElementById(
+      'cartItems'
+    );
+
+
+  const subtotal =
+    document.getElementById(
+      'subtotal'
+    );
+
+
+  if (!box) return;
+
+
+  const rows =
+    getCartItemsDetailed();
+
+
+  box.innerHTML = '';
+
+
+  if (!rows.length) {
+
+    box.innerHTML =
+      '<p>Your cart is empty.</p>';
+
+  }
+
+
+  rows.forEach(
+    function (row) {
+
+      const qty =
+        Number(
+          row.item.qty || 1
+        );
+
+
+      const total =
+        row.pricing.price *
+        qty;
+
+
+      const div =
+        document.createElement(
+          'div'
+        );
+
+
+      div.className =
+        'cart-row';
+
+
+      div.innerHTML = `
+
+        <strong>
+          ${esc(
+            row.product.name
+          )}
+        </strong>
+
+
+        ${
+          row.pricing.label
+            ? `<small>
+                ${esc(
+                  row.pricing.label
+                )}
+              </small>`
+            : ''
+        }
+
+
+        <span>
+          ${money(
+            row.pricing.price
+          )}
+          × ${qty}
+          =
+          ${money(total)}
+        </span>
+
+
+        <div>
+
+          <button
+            type="button"
+            onclick="changeQty(
+              '${esc(
+                row.product.id
+              )}',
+              ${row.pricing.sizeIndex},
+              -1
+            )"
+          >
+            −
+          </button>
+
+
+          <button
+            type="button"
+            onclick="changeQty(
+              '${esc(
+                row.product.id
+              )}',
+              ${row.pricing.sizeIndex},
+              1
+            )"
+          >
+            +
+          </button>
+
+
+          <button
+            type="button"
+            onclick="removeCartItem(
+              '${esc(
+                row.product.id
+              )}',
+              ${row.pricing.sizeIndex}
+            )"
+          >
+            Remove
+          </button>
+
+        </div>
+
+      `;
+
+
+      box.appendChild(
+        div
+      );
+
+    }
   );
 
+
+  if (subtotal) {
+
+    subtotal.textContent =
+      money(
+        getSubtotal()
+      );
+
+  }
+
+
+  updateCartCount();
+
+}
+
+
+
+function changeQty(
+  productId,
+  sizeIndex,
+  amount
+) {
+
+  const item =
+    cartData.find(
+      function (row) {
+
+        return (
+          String(
+            row.productId
+          ) ===
+          String(productId) &&
+          Number(
+            row.sizeIndex
+          ) ===
+          Number(sizeIndex)
+        );
+
+      }
+    );
+
+
+  if (!item) return;
+
+
+  item.qty =
+    Number(
+      item.qty || 0
+    ) + amount;
+
+
+  if (item.qty <= 0) {
+
+    cartData =
+      cartData.filter(
+        row =>
+          !(
+            String(
+              row.productId
+            ) ===
+            String(productId) &&
+            Number(
+              row.sizeIndex
+            ) ===
+            Number(sizeIndex)
+          )
+      );
+
+  }
+
+
+  saveCart();
 
   cartUI();
 
 }
 
 
-/* =========================================================
-   CART UI
-========================================================= */
 
-function cartUI() {
+function removeCartItem(
+  productId,
+  sizeIndex
+) {
 
-  if (!C) {
-    return;
-  }
+  cartData =
+    cartData.filter(
+      function (item) {
 
+        return !(
+          String(
+            item.productId
+          ) ===
+          String(productId) &&
+          Number(
+            item.sizeIndex
+          ) ===
+          Number(sizeIndex)
+        );
 
-  let subtotal = 0;
-  let count = 0;
-
-
-  cart =
-    cart.filter(item =>
-      !!getProduct(item.id)
+      }
     );
 
 
-  cart.forEach(item => {
+  saveCart();
 
-    count +=
-      Math.max(
-        0,
-        Number(item.qty) || 0
-      );
-
-  });
-
-
-  const countBox =
-    $('#count');
-
-
-  if (countBox) {
-
-    countBox.textContent =
-      String(count);
-
-  }
-
-
-  const cartItems =
-    $('#cartItems');
-
-
-  if (cartItems) {
-
-    const lines =
-      cart
-        .map(
-          (item, index) => {
-
-            const product =
-              getProduct(item.id);
-
-
-            if (!product) {
-              return '';
-            }
-
-
-            const data =
-              getSizeData(
-                product,
-                Number(
-                  item.sizeIndex || 0
-                )
-              );
-
-
-            const qty =
-              Math.max(
-                1,
-                Number(item.qty) || 1
-              );
-
-
-            const lineTotal =
-              data.price *
-              qty;
-
-
-            subtotal +=
-              lineTotal;
-
-
-            return `
-
-              <div class="cartline">
-
-                <b>
-                  ${esc(product.name)}
-                </b>
-
-                ${
-                  data.label
-                    ? `
-                      <br>
-                      ${esc(data.label)}
-                    `
-                    : ''
-                }
-
-                <br>
-
-                × ${qty}
-
-                —
-                ${money(lineTotal)}
-
-
-                <button
-                  type="button"
-                  onclick="removeCart(${index})"
-                >
-                  Remove
-                </button>
-
-              </div>
-
-            `;
-
-          }
-        )
-        .join('');
-
-
-    cartItems.innerHTML =
-      lines ||
-      '<p>Your cart is empty.</p>';
-
-  }
-
-
-  const subtotalBox =
-    $('#subtotal');
-
-
-  if (subtotalBox) {
-
-    subtotalBox.textContent =
-      money(subtotal);
-
-  }
+  cartUI();
 
 }
 
 
-function getSubtotal() {
-
-  if (!C) {
-    return 0;
-  }
-
-
-  let subtotal = 0;
-
-
-  cart.forEach(item => {
-
-    const product =
-      getProduct(item.id);
-
-
-    if (!product) {
-      return;
-    }
-
-
-    const data =
-      getSizeData(
-        product,
-        Number(
-          item.sizeIndex || 0
-        )
-      );
-
-
-    const qty =
-      Math.max(
-        1,
-        Number(item.qty) || 1
-      );
-
-
-    subtotal +=
-      data.price * qty;
-
-  });
-
-
-  return subtotal;
-
-}
-
-
-function removeCart(index) {
-
-  if (
-    index < 0 ||
-    index >= cart.length
-  ) {
-    return;
-  }
-
-
-  cart.splice(
-    index,
-    1
-  );
-
-
-  save();
-
-}
-
-
-/* =========================================================
-   CART OPEN/CLOSE
-========================================================= */
 
 function openCart() {
 
-  $('#cart')?.classList.add(
-    'open'
-  );
+  const cart =
+    document.getElementById(
+      'cart'
+    );
 
-  $('#shade')?.classList.add(
-    'open'
-  );
+  const shade =
+    document.getElementById(
+      'shade'
+    );
+
+
+  cartUI();
+
+
+  if (cart) {
+    cart.classList.add(
+      'open'
+    );
+  }
+
+
+  if (shade) {
+    shade.classList.add(
+      'open'
+    );
+  }
 
 }
+
 
 
 function closeCart() {
 
-  $('#cart')?.classList.remove(
-    'open'
-  );
+  const cart =
+    document.getElementById(
+      'cart'
+    );
 
-  $('#shade')?.classList.remove(
-    'open'
-  );
+  const shade =
+    document.getElementById(
+      'shade'
+    );
+
+
+  if (cart) {
+    cart.classList.remove(
+      'open'
+    );
+  }
+
+
+  if (shade) {
+    shade.classList.remove(
+      'open'
+    );
+  }
 
 }
 
 
+
 /* =========================================================
-   CHECKOUT
+   CONFIG
 ========================================================= */
 
-function checkout() {
+async function loadConfig() {
 
-  if (!cart.length) {
+  try {
 
-    alert(
-      'Your cart is empty.'
-    );
-
-    return;
-
-  }
-
-
-  if (!requireLoggedCustomer()) {
-    return;
-  }
-
-
-  if (!C) {
-
-    alert(
-      'Website is still loading. Please try again.'
-    );
-
-    return;
-
-  }
-
-
-  closeCart();
-
-
-  const modal =
-    $('#modal');
-
-
-  if (!modal) {
-
-    alert(
-      'Checkout interface could not be found.'
-    );
-
-    return;
-
-  }
-
-
-  modal.classList.add(
-    'open'
-  );
-
-
-  fillCustomerFields();
-
-
-  /* -------------------------------------------------------
-     MAP
-  ------------------------------------------------------- */
-
-  if (!map) {
-
-    if (
-      typeof L ===
-      'undefined'
-    ) {
-
-      alert(
-        'Map service is not loaded. Please refresh the page.'
+    const response =
+      await fetch(
+        '/api/config'
       );
 
-      return;
+
+    const data =
+      await response.json();
+
+
+    configData =
+      data || {};
+
+
+    if (data.delivery) {
+
+      Object.assign(
+        SETTINGS,
+        {
+
+          baseLat:
+            Number(
+              data.delivery.baseLat ??
+              data.delivery.latitude ??
+              SETTINGS.baseLat
+            ),
+
+          baseLng:
+            Number(
+              data.delivery.baseLng ??
+              data.delivery.longitude ??
+              SETTINGS.baseLng
+            ),
+
+          codRadiusKm:
+            Number(
+              data.delivery.codRadiusKm ??
+              data.delivery.codRadius ??
+              SETTINGS.codRadiusKm
+            ),
+
+          maxRadiusKm:
+            Number(
+              data.delivery.maxRadiusKm ??
+              data.delivery.maxRadius ??
+              SETTINGS.maxRadiusKm
+            ),
+
+          deliveryRatePerKm:
+            Number(
+              data.delivery.ratePerKm ??
+              SETTINGS.deliveryRatePerKm
+            )
+
+        }
+      );
 
     }
 
 
-    const baseLocation =
-      C.settings.base ||
-      C.settings.delivery || {
+  } catch (error) {
 
-        lat:
-          23.3022494,
+    console.error(
+      'Config error:',
+      error
+    );
 
-        lng:
-          90.9187528
+  }
 
-      };
-
-
-    const baseLat =
-      getNumber(
-        baseLocation.lat ??
-        baseLocation.baseLat,
-        23.3022494
-      );
+}
 
 
-    const baseLng =
-      getNumber(
-        baseLocation.lng ??
-        baseLocation.baseLng,
-        90.9187528
-      );
+
+/* =========================================================
+   DISTANCE
+========================================================= */
+
+function haversine(
+  lat1,
+  lon1,
+  lat2,
+  lon2
+) {
+
+  const R =
+    6371;
 
 
-    map =
-      L.map('map')
-        .setView(
-          [
-            baseLat,
-            baseLng
-          ],
-          14
-        );
+  const dLat =
+    (
+      lat2 - lat1
+    ) *
+    Math.PI / 180;
 
 
-    L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  const dLon =
+    (
+      lon2 - lon1
+    ) *
+    Math.PI / 180;
+
+
+  const a =
+    Math.sin(
+      dLat / 2
+    ) ** 2 +
+
+    Math.cos(
+      lat1 *
+      Math.PI / 180
+    ) *
+
+    Math.cos(
+      lat2 *
+      Math.PI / 180
+    ) *
+
+    Math.sin(
+      dLon / 2
+    ) ** 2;
+
+
+  return (
+    R *
+    2 *
+    Math.atan2(
+      Math.sqrt(a),
+      Math.sqrt(1 - a)
+    )
+  );
+
+}
+
+
+
+/* =========================================================
+   MAP
+========================================================= */
+
+function initMap() {
+
+  const mapBox =
+    document.getElementById(
+      'map'
+    );
+
+
+  if (!mapBox) return;
+
+
+  if (map) {
+
+    setTimeout(
+      () =>
+        map.invalidateSize(),
+      100
+    );
+
+    return;
+
+  }
+
+
+  map =
+    L.map(
+      mapBox
+    ).setView(
+      [
+        SETTINGS.baseLat,
+        SETTINGS.baseLng
+      ],
+      14
+    );
+
+
+  L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {
+      maxZoom: 19,
+      attribution:
+        '&copy; OpenStreetMap'
+    }
+  ).addTo(map);
+
+
+  marker =
+    L.marker(
+      [
+        SETTINGS.baseLat,
+        SETTINGS.baseLng
+      ],
       {
-
-        attribution:
-          '© OpenStreetMap contributors'
-
+        draggable: true
       }
     ).addTo(map);
 
 
-    marker =
-      L.marker(
-        [
-          baseLat,
-          baseLng
-        ],
-        {
-          draggable:
-            true
-        }
-      ).addTo(map);
+  marker.on(
+    'dragend',
+    function () {
+
+      const position =
+        marker.getLatLng();
 
 
-    marker.on(
-      'dragend',
-      () => {
+      setLocation(
+        position.lat,
+        position.lng
+      );
 
-        const position =
-          marker.getLatLng();
+    }
+  );
 
 
-        point(
-          position.lat,
-          position.lng
-        );
+  setTimeout(
+    () =>
+      map.invalidateSize(),
+    200
+  );
 
-      }
+}
+
+
+
+function setLocation(
+  lat,
+  lng
+) {
+
+  selectedLocation = {
+
+    lat:
+      Number(lat),
+
+    lng:
+      Number(lng)
+
+  };
+
+
+  if (marker) {
+
+    marker.setLatLng(
+      [
+        lat,
+        lng
+      ]
     );
 
   }
 
 
-  setupDeliveryTimeUI();
+  if (map) {
 
-
-  base();
-
-
-  pay();
-
-
-  sum();
-
-
-  setTimeout(
-    () => {
-
-      map?.invalidateSize();
-
-    },
-    250
-  );
-
-}
-
-
-/* =========================================================
-   CUSTOMER FIELDS
-========================================================= */
-
-function fillCustomerFields() {
-
-  const data =
-    getLoggedCustomerData();
-
-
-  if (!data) {
-    return;
-  }
-
-
-  const name =
-    $('#name');
-
-
-  const phone =
-    $('#phone');
-
-
-  if (
-    name &&
-    !name.value.trim()
-  ) {
-
-    name.value =
-      data.name ||
-      data.fullName ||
-      '';
+    map.panTo(
+      [
+        lat,
+        lng
+      ]
+    );
 
   }
 
 
-  if (
-    phone &&
-    !phone.value.trim()
-  ) {
-
-    phone.value =
-      data.phone ||
-      data.mobile ||
-      '';
-
-  }
+  checkLocation();
 
 }
 
-
-/* =========================================================
-   CLOSE CHECKOUT
-========================================================= */
-
-function closeCheckout() {
-
-  $('#modal')?.classList.remove(
-    'open'
-  );
-
-}
-
-
-/* =========================================================
-   BASE LOCATION
-========================================================= */
-
-function getBaseLocation() {
-
-  const source =
-    C?.settings?.base ||
-    C?.settings?.delivery ||
-    {};
-
-
-  return {
-
-    lat:
-      getNumber(
-        source.lat ??
-        source.baseLat,
-        23.3022494
-      ),
-
-    lng:
-      getNumber(
-        source.lng ??
-        source.baseLng,
-        90.9187528
-      )
-
-  };
-
-}
 
 
 function base() {
 
-  if (
-    !map ||
-    !marker
-  ) {
-    return;
-  }
+  initMap();
 
 
-  const location =
-    getBaseLocation();
+  setTimeout(
+    function () {
 
+      setLocation(
+        SETTINGS.baseLat,
+        SETTINGS.baseLng
+      );
 
-  map.setView(
-    [
-      location.lat,
-      location.lng
-    ],
-    15
-  );
-
-
-  marker.setLatLng(
-    [
-      location.lat,
-      location.lng
-    ]
-  );
-
-
-  point(
-    location.lat,
-    location.lng
+    },
+    100
   );
 
 }
 
 
-/* =========================================================
-   GPS
-========================================================= */
 
 function gps() {
 
@@ -1824,7 +1661,7 @@ function gps() {
   ) {
 
     alert(
-      'GPS is unavailable. Please drag the map pin.'
+      'GPS is not supported by this browser.'
     );
 
     return;
@@ -1833,83 +1670,63 @@ function gps() {
 
 
   const status =
-    $('#status');
+    document.getElementById(
+      'status'
+    );
 
 
   if (status) {
 
     status.textContent =
-      'Detecting your current location…';
+      '📍 Detecting your location...';
 
   }
 
 
   navigator.geolocation.getCurrentPosition(
 
-    position => {
+    function (position) {
 
       const lat =
-        Number(
-          position.coords.latitude
-        );
-
+        position.coords.latitude;
 
       const lng =
-        Number(
-          position.coords.longitude
-        );
+        position.coords.longitude;
 
 
-      if (
-        !Number.isFinite(lat) ||
-        !Number.isFinite(lng)
-      ) {
-
-        alert(
-          'Invalid GPS location.'
-        );
-
-        return;
-
-      }
+      initMap();
 
 
-      if (map) {
+      setTimeout(
+        function () {
 
-        map.setView(
-          [
+          if (map) {
+
+            map.setView(
+              [
+                lat,
+                lng
+              ],
+              16
+            );
+
+          }
+
+
+          setLocation(
             lat,
             lng
-          ],
-          16
-        );
+          );
 
-      }
-
-
-      if (marker) {
-
-        marker.setLatLng(
-          [
-            lat,
-            lng
-          ]
-        );
-
-      }
-
-
-      point(
-        lat,
-        lng
+        },
+        100
       );
 
     },
 
-    error => {
+    function (error) {
 
       console.error(
-        'GPS error:',
         error
       );
 
@@ -1917,27 +1734,22 @@ function gps() {
       if (status) {
 
         status.textContent =
-          'GPS failed. Please allow location access or drag the pin manually.';
+          'GPS permission denied or unavailable.';
 
       }
 
-
       alert(
-        'Could not detect your location. Please allow GPS permission or move the map pin manually.'
+        'Please allow location permission and try again.'
       );
 
     },
 
     {
+      enableHighAccuracy: true,
 
-      enableHighAccuracy:
-        true,
+      timeout: 15000,
 
-      timeout:
-        15000,
-
-      maximumAge:
-        0
+      maximumAge: 0
 
     }
 
@@ -1946,270 +1758,266 @@ function gps() {
 }
 
 
+
 /* =========================================================
    LOCATION CHECK
 ========================================================= */
 
-async function point(
-  lat,
-  lng
-) {
+async function checkLocation() {
+
+  if (!selectedLocation) {
+    return;
+  }
+
+
+  const lat =
+    selectedLocation.lat;
+
+  const lng =
+    selectedLocation.lng;
+
 
   try {
-
-    const cleanLat =
-      Number(lat);
-
-
-    const cleanLng =
-      Number(lng);
-
-
-    if (
-      !Number.isFinite(cleanLat) ||
-      !Number.isFinite(cleanLng)
-    ) {
-
-      throw new Error(
-        'Invalid location.'
-      );
-
-    }
-
-
-    const status =
-      $('#status');
-
-
-    if (status) {
-
-      status.textContent =
-        'Checking delivery availability…';
-
-    }
-
 
     const response =
       await fetch(
         '/api/location/check',
         {
-
-          method:
-            'POST',
+          method: 'POST',
 
           headers: {
-
             'Content-Type':
               'application/json'
-
           },
 
-          body:
-            JSON.stringify({
-
-              lat:
-                cleanLat,
-
-              lng:
-                cleanLng
-
-            })
-
+          body: JSON.stringify({
+            lat,
+            lng
+          })
         }
       );
 
 
-    let result = {};
-
-
-    try {
-
-      result =
-        await response.json();
-
-    } catch (_) {}
+    const data =
+      await response.json();
 
 
     if (!response.ok) {
 
       throw new Error(
-        result.error ||
-        result.message ||
-        'Location check failed.'
+        data.message ||
+        'Location unavailable.'
       );
 
     }
 
 
-    loc = {
-
-      ...result,
-
-      allowed:
-        Boolean(
-          result.allowed ??
-          result.available
-        ),
-
-      cod:
-        Boolean(
-          result.cod ??
-          result.codAvailable
-        ),
-
-      charge:
-        getNumber(
-          result.charge ??
-          result.deliveryCharge,
-          0
-        ),
-
-      distanceKm:
-        getNumber(
-          result.distanceKm ??
-          result.distance,
-          0
+    const distance =
+      Number(
+        data.distance ??
+        haversine(
+          SETTINGS.baseLat,
+          SETTINGS.baseLng,
+          lat,
+          lng
         )
+      );
+
+
+    const available =
+      data.available ??
+      data.allowed ??
+      (
+        distance <=
+        SETTINGS.maxRadiusKm
+      );
+
+
+    const cod =
+      data.codAvailable ??
+      data.cod ??
+      (
+        distance <=
+        SETTINGS.codRadiusKm
+      );
+
+
+    const charge =
+      Number(
+        data.deliveryCharge ??
+        data.charge ??
+        (
+          distance <=
+          SETTINGS.codRadiusKm
+            ? 0
+            : Math.ceil(
+                distance
+              ) *
+              SETTINGS.deliveryRatePerKm
+        )
+      );
+
+
+    deliveryInfo = {
+
+      available,
+
+      cod,
+
+      distance,
+
+      charge,
+
+      paymentRequired:
+        !cod
 
     };
 
 
-    if (loc.allowed) {
+    const status =
+      document.getElementById(
+        'status'
+      );
+
+
+    if (!available) {
 
       if (status) {
 
-        status.textContent =
-          (
-            loc.message ||
-            'Delivery available.'
-          ) +
-          ' Distance: ' +
-          loc.distanceKm.toFixed(2) +
-          ' km • Delivery: ' +
-          money(loc.charge);
-
-
-        status.style.borderColor =
-          '#475';
+        status.innerHTML = `
+          ❌ Delivery unavailable.
+          <br>
+          Distance:
+          <strong>
+            ${distance.toFixed(2)} km
+          </strong>
+          <br>
+          Maximum delivery distance is
+          ${SETTINGS.maxRadiusKm} km.
+        `;
 
       }
+
+
+    } else if (cod) {
+
+      if (status) {
+
+        status.innerHTML = `
+          ✅ Delivery available
+          <br>
+          Distance:
+          <strong>
+            ${distance.toFixed(2)} km
+          </strong>
+          <br>
+          💵 COD Available
+          <br>
+          🚚 Delivery Charge:
+          <strong>৳0</strong>
+        `;
+
+      }
+
 
     } else {
 
       if (status) {
 
-        status.textContent =
-          loc.message ||
-          'Delivery is unavailable at this location.';
-
-
-        status.style.borderColor =
-          '#a44';
+        status.innerHTML = `
+          ✅ Delivery available
+          <br>
+          Distance:
+          <strong>
+            ${distance.toFixed(2)} km
+          </strong>
+          <br>
+          💳 Online Payment Required
+          <br>
+          🚚 Delivery Charge:
+          <strong>
+            ${money(charge)}
+          </strong>
+        `;
 
       }
 
     }
 
 
-    pay();
-    sum();
+    buildPayment();
+
+    buildSummary();
+
 
   } catch (error) {
 
     console.error(
-      'Location check error:',
       error
     );
 
 
-    loc = null;
+    const distance =
+      haversine(
+        SETTINGS.baseLat,
+        SETTINGS.baseLng,
+        lat,
+        lng
+      );
 
 
-    if ($('#status')) {
-
-      $('#status').textContent =
-        'Unable to check this location. Please try again.';
-
-      $('#status').style.borderColor =
-        '#a44';
-
-    }
+    const available =
+      distance <=
+      SETTINGS.maxRadiusKm;
 
 
-    if ($('#pay')) {
-
-      $('#pay').innerHTML =
-        '';
-
-    }
+    const cod =
+      distance <=
+      SETTINGS.codRadiusKm;
 
 
-    if ($('#sum')) {
+    const charge =
+      cod
+        ? 0
+        : Math.ceil(
+            distance
+          ) *
+          SETTINGS.deliveryRatePerKm;
 
-      $('#sum').innerHTML =
-        '';
 
-    }
+    deliveryInfo = {
+
+      available,
+
+      cod,
+
+      distance,
+
+      charge,
+
+      paymentRequired:
+        !cod
+
+    };
+
+
+    buildPayment();
+
+    buildSummary();
 
   }
 
 }
 
 
-/* =========================================================
-   PREBOOK SETTINGS
-========================================================= */
-
-function getPrebookSettings() {
-
-  const settings =
-    C?.settings || {};
-
-
-  const prebook =
-    settings.prebook ||
-    settings.preorder ||
-    {};
-
-
-  return {
-
-    enabled:
-      prebook.enabled !== false
-
-  };
-
-}
-
-
-function isPrebookAllowed() {
-
-  return getPrebookSettings()
-    .enabled;
-
-}
-
 
 /* =========================================================
-   SHOP HOURS
+   SHOP TIME
 ========================================================= */
 
 function getShopHours(
-  date = new Date()
+  date
 ) {
-
-  const settings =
-    C?.settings || {};
-
-
-  const hours =
-    settings.hours || {};
-
-
-  /*
-     Browser date is used only to determine
-     current calendar day.
-  */
 
   const day =
     date.getDay();
@@ -2217,251 +2025,65 @@ function getShopHours(
 
   if (day === 5) {
 
-    return (
-      hours.friday || {
+    return {
 
-        open:
-          15,
+      open: 15,
 
-        close:
-          21
+      close: 21
 
-      }
-    );
+    };
 
   }
 
 
-  return (
-    hours.normal || {
-
-      open:
-        11,
-
-      close:
-        19
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   ORDER WINDOW
-   OPEN + 1 HOUR
-   CLOSE - 1 HOUR
-========================================================= */
-
-function getOrderWindow(
-  date = new Date()
-) {
-
-  const hours =
-    getShopHours(date);
-
-
-  const open =
-    getNumber(
-      hours.open,
-      11
-    );
-
-
-  const close =
-    getNumber(
-      hours.close,
-      19
-    );
-
-
   return {
 
-    start:
-      (open + 1) * 60,
+    open: 11,
 
-    end:
-      (close - 1) * 60
+    close: 19
 
   };
 
 }
 
 
-/* =========================================================
-   DATE HELPERS
-========================================================= */
 
-function dateKey(
+function getOrderWindow(
   date
 ) {
 
-  return (
-
-    date.getFullYear() +
-    '-' +
-    String(
-      date.getMonth() + 1
-    ).padStart(2, '0') +
-    '-' +
-    String(
-      date.getDate()
-    ).padStart(2, '0')
-
-  );
-
-}
-
-
-function dateFromKey(
-  key
-) {
-
-  const parts =
-    String(key || '')
-      .split('-');
-
-
-  if (
-    parts.length !== 3
-  ) {
-
-    return null;
-
-  }
-
-
-  const year =
-    Number(parts[0]);
-
-
-  const month =
-    Number(parts[1]) - 1;
-
-
-  const day =
-    Number(parts[2]);
-
-
-  const date =
-    new Date(
-      year,
-      month,
-      day
+  const hours =
+    getShopHours(
+      date
     );
 
 
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month ||
-    date.getDate() !== day
-  ) {
+  return {
 
-    return null;
+    start:
+      hours.open * 60 + 60,
 
-  }
+    end:
+      hours.close * 60 - 60
 
-
-  return date;
+  };
 
 }
 
 
-function formatDateLabel(
-  date
-) {
-
-  const today =
-    new Date();
-
-
-  today.setHours(
-    0,
-    0,
-    0,
-    0
-  );
-
-
-  const tomorrow =
-    new Date(today);
-
-
-  tomorrow.setDate(
-    tomorrow.getDate() + 1
-  );
-
-
-  const target =
-    new Date(date);
-
-
-  target.setHours(
-    0,
-    0,
-    0,
-    0
-  );
-
-
-  if (
-    target.getTime() ===
-    tomorrow.getTime()
-  ) {
-
-    return (
-      'Tomorrow, ' +
-      target.toLocaleDateString(
-        'en-GB',
-        {
-          day: '2-digit',
-          month: 'short'
-        }
-      )
-    );
-
-  }
-
-
-  return target.toLocaleDateString(
-    'en-GB',
-    {
-
-      weekday:
-        'short',
-
-      day:
-        '2-digit',
-
-      month:
-        'short'
-
-    }
-  );
-
-}
-
-
-/* =========================================================
-   12-HOUR TIME
-========================================================= */
 
 function formatTime(
-  minutes
+  totalMinutes
 ) {
 
-  const total =
-    Number(minutes);
-
-
-  const hour =
+  let hour =
     Math.floor(
-      total / 60
+      totalMinutes / 60
     );
 
 
   const minute =
-    total % 60;
+    totalMinutes % 60;
 
 
   const suffix =
@@ -2470,24 +2092,24 @@ function formatTime(
       : 'AM';
 
 
-  let displayHour =
+  hour =
     hour % 12;
 
 
-  if (
-    displayHour === 0
-  ) {
-
-    displayHour = 12;
-
+  if (hour === 0) {
+    hour = 12;
   }
 
 
   return (
-    displayHour +
+    hour +
     ':' +
-    String(minute)
-      .padStart(2, '0') +
+    String(
+      minute
+    ).padStart(
+      2,
+      '0'
+    ) +
     ' ' +
     suffix
   );
@@ -2495,199 +2117,118 @@ function formatTime(
 }
 
 
-/* =========================================================
-   BUILD TIME SLOTS
-========================================================= */
 
-function buildTimeSlots(
-  date = new Date(),
-  removePast = false
+function sameDate(
+  a,
+  b
 ) {
 
-  const window =
-    getOrderWindow(date);
+  return (
+    a.getFullYear() ===
+      b.getFullYear() &&
+
+    a.getMonth() ===
+      b.getMonth() &&
+
+    a.getDate() ===
+      b.getDate()
+  );
+
+}
 
 
-  const slots = [];
 
+function buildTimeOptions(
+  date
+) {
 
   const now =
     new Date();
 
 
-  const todayKey =
-    dateKey(now);
+  const window =
+    getOrderWindow(
+      date
+    );
 
 
-  const targetKey =
-    dateKey(date);
-
-
-  let minimum =
-    window.start;
-
-
-  if (
-    removePast &&
-    todayKey === targetKey
-  ) {
-
-    const currentMinutes =
-      now.getHours() * 60 +
-      now.getMinutes();
-
-
-    /*
-       Next 30-minute slot
-    */
-
-    minimum =
-      Math.ceil(
-        currentMinutes / 30
-      ) * 30;
-
-
-    minimum =
-      Math.max(
-        minimum,
-        window.start
-      );
-
-  }
+  const options = [];
 
 
   for (
-    let minutes = minimum;
-    minutes <= window.end;
+    let minutes =
+      window.start;
+
+    minutes <=
+      window.end;
+
     minutes += 30
   ) {
 
-    slots.push({
-      minutes,
+    const slot =
+      new Date(
+        date
+      );
+
+
+    slot.setHours(
+      Math.floor(
+        minutes / 60
+      ),
+      minutes % 60,
+      0,
+      0
+    );
+
+
+    if (
+      sameDate(
+        date,
+        now
+      ) &&
+      slot.getTime() <=
+      now.getTime()
+    ) {
+
+      continue;
+
+    }
+
+
+    options.push({
+
       value:
-        formatTime(minutes),
+        slot.toISOString(),
+
       label:
-        formatTime(minutes)
+        formatTime(
+          minutes
+        )
+
     });
 
   }
 
 
-  return slots;
+  return options;
 
 }
 
 
+
 /* =========================================================
-   NORMAL DELIVERY TIME UI
+   DELIVERY TIME UI
 ========================================================= */
 
 function setupDeliveryTimeUI() {
 
-  const input =
-    $('#time');
-
-
-  if (!input) {
-    return;
-  }
-
-
-  let select =
-    input;
-
-
-  if (
-    input.tagName !==
-    'SELECT'
-  ) {
-
-    select =
-      document.createElement(
-        'select'
-      );
-
-
-    select.id =
-      input.id ||
-      'time';
-
-
-    select.name =
-      input.name ||
-      'time';
-
-
-    select.className =
-      input.className ||
-      '';
-
-
-    select.required =
-      true;
-
-
-    input.replaceWith(
-      select
-    );
-
-  }
-
-
-  /*
-     If cart has prebook item,
-     normal delivery time is not used.
-  */
-
-  if (cartHasPrebook()) {
-
-    select.style.display =
-      'none';
-
-    select.required =
-      false;
-
-    select.innerHTML =
-      '';
-
-    return;
-
-  }
-
-
-  select.style.display =
-    '';
-
-
-  select.required =
-    true;
-
-
-  buildDeliveryTimeSlots();
-
-}
-
-
-function buildDeliveryTimeSlots() {
-
   const select =
-    $('#time');
-
-
-  if (!select) {
-    return;
-  }
-
-
-  const current =
-    select.value;
-
-
-  const slots =
-    buildTimeSlots(
-      new Date(),
-      true
+    document.getElementById(
+      'time'
     );
+
+
+  if (!select) return;
 
 
   select.innerHTML = `
@@ -2696,45 +2237,44 @@ function buildDeliveryTimeSlots() {
       Select delivery time
     </option>
 
-    ${slots
-      .map(
-        slot => `
-
-          <option
-            value="${esc(slot.value)}"
-          >
-
-            ${esc(slot.label)}
-
-          </option>
-
-        `
-      )
-      .join('')}
-
   `;
 
 
-  if (
-    current &&
-    slots.some(
-      slot =>
-        slot.value ===
-        current
-    )
-  ) {
-
-    select.value =
-      current;
-
-  }
+  const now =
+    new Date();
 
 
-  select.disabled =
-    slots.length === 0;
+  const options =
+    buildTimeOptions(
+      now
+    );
 
 
-  if (!slots.length) {
+  options.forEach(
+    function (option) {
+
+      const el =
+        document.createElement(
+          'option'
+        );
+
+
+      el.value =
+        option.value;
+
+      el.textContent =
+        option.label;
+
+
+      select.appendChild(
+        el
+      );
+
+    }
+  );
+
+
+  if (!options.length) {
 
     select.innerHTML = `
 
@@ -2746,282 +2286,430 @@ function buildDeliveryTimeSlots() {
 
   }
 
+
+  select.onchange =
+    buildSummary;
+
 }
 
 
+
 /* =========================================================
-   NORMAL TIME → ISO DATETIME
+   PREBOOK
 ========================================================= */
 
-function deliveryTimeToISO(
-  value
-) {
+function buildPrebookUI() {
 
-  const match =
-    String(value || '')
-      .match(
-        /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i
-      );
+  const box =
+    document.getElementById(
+      'prebookBox'
+    );
 
 
-  if (!match) {
-    return null;
-  }
+  const timeBox =
+    document.getElementById(
+      'timeBox'
+    );
 
 
-  let hour =
-    Number(match[1]);
+  if (!box) return;
 
 
-  const minute =
-    Number(match[2]);
+  if (!cartHasPrebook()) {
 
+    box.style.display =
+      'none';
 
-  const period =
-    String(match[3])
-      .toUpperCase();
+    if (timeBox) {
+      timeBox.style.display =
+        'block';
+    }
 
-
-  if (
-    hour < 1 ||
-    hour > 12 ||
-    minute < 0 ||
-    minute > 59
-  ) {
-
-    return null;
+    return;
 
   }
 
 
-  if (
-    period === 'PM' &&
-    hour < 12
-  ) {
+  if (timeBox) {
 
-    hour += 12;
+    timeBox.style.display =
+      'none';
 
   }
 
 
-  if (
-    period === 'AM' &&
-    hour === 12
-  ) {
-
-    hour = 0;
-
-  }
+  box.style.display =
+    'block';
 
 
-  const date =
+  const tomorrow =
     new Date();
 
 
-  date.setHours(
-    hour,
-    minute,
-    0,
-    0
+  tomorrow.setDate(
+    tomorrow.getDate() + 1
   );
 
 
-  return date;
+  const minDate =
+    tomorrow
+      .toISOString()
+      .slice(
+        0,
+        10
+      );
+
+
+  box.innerHTML = `
+
+    <div
+      style="
+        padding:15px;
+        border:1px solid #ddd;
+        border-radius:12px;
+      "
+    >
+
+      <strong>
+        📅 Pre-order
+      </strong>
+
+      <p>
+        This cart contains a pre-order item.
+        Online payment is required.
+      </p>
+
+
+      <label>
+        Pre-order Date
+      </label>
+
+
+      <input
+        id="prebookDate"
+        type="date"
+        min="${minDate}"
+      >
+
+
+      <label>
+        Pre-order Time
+      </label>
+
+
+      <select id="prebookTime">
+
+        <option value="">
+          Select time
+        </option>
+
+      </select>
+
+    </div>
+
+  `;
+
+
+  const date =
+    document.getElementById(
+      'prebookDate'
+    );
+
+
+  const time =
+    document.getElementById(
+      'prebookTime'
+    );
+
+
+  function refresh() {
+
+    if (!date || !time) return;
+
+
+    time.innerHTML = `
+
+      <option value="">
+        Select time
+      </option>
+
+    `;
+
+
+    if (!date.value) {
+      buildSummary();
+      return;
+    }
+
+
+    const selected =
+      new Date(
+        date.value +
+        'T12:00:00'
+      );
+
+
+    buildTimeOptions(
+      selected
+    ).forEach(
+      function (option) {
+
+        const el =
+          document.createElement(
+            'option'
+          );
+
+
+        el.value =
+          option.value;
+
+        el.textContent =
+          option.label;
+
+
+        time.appendChild(
+          el
+        );
+
+      }
+    );
+
+
+    buildSummary();
+
+  }
+
+
+  date.onchange =
+    refresh;
+
+  time.onchange =
+    buildSummary;
 
 }
 
 
+
 /* =========================================================
-   PREBOOK SECTION
+   PAYMENT
 ========================================================= */
 
-function buildPrebookSection() {
+function getPaymentSettings() {
 
-  if (!cartHasPrebook()) {
-    return '';
-  }
+  const payment =
+    configData?.payment ||
+    {};
 
 
-  if (!isPrebookAllowed()) {
+  return {
 
-    return `
+    number:
+      payment.number ||
+      payment.bkash ||
+      payment.nagad ||
+      '01792494275',
 
-      <div
-        style="
-          margin-top:12px;
-          padding:12px;
-          border:1px solid #a44;
-          border-radius:10px;
-        "
-      >
+    bkash:
+      payment.bkash ||
+      payment.number ||
+      '01792494275',
 
-        <b>
-          Pre-order is currently unavailable.
-        </b>
+    nagad:
+      payment.nagad ||
+      payment.number ||
+      '01792494275'
 
-        <small
-          style="
-            display:block;
-            margin-top:5px;
-          "
+  };
+
+}
+
+
+
+function buildPayment() {
+
+  const box =
+    document.getElementById(
+      'pay'
+    );
+
+
+  if (!box) return;
+
+
+  const hasPrebook =
+    cartHasPrebook();
+
+
+  const codAllowed =
+    !!(
+      deliveryInfo &&
+      deliveryInfo.available &&
+      deliveryInfo.cod &&
+      !hasPrebook
+    );
+
+
+  const payment =
+    getPaymentSettings();
+
+
+  let html = `
+
+    <div>
+
+      <p>
+        Select payment method
+      </p>
+
+  `;
+
+
+  if (codAllowed) {
+
+    html += `
+
+      <label>
+        <input
+          type="radio"
+          name="cPayment"
+          value="cod"
+          checked
         >
-
-          Please remove the pre-order item
-          or try again later.
-
-        </small>
-
-      </div>
+        💵 Cash on Delivery
+      </label>
 
     `;
 
   }
 
 
-  const options = [];
+  html += `
+
+      <label>
+        <input
+          type="radio"
+          name="cPayment"
+          value="bkash"
+          ${codAllowed ? '' : 'checked'}
+        >
+        📱 bKash — Send Money
+      </label>
 
 
-  const today =
-    new Date();
+      <label>
+        <input
+          type="radio"
+          name="cPayment"
+          value="nagad"
+        >
+        📱 Nagad — Send Money
+      </label>
 
 
-  for (
-    let i = 1;
-    i <= 14;
-    i++
-  ) {
+      <div
+        id="paymentInstructions"
+        style="margin-top:12px"
+      ></div>
 
-    const date =
-      new Date(today);
+    </div>
+
+  `;
 
 
-    date.setHours(
-      0,
-      0,
-      0,
-      0
+  box.innerHTML =
+    html;
+
+
+  box
+    .querySelectorAll(
+      'input[name="cPayment"]'
+    )
+    .forEach(
+      function (radio) {
+
+        radio.addEventListener(
+          'change',
+          updatePaymentInstructions
+        );
+
+      }
     );
 
 
-    date.setDate(
-      date.getDate() + i
+  updatePaymentInstructions();
+
+}
+
+
+
+function updatePaymentInstructions() {
+
+  const method =
+    document.querySelector(
+      'input[name="cPayment"]:checked'
+    )?.value;
+
+
+  const box =
+    document.getElementById(
+      'paymentInstructions'
     );
 
 
-    options.push(`
+  if (!box) return;
 
-      <option
-        value="${dateKey(date)}"
-      >
 
-        ${esc(
-          formatDateLabel(date)
-        )}
+  const payment =
+    getPaymentSettings();
 
-      </option>
 
-    `);
+  if (method === 'cod') {
+
+    box.innerHTML = `
+
+      <div>
+        💵 Cash on Delivery
+      </div>
+
+    `;
+
+    return;
 
   }
 
 
-  return `
-
-    <div
-      id="prebookSection"
-      style="
-        margin-top:14px;
-        padding:14px;
-        border:1px solid #555;
-        border-radius:12px;
-      "
-    >
-
-      <b>
-        Pre-order
-      </b>
+  const number =
+    method === 'nagad'
+      ? payment.nagad
+      : payment.bkash;
 
 
-      <small
-        style="
-          display:block;
-          margin:6px 0 12px;
-        "
+  box.innerHTML = `
+
+    <div>
+
+      <strong>
+        ${method === 'nagad'
+          ? 'Nagad'
+          : 'bKash'}
+        — Send Money Only
+      </strong>
+
+      <br>
+
+      Number:
+      <strong>
+        ${esc(number)}
+      </strong>
+
+
+      <input
+        id="transactionId"
+        type="text"
+        inputmode="numeric"
+        placeholder="Transaction ID / Last 5 digits *"
+        style="width:100%;margin-top:8px;padding:10px"
       >
-
-        Select your preferred date and time.
-
-      </small>
-
-
-      <label
-        for="prebookDate"
-        style="
-          display:block;
-          margin-bottom:5px;
-        "
-      >
-
-        Select date
-
-      </label>
-
-
-      <select
-        id="prebookDate"
-        style="width:100%;"
-      >
-
-        <option value="">
-          Select date
-        </option>
-
-        ${options.join('')}
-
-      </select>
-
-
-      <label
-        for="prebookTime"
-        style="
-          display:block;
-          margin-top:12px;
-          margin-bottom:5px;
-        "
-      >
-
-        Select time
-
-      </label>
-
-
-      <select
-        id="prebookTime"
-        style="width:100%;"
-        disabled
-      >
-
-        <option value="">
-          Select date first
-        </option>
-
-      </select>
-
-
-      <small
-        id="prebookHint"
-        style="
-          display:block;
-          margin-top:8px;
-          opacity:.8;
-        "
-      >
-
-        Available:
-        Opening +1 hour →
-        Closing −1 hour.
-
-      </small>
 
     </div>
 
@@ -3030,266 +2718,355 @@ function buildPrebookSection() {
 }
 
 
+
 /* =========================================================
-   PREBOOK TIMES
+   SUMMARY
 ========================================================= */
 
-function buildPrebookTimes() {
+function buildSummary() {
 
-  const dateSelect =
-    $('#prebookDate');
-
-
-  const timeSelect =
-    $('#prebookTime');
-
-
-  const hint =
-    $('#prebookHint');
-
-
-  if (
-    !dateSelect ||
-    !timeSelect
-  ) {
-
-    return;
-
-  }
-
-
-  const key =
-    dateSelect.value;
-
-
-  if (!key) {
-
-    timeSelect.innerHTML =
-      '<option value="">Select date first</option>';
-
-    timeSelect.disabled =
-      true;
-
-    return;
-
-  }
-
-
-  const date =
-    dateFromKey(key);
-
-
-  if (!date) {
-
-    timeSelect.innerHTML =
-      '<option value="">Invalid date</option>';
-
-    timeSelect.disabled =
-      true;
-
-    return;
-
-  }
-
-
-  const slots =
-    buildTimeSlots(
-      date,
-      false
+  const box =
+    document.getElementById(
+      'sum'
     );
 
 
-  timeSelect.innerHTML = `
+  if (!box) return;
 
-    <option value="">
-      Select time
-    </option>
 
-    ${slots
-      .map(
-        slot => `
+  const subtotal =
+    getSubtotal();
 
-          <option
-            value="${slot.minutes}"
-          >
 
-            ${esc(
-              slot.label
-            )}
+  const delivery =
+    deliveryInfo?.available
+      ? Number(
+          deliveryInfo.charge ||
+          0
+        )
+      : 0;
 
-          </option>
 
-        `
-      )
-      .join('')}
+  const total =
+    subtotal +
+    delivery;
+
+
+  box.innerHTML = `
+
+    <div
+      style="
+        margin-top:15px;
+        padding:15px;
+        border:1px solid #ddd;
+        border-radius:12px;
+      "
+    >
+
+      <div>
+        Subtotal:
+        <strong>
+          ${money(subtotal)}
+        </strong>
+      </div>
+
+
+      <div>
+        Delivery:
+        <strong>
+          ${
+            deliveryInfo
+              ? money(delivery)
+              : 'Select location'
+          }
+        </strong>
+      </div>
+
+
+      <hr>
+
+
+      <div>
+        <strong>
+          Total:
+          ${money(total)}
+        </strong>
+      </div>
+
+    </div>
 
   `;
 
-
-  timeSelect.disabled =
-    slots.length === 0;
+}
 
 
-  const window =
-    getOrderWindow(date);
 
+/* =========================================================
+   CHECKOUT
+========================================================= */
 
-  if (hint) {
+function checkout() {
 
-    hint.textContent =
-      slots.length
+  if (!cartData.length) {
 
-        ? (
-            'Available: ' +
-            formatTime(window.start) +
-            ' – ' +
-            formatTime(window.end) +
-            ' • 30-minute slots'
-          )
+    alert(
+      'Your cart is empty.'
+    );
 
-        : 'No available time slots for this date.';
+    return;
 
   }
+
+
+  if (!requireLogin()) {
+
+    return;
+
+  }
+
+
+  closeCart();
+
+
+  const modal =
+    document.getElementById(
+      'modal'
+    );
+
+
+  if (!modal) return;
+
+
+  modal.style.display =
+    'block';
+
+
+  modal.setAttribute(
+    'aria-hidden',
+    'false'
+  );
+
+
+  const customer =
+    getCustomer();
+
+
+  if (customer) {
+
+    const name =
+      document.getElementById(
+        'name'
+      );
+
+    const phone =
+      document.getElementById(
+        'phone'
+      );
+
+    const email =
+      document.getElementById(
+        'email'
+      );
+
+
+    if (name) {
+      name.value =
+        customer.name ||
+        '';
+    }
+
+
+    if (phone) {
+      phone.value =
+        customer.mobile ||
+        customer.phone ||
+        '';
+    }
+
+
+    if (email) {
+      email.value =
+        customer.email ||
+        '';
+    }
+
+  }
+
+
+  initMap();
+
+  setupDeliveryTimeUI();
+
+  buildPrebookUI();
+
+  buildPayment();
+
+  buildSummary();
 
 }
 
 
-/* =========================================================
-   PREBOOK EVENTS
-========================================================= */
 
-function setupPrebookEvents() {
+function closeCheckout() {
 
-  const dateSelect =
-    $('#prebookDate');
-
-
-  const timeSelect =
-    $('#prebookTime');
+  const modal =
+    document.getElementById(
+      'modal'
+    );
 
 
-  if (
-    !dateSelect ||
-    !timeSelect
-  ) {
-
-    return;
-
-  }
+  if (!modal) return;
 
 
-  if (
-    dateSelect.dataset.bound ===
-    '1'
-  ) {
-
-    return;
-
-  }
+  modal.style.display =
+    'none';
 
 
-  dateSelect.dataset.bound =
-    '1';
-
-
-  dateSelect.addEventListener(
-    'change',
-    buildPrebookTimes
+  modal.setAttribute(
+    'aria-hidden',
+    'true'
   );
 
 }
 
 
+
 /* =========================================================
-   PREBOOK VALIDATION
+   VALIDATE DELIVERY TIME
 ========================================================= */
 
-function validatePrebookTime() {
-
-  if (!cartHasPrebook()) {
-
-    return {
-      ok: true,
-      value: null
-    };
-
-  }
-
-
-  if (!isPrebookAllowed()) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Pre-booking is currently disabled.'
-
-    };
-
-  }
-
-
-  const dateSelect =
-    $('#prebookDate');
-
-
-  const timeSelect =
-    $('#prebookTime');
-
+function validateDeliveryTime() {
 
   if (
-    !dateSelect ||
-    !timeSelect
+    cartHasPrebook()
   ) {
+
+    const date =
+      document.getElementById(
+        'prebookDate'
+      )?.value;
+
+    const time =
+      document.getElementById(
+        'prebookTime'
+      )?.value;
+
+
+    if (!date || !time) {
+
+      return {
+        ok: false,
+        message:
+          'Please select pre-order date and time.'
+      };
+
+    }
+
+
+    const value =
+      new Date(time);
+
+
+    if (
+      Number.isNaN(
+        value.getTime()
+      )
+    ) {
+
+      return {
+        ok: false,
+        message:
+          'Invalid pre-order time.'
+      };
+
+    }
+
+
+    if (
+      value.getTime() <=
+      Date.now()
+    ) {
+
+      return {
+        ok: false,
+        message:
+          'Pre-order time must be in the future.'
+      };
+
+    }
+
+
+    const minutes =
+      value.getHours() *
+      60 +
+      value.getMinutes();
+
+
+    if (
+      minutes % 30 !== 0
+    ) {
+
+      return {
+        ok: false,
+        message:
+          'Please select a 30-minute slot.'
+      };
+
+    }
+
+
+    const window =
+      getOrderWindow(
+        value
+      );
+
+
+    if (
+      minutes <
+        window.start ||
+      minutes >
+        window.end
+    ) {
+
+      return {
+        ok: false,
+        message:
+          'Selected time is outside shop delivery hours.'
+      };
+
+    }
+
 
     return {
 
-      ok: false,
+      ok: true,
 
-      message:
-        'Please select a pre-order date and time.'
+      value:
+        value.toISOString()
 
     };
 
   }
 
 
-  const key =
-    dateSelect.value;
-
-
-  const minutes =
-    Number(
-      timeSelect.value
+  const select =
+    document.getElementById(
+      'time'
     );
 
 
-  if (!key) {
+  const value =
+    select?.value;
+
+
+  if (!value) {
 
     return {
 
       ok: false,
 
       message:
-        'Please select a pre-order date.'
-
-    };
-
-  }
-
-
-  if (
-    !timeSelect.value ||
-    !Number.isFinite(minutes)
-  ) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Please select a pre-order time.'
+        'Please select delivery time.'
 
     };
 
@@ -3297,31 +3074,13 @@ function validatePrebookTime() {
 
 
   const date =
-    dateFromKey(key);
-
-
-  if (!date) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Invalid pre-order date.'
-
-    };
-
-  }
-
-
-  const window =
-    getOrderWindow(date);
+    new Date(value);
 
 
   if (
-    minutes < window.start ||
-    minutes > window.end ||
-    minutes % 30 !== 0
+    Number.isNaN(
+      date.getTime()
+    )
   ) {
 
     return {
@@ -3329,23 +3088,11 @@ function validatePrebookTime() {
       ok: false,
 
       message:
-        'Selected time is outside the allowed pre-order window. Available: ' +
-        formatTime(window.start) +
-        ' – ' +
-        formatTime(window.end) +
-        '.'
+        'Invalid delivery time.'
 
     };
 
   }
-
-
-  date.setHours(
-    Math.floor(minutes / 60),
-    minutes % 60,
-    0,
-    0
-  );
 
 
   if (
@@ -3358,7 +3105,54 @@ function validatePrebookTime() {
       ok: false,
 
       message:
-        'Please select a future pre-order time.'
+        'Please select a future delivery slot.'
+
+    };
+
+  }
+
+
+  const minutes =
+    date.getHours() *
+    60 +
+    date.getMinutes();
+
+
+  if (
+    minutes % 30 !== 0
+  ) {
+
+    return {
+
+      ok: false,
+
+      message:
+        'Delivery time must be a 30-minute slot.'
+
+    };
+
+  }
+
+
+  const window =
+    getOrderWindow(
+      date
+    );
+
+
+  if (
+    minutes <
+      window.start ||
+    minutes >
+      window.end
+  ) {
+
+    return {
+
+      ok: false,
+
+      message:
+        'Selected delivery time is outside allowed hours.'
 
     };
 
@@ -3377,607 +3171,6 @@ function validatePrebookTime() {
 }
 
 
-/* =========================================================
-   PAYMENT NUMBERS
-========================================================= */
-
-function getPaymentNumbers() {
-
-  const payment =
-    C?.settings?.payment || {};
-
-
-  return {
-
-    bkash:
-      payment.bkash ||
-      payment.bkashNumber ||
-      'Not configured',
-
-    nagad:
-      payment.nagad ||
-      payment.nagadNumber ||
-      'Not configured'
-
-  };
-
-}
-
-
-/* =========================================================
-   PAYMENT UI
-========================================================= */
-
-function pay() {
-
-  const box =
-    $('#pay');
-
-
-  if (!box) {
-    return;
-  }
-
-
-  if (!loc?.allowed) {
-
-    box.innerHTML = `
-
-      <b>
-        Select a delivery point inside the service area.
-      </b>
-
-    `;
-
-    return;
-
-  }
-
-
-  const hasPrebook =
-    cartHasPrebook();
-
-
-  if (
-    hasPrebook &&
-    !isPrebookAllowed()
-  ) {
-
-    box.innerHTML = `
-
-      <b>
-        Pre-booking is currently unavailable.
-      </b>
-
-      <p>
-        Please remove the pre-order item
-        or try again later.
-      </p>
-
-    `;
-
-    return;
-
-  }
-
-
-  const payment =
-    getPaymentNumbers();
-
-
-  box.innerHTML = `
-
-    <b>
-      Payment method
-    </b>
-
-
-    <select
-      id="paymentMethod"
-      style="
-        width:100%;
-        margin-top:8px;
-      "
-    >
-
-      <option value="">
-        Select payment method
-      </option>
-
-
-      ${
-        !hasPrebook && loc.cod
-          ? `
-
-            <option value="COD">
-              Cash on Delivery
-            </option>
-
-          `
-          : ''
-      }
-
-
-      <option value="bKash">
-        bKash — Send Money Only
-      </option>
-
-
-      <option value="Nagad">
-        Nagad — Send Money Only
-      </option>
-
-    </select>
-
-
-    <div
-      id="paymentInfo"
-      style="margin-top:10px;"
-    ></div>
-
-
-    <div
-      id="txWrap"
-      style="
-        display:none;
-        margin-top:10px;
-      "
-    >
-
-      <input
-        id="tx"
-        placeholder="Transaction ID / last 5 digits *"
-      >
-
-    </div>
-
-
-    ${
-      !hasPrebook
-        ? `
-
-          <small
-            style="
-              display:block;
-              margin-top:8px;
-            "
-          >
-
-            ${
-              loc.cod
-                ? 'Cash on Delivery is available at this location.'
-                : 'COD is unavailable at this location. Please pay online.'
-            }
-
-          </small>
-
-        `
-        : ''
-    }
-
-
-    ${
-      hasPrebook
-        ? buildPrebookSection()
-        : ''
-    }
-
-  `;
-
-
-  setupPaymentEvents();
-
-
-  if (hasPrebook) {
-
-    setupPrebookEvents();
-
-  }
-
-
-  updatePaymentUI();
-
-
-  /*
-     Prebook date/time should appear immediately.
-  */
-
-  if (hasPrebook) {
-
-    const dateSelect =
-      $('#prebookDate');
-
-
-    if (dateSelect) {
-
-      dateSelect.value =
-        '';
-
-
-      buildPrebookTimes();
-
-    }
-
-  }
-
-}
-
-
-/* =========================================================
-   PAYMENT EVENTS
-========================================================= */
-
-function setupPaymentEvents() {
-
-  const select =
-    $('#paymentMethod');
-
-
-  if (!select) {
-    return;
-  }
-
-
-  select.addEventListener(
-    'change',
-    updatePaymentUI
-  );
-
-}
-
-
-/* =========================================================
-   PAYMENT UI UPDATE
-========================================================= */
-
-function updatePaymentUI() {
-
-  const select =
-    $('#paymentMethod');
-
-
-  const txWrap =
-    $('#txWrap');
-
-
-  const tx =
-    $('#tx');
-
-
-  const info =
-    $('#paymentInfo');
-
-
-  if (!select) {
-    return;
-  }
-
-
-  const method =
-    select.value;
-
-
-  const payment =
-    getPaymentNumbers();
-
-
-  const online =
-    method === 'bKash' ||
-    method === 'Nagad';
-
-
-  if (txWrap) {
-
-    txWrap.style.display =
-      online
-        ? 'block'
-        : 'none';
-
-  }
-
-
-  if (tx) {
-
-    tx.required =
-      online;
-
-    if (!online) {
-
-      tx.value =
-        '';
-
-    }
-
-  }
-
-
-  if (!info) {
-    return;
-  }
-
-
-  if (method === 'bKash') {
-
-    info.innerHTML = `
-
-      <div class="payment">
-
-        <b>
-          bKash Personal — Send Money Only
-        </b>
-
-        <br>
-
-        ${esc(payment.bkash)}
-
-        <br>
-
-        <small>
-
-          Send Money to this number and enter
-          your transaction ID or last 5 digits below.
-
-        </small>
-
-      </div>
-
-    `;
-
-  } else if (
-    method === 'Nagad'
-  ) {
-
-    info.innerHTML = `
-
-      <div class="payment">
-
-        <b>
-          Nagad Personal — Send Money Only
-        </b>
-
-        <br>
-
-        ${esc(payment.nagad)}
-
-        <br>
-
-        <small>
-
-          Send Money to this number and enter
-          your transaction ID or last 5 digits below.
-
-        </small>
-
-      </div>
-
-    `;
-
-  } else if (
-    method === 'COD'
-  ) {
-
-    info.innerHTML = `
-
-      <div class="payment">
-
-        <b>
-          Cash on Delivery
-        </b>
-
-        <br>
-
-        Transaction ID is not required.
-
-      </div>
-
-    `;
-
-  } else {
-
-    info.innerHTML =
-      '';
-
-  }
-
-}
-
-
-/* =========================================================
-   SUMMARY
-========================================================= */
-
-function sum() {
-
-  const subtotal =
-    getSubtotal();
-
-
-  const delivery =
-    loc?.allowed
-      ? getNumber(
-          loc.charge,
-          0
-        )
-      : 0;
-
-
-  const box =
-    $('#sum');
-
-
-  if (!box) {
-    return;
-  }
-
-
-  box.innerHTML = `
-
-    <p>
-      Subtotal:
-      <b>
-        ${money(subtotal)}
-      </b>
-    </p>
-
-
-    <p>
-      Delivery:
-      <b>
-        ${
-          loc?.allowed
-            ? money(delivery)
-            : '—'
-        }
-      </b>
-    </p>
-
-
-    <p>
-      Total:
-      <b>
-        ${
-          loc?.allowed
-            ? money(
-                subtotal +
-                delivery
-              )
-            : '—'
-        }
-      </b>
-    </p>
-
-  `;
-
-}
-
-
-/* =========================================================
-   NORMAL DELIVERY TIME VALIDATION
-========================================================= */
-
-function validateDeliveryTime() {
-
-  const select =
-    $('#time');
-
-
-  const value =
-    select?.value?.trim() ||
-    '';
-
-
-  if (!value) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Please select a delivery time.'
-
-    };
-
-  }
-
-
-  const date =
-    deliveryTimeToISO(value);
-
-
-  if (!date) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Please select a valid delivery time.'
-
-    };
-
-  }
-
-
-  const window =
-    getOrderWindow(
-      new Date()
-    );
-
-
-  const requested =
-    date.getHours() * 60 +
-    date.getMinutes();
-
-
-  if (
-    date.getMinutes() !== 0 &&
-    date.getMinutes() !== 30
-  ) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Delivery time must be a 30-minute slot.'
-
-    };
-
-  }
-
-
-  if (
-    requested < window.start ||
-    requested > window.end
-  ) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Selected delivery time is outside the available order window. Available today: ' +
-        formatTime(window.start) +
-        ' – ' +
-        formatTime(window.end) +
-        '.'
-
-    };
-
-  }
-
-
-  if (
-    date.getTime() <=
-    Date.now()
-  ) {
-
-    return {
-
-      ok: false,
-
-      message:
-        'Please select a future delivery time.'
-
-    };
-
-  }
-
-
-  return {
-
-    ok: true,
-
-    value:
-      date.toISOString(),
-
-    display:
-      value
-
-  };
-
-}
-
 
 /* =========================================================
    PLACE ORDER
@@ -3985,18 +3178,12 @@ function validateDeliveryTime() {
 
 async function place() {
 
-  if (!C) {
-
-    alert(
-      'Website is still loading. Please try again.'
-    );
-
+  if (!requireLogin()) {
     return;
-
   }
 
 
-  if (!cart.length) {
+  if (!cartData.length) {
 
     alert(
       'Your cart is empty.'
@@ -4007,53 +3194,9 @@ async function place() {
   }
 
 
-  /* -------------------------------------------------------
-     LOGIN
-  ------------------------------------------------------- */
-
-  if (!requireLoggedCustomer()) {
-    return;
-  }
-
-
-  const token =
-    getLoggedCustomerToken();
-
-
-  if (!token) {
-
-    alert(
-      'Your customer login session has expired. Please login again.'
-    );
-
-
-    openCustomerLogin('login');
-
-    return;
-
-  }
-
-
-  /* -------------------------------------------------------
-     LOCATION
-  ------------------------------------------------------- */
-
-  if (!loc?.allowed) {
-
-    alert(
-      'Please select a delivery location inside the service area.'
-    );
-
-    return;
-
-  }
-
-
-  const position =
-    marker?.getLatLng();
-
-
-  if (!position) {
+  if (
+    !selectedLocation
+  ) {
 
     alert(
       'Please select your delivery location.'
@@ -4064,21 +3207,21 @@ async function place() {
   }
 
 
-  const lat =
-    Number(position.lat);
+  if (
+    !deliveryInfo
+  ) {
 
+    await checkLocation();
 
-  const lng =
-    Number(position.lng);
+  }
 
 
   if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng)
+    !deliveryInfo?.available
   ) {
 
     alert(
-      'Invalid delivery location.'
+      'Your delivery location is outside the 4 km delivery area.'
     );
 
     return;
@@ -4086,143 +3229,109 @@ async function place() {
   }
 
 
-  /* -------------------------------------------------------
-     CUSTOMER
-  ------------------------------------------------------- */
+  const customer =
+    getCustomer() || {};
+
 
   const name =
-    $('#name')?.value.trim() ||
-    '';
+    document.getElementById(
+      'name'
+    )?.value.trim();
 
 
   const phone =
-    $('#phone')?.value.trim() ||
-    '';
+    document.getElementById(
+      'phone'
+    )?.value.trim();
 
 
-  if (!name) {
+  const house =
+    document.getElementById(
+      'house'
+    )?.value.trim();
+
+
+  const road =
+    document.getElementById(
+      'road'
+    )?.value.trim();
+
+
+  const note =
+    document.getElementById(
+      'note'
+    )?.value.trim();
+
+
+  if (!name || !phone) {
 
     alert(
-      'Customer name is required.'
+      'Customer name and phone are required.'
     );
-
-    $('#name')?.focus();
 
     return;
 
   }
-
-
-  if (!phone) {
-
-    alert(
-      'Phone number is required.'
-    );
-
-    $('#phone')?.focus();
-
-    return;
-
-  }
-
-
-  const data =
-    getLoggedCustomerData();
 
 
   const accountPhone =
-    data?.phone ||
-    data?.mobile ||
-    '';
+    String(
+      customer.mobile ||
+      customer.phone ||
+      ''
+    ).replace(
+      /\D/g,
+      ''
+    );
+
+
+  const enteredPhone =
+    String(
+      phone
+    ).replace(
+      /\D/g,
+      ''
+    );
 
 
   if (
     accountPhone &&
-    String(accountPhone).trim() !==
-      String(phone).trim()
+    enteredPhone !==
+    accountPhone
   ) {
 
     alert(
-      'The phone number must match your logged-in customer account.'
+      'Please use the mobile number linked to your customer account.'
     );
-
-    $('#phone')?.focus();
 
     return;
 
   }
 
 
-  /* -------------------------------------------------------
-     PREBOOK
-  ------------------------------------------------------- */
-
-  const hasPrebook =
-    cartHasPrebook();
+  const timeResult =
+    validateDeliveryTime();
 
 
-  let deliveryTime = '';
-  let prebookDateTime = null;
+  if (!timeResult.ok) {
 
+    alert(
+      timeResult.message
+    );
 
-  if (hasPrebook) {
-
-    const validation =
-      validatePrebookTime();
-
-
-    if (!validation.ok) {
-
-      alert(
-        validation.message
-      );
-
-      return;
-
-    }
-
-
-    deliveryTime =
-      validation.value;
-
-
-    prebookDateTime =
-      validation.value;
-
-  } else {
-
-    const validation =
-      validateDeliveryTime();
-
-
-    if (!validation.ok) {
-
-      alert(
-        validation.message
-      );
-
-      return;
-
-    }
-
-
-    deliveryTime =
-      validation.value;
+    return;
 
   }
 
 
-  /* -------------------------------------------------------
-     PAYMENT
-  ------------------------------------------------------- */
-
-  const paymentSelect =
-    $('#paymentMethod');
-
-
   const paymentMethod =
-    paymentSelect?.value ||
-    '';
+    document.querySelector(
+      'input[name="cPayment"]:checked'
+    )?.value;
+
+
+  const hasPrebook =
+    cartHasPrebook();
 
 
   if (!paymentMethod) {
@@ -4231,236 +3340,194 @@ async function place() {
       'Please select a payment method.'
     );
 
-    paymentSelect?.focus();
-
     return;
 
   }
 
-
-  /* PREBOOK ONLINE ONLY */
 
   if (
     hasPrebook &&
-    paymentMethod !== 'bKash' &&
-    paymentMethod !== 'Nagad'
+    paymentMethod === 'cod'
   ) {
 
     alert(
-      'Pre-order items require bKash or Nagad online payment.'
-    );
-
-    paymentSelect?.focus();
-
-    return;
-
-  }
-
-
-  /* COD ONLY INSIDE COD ZONE */
-
-  if (
-    paymentMethod === 'COD' &&
-    (
-      hasPrebook ||
-      !loc.cod
-    )
-  ) {
-
-    alert(
-      'Cash on Delivery is not available for this order.'
+      'Pre-order items require online payment.'
     );
 
     return;
 
   }
-
-
-  /* -------------------------------------------------------
-     TRANSACTION
-  ------------------------------------------------------- */
-
-  const online =
-    paymentMethod === 'bKash' ||
-    paymentMethod === 'Nagad';
-
-
-  const tx =
-    $('#tx')?.value.trim() ||
-    '';
 
 
   if (
-    online &&
-    !tx
+    !deliveryInfo.cod &&
+    paymentMethod === 'cod'
   ) {
 
     alert(
-      'Please enter your bKash/Nagad transaction ID or last 5 digits.'
+      'COD is not available at this location.'
     );
-
-    $('#tx')?.focus();
 
     return;
 
   }
 
 
-  const transactionId =
-    online
-      ? tx
-      : '';
+  let transactionId = '';
 
 
-  /* -------------------------------------------------------
-     ADDRESS
-  ------------------------------------------------------- */
+  if (
+    paymentMethod ===
+      'bkash' ||
+    paymentMethod ===
+      'nagad'
+  ) {
 
-  const house =
-    $('#house')?.value.trim() ||
-    '';
-
-
-  const road =
-    $('#road')?.value.trim() ||
-    '';
-
-
-  const note =
-    $('#note')?.value.trim() ||
-    '';
+    transactionId =
+      document
+        .getElementById(
+          'transactionId'
+        )
+        ?.value
+        .trim() || '';
 
 
-  const mapAddress =
-    $('#mapAddress')?.value.trim() ||
-    $('#address')?.value.trim() ||
-    '';
+    if (
+      !transactionId
+    ) {
+
+      alert(
+        'Please enter your transaction ID / last 5 digits.'
+      );
+
+      return;
+
+    }
 
 
-  const addressParts = [];
+    if (
+      !/^\d{5,50}$/.test(
+        transactionId
+      )
+    ) {
 
+      alert(
+        'Transaction ID must contain 5–50 digits.'
+      );
 
-  if (house) {
-    addressParts.push(house);
+      return;
+
+    }
+
   }
 
-
-  if (road) {
-    addressParts.push(road);
-  }
-
-
-  if (mapAddress) {
-    addressParts.push(mapAddress);
-  }
-
-
-  const finalAddress =
-    addressParts.join(', ');
-
-
-  /* -------------------------------------------------------
-     ITEMS
-  ------------------------------------------------------- */
 
   const items =
-    cart.map(item => {
+    getCartItemsDetailed()
+      .map(
+        function (row) {
 
-      return {
+          return {
 
-        id:
-          item.id,
+            productId:
+              row.product.id,
 
-        sizeIndex:
-          Number(
-            item.sizeIndex || 0
-          ),
+            id:
+              row.product.id,
 
-        qty:
-          Number(
-            item.qty || 1
-          )
+            name:
+              row.product.name,
 
-      };
+            qty:
+              Number(
+                row.item.qty || 1
+              ),
 
-    });
+            sizeIndex:
+              row.pricing.sizeIndex,
+
+            choice:
+              row.pricing.label,
+
+            price:
+              row.pricing.price
+
+          };
+
+        }
+      );
 
 
-  /* -------------------------------------------------------
-     ORDER OBJECT
-  ------------------------------------------------------- */
+  const payload = {
 
-  const order = {
+    customer: {
 
-    name,
+      name,
 
-    phone,
+      phone,
 
-    address:
-      finalAddress,
+      email:
+        customer.email || ''
 
-    lat,
+    },
 
-    lng,
 
-    deliveryTime,
+    items,
 
-    prebook:
-      hasPrebook,
 
-    prebookDateTime,
+    lat:
+      selectedLocation.lat,
 
-    note,
+    lng:
+      selectedLocation.lng,
 
-    transactionId,
+
+    deliveryLocation: {
+
+      lat:
+        selectedLocation.lat,
+
+      lng:
+        selectedLocation.lng,
+
+      house,
+
+      road
+
+    },
+
+
+    deliveryTime:
+      timeResult.value,
+
 
     paymentMethod,
 
-    items
+
+    transactionId,
+
+
+    note
 
   };
 
 
-  console.log(
-    'Submitting order:',
-    order
-  );
-
-
-  /* -------------------------------------------------------
-     BUTTON
-  ------------------------------------------------------- */
-
   const button =
-    $('#place');
-
-
-  if (!button) {
-
-    alert(
-      'Place Order button was not found.'
+    document.getElementById(
+      'place'
     );
 
-    return;
+
+  if (button) {
+
+    button.disabled =
+      true;
+
+    button.textContent =
+      'Placing Order...';
 
   }
 
-
-  const oldText =
-    button.textContent;
-
-
-  button.disabled =
-    true;
-
-
-  button.textContent =
-    'Placing order…';
-
-
-  /* -------------------------------------------------------
-     SEND
-  ------------------------------------------------------- */
 
   try {
 
@@ -4469,289 +3536,166 @@ async function place() {
         '/api/orders',
         {
 
-          method:
-            'POST',
+          method: 'POST',
 
           headers: {
 
             'Content-Type':
               'application/json',
 
-            'Authorization':
-              'Bearer ' +
-              token
+            Authorization:
+              `Bearer ${getToken()}`
 
           },
 
           body:
-            JSON.stringify(order)
+            JSON.stringify(
+              payload
+            )
 
         }
       );
 
 
-    let result = {};
+    const data =
+      await response.json();
 
-
-    try {
-
-      result =
-        await response.json();
-
-    } catch (_) {}
-
-
-    /* -----------------------------------------------------
-       SESSION EXPIRED
-    ----------------------------------------------------- */
 
     if (
-      response.status === 401 ||
-      response.status === 403
+      response.status ===
+      401
     ) {
 
-      try {
+      if (
+        typeof window.openAuthModal ===
+        'function'
+      ) {
 
-        if (
-          typeof window.clearCustomerSession ===
-          'function'
-        ) {
+        window.openAuthModal(
+          'login'
+        );
 
-          window.clearCustomerSession();
+      }
 
-        } else {
-
-          localStorage.removeItem(
-            'csk_customer_token'
-          );
-
-          localStorage.removeItem(
-            'csk_customer_data'
-          );
-
-        }
-
-      } catch (_) {}
-
-
-      alert(
-        'Your login session has expired. Please login again.'
+      throw new Error(
+        'Your login session has expired.'
       );
-
-
-      button.disabled =
-        false;
-
-
-      button.textContent =
-        oldText;
-
-
-      openCustomerLogin(
-        'login'
-      );
-
-
-      return;
 
     }
 
-
-    /* -----------------------------------------------------
-       ERROR
-    ----------------------------------------------------- */
 
     if (
       !response.ok ||
-      result.error
+      !data.ok
     ) {
 
       throw new Error(
-        result.error ||
-        result.message ||
-        'Unable to place order.'
+        data.message ||
+        'Order could not be placed.'
       );
 
     }
 
 
-    /* -----------------------------------------------------
-       SUCCESS
-    ----------------------------------------------------- */
+    cartData = [];
 
-    const orderResult =
-      result.order || {};
+    saveCart();
 
 
-    const resultBox =
-      $('#result');
+    const result =
+      document.getElementById(
+        'result'
+      );
 
 
-    if (resultBox) {
+    if (result) {
 
-      resultBox.innerHTML = `
+      result.innerHTML = `
 
-        <p
+        <div
           style="
-            border:1px solid #475;
-            padding:12px;
-            border-radius:10px;
+            padding:15px;
+            margin-top:15px;
+            border-radius:12px;
+            border:1px solid #ccc;
           "
         >
 
-          <b>
-            Order placed successfully!
-          </b>
+          <h3>
+            ✅ Order Placed Successfully
+          </h3>
 
-          <br><br>
+          <p>
+            Order ID:
+            <strong>
+              ${esc(
+                data.order?.id ||
+                data.orderId ||
+                ''
+              )}
+            </strong>
+          </p>
 
-          Order ID:
+          <p>
+            Delivery Time:
+            <strong>
+              ${new Date(
+                timeResult.value
+              ).toLocaleString(
+                'en-BD',
+                {
+                  dateStyle:
+                    'medium',
 
-          <b>
-            ${esc(
-              orderResult.id ||
-              orderResult.orderId ||
-              'Confirmed'
-            )}
-          </b>
+                  timeStyle:
+                    'short'
+                }
+              )}
+            </strong>
+          </p>
 
-          <br>
-
-          Total:
-
-          <b>
-            ${money(
-              orderResult.total ||
-              orderResult.grandTotal ||
-              0
-            )}
-          </b>
-
-          <br>
-
-          Payment:
-
-          <b>
-            ${esc(
-              orderResult.paymentMethod ||
-              paymentMethod
-            )}
-          </b>
-
-
-          ${
-            deliveryTime
-              ? `
-
-                <br>
-
-                Delivery:
-
-                <b>
-
-                  ${
-                    hasPrebook
-
-                      ? esc(
-                          new Date(
-                            deliveryTime
-                          ).toLocaleString(
-                            'en-BD',
-                            {
-                              dateStyle:
-                                'medium',
-
-                              timeStyle:
-                                'short'
-                            }
-                          )
-                        )
-
-                      : esc(
-                          $('#time')?.value ||
-                          ''
-                        )
-                  }
-
-                </b>
-
-              `
-              : ''
-          }
-
-        </p>
+        </div>
 
       `;
 
     }
 
 
-    /* -----------------------------------------------------
-       CLEAR CART
-    ----------------------------------------------------- */
+    setTimeout(
+      function () {
 
-    cart = [];
+        closeCheckout();
 
+        window.location.reload();
 
-    save();
-
-
-    button.disabled =
-      true;
-
-
-    button.textContent =
-      'Order Placed';
+      },
+      2500
+    );
 
 
   } catch (error) {
 
-    console.error(
-      'Place order error:',
-      error
-    );
-
-
     alert(
       error.message ||
-      'Unable to place order. Please try again.'
+      'Order failed.'
     );
 
+  } finally {
 
-    button.disabled =
-      false;
+    if (button) {
 
+      button.disabled =
+        false;
 
-    button.textContent =
-      oldText;
+      button.textContent =
+        'Place Order';
+
+    }
 
   }
 
 }
 
-
-/* =========================================================
-   BACKWARD COMPATIBILITY
-========================================================= */
-
-async function placeOrder(
-  event
-) {
-
-  if (event) {
-    event.preventDefault();
-  }
-
-  return place();
-
-}
-
-
-function gpsLocation() {
-
-  return gps();
-
-}
 
 
 /* =========================================================
@@ -4759,186 +3703,67 @@ function gpsLocation() {
 ========================================================= */
 
 document.addEventListener(
-  'input',
-  event => {
+  'DOMContentLoaded',
+  function () {
 
-    if (
-      event.target &&
-      event.target.id ===
-      'search'
-    ) {
-
-      render();
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   CATEGORY BUTTONS
-========================================================= */
-
-document.addEventListener(
-  'click',
-  event => {
-
-    const button =
-      event.target.closest(
-        '[data-cat]'
+    const search =
+      document.getElementById(
+        'search'
       );
 
 
-    if (!button) {
-      return;
-    }
+    if (search) {
 
-
-    cat =
-      button.dataset.cat ||
-      'All';
-
-
-    render();
-
-  }
-);
-
-
-/* =========================================================
-   CHECKOUT FORM
-========================================================= */
-
-document.addEventListener(
-  'submit',
-  event => {
-
-    const form =
-      event.target;
-
-
-    if (
-      form &&
-      (
-        form.id === 'checkoutForm' ||
-        form.id === 'checkout'
-      )
-    ) {
-
-      event.preventDefault();
-
-      place();
-
-    }
-
-  }
-);
-
-
-/* =========================================================
-   ESC KEY
-========================================================= */
-
-document.addEventListener(
-  'keydown',
-  event => {
-
-    if (
-      event.key !==
-      'Escape'
-    ) {
-
-      return;
-
-    }
-
-
-    try {
-      closeCart();
-    } catch (_) {}
-
-
-    try {
-      closeCheckout();
-    } catch (_) {}
-
-
-    try {
-
-      if (
-        typeof window.closeAuthModal ===
-        'function'
-      ) {
-
-        window.closeAuthModal();
-
-      }
-
-    } catch (_) {}
-
-  }
-);
-
-
-/* =========================================================
-   AUTO REFRESH DELIVERY SLOTS
-========================================================= */
-
-setInterval(
-  () => {
-
-    try {
-
-      if (
-        !$('#modal')?.classList.contains(
-          'open'
-        )
-      ) {
-
-        return;
-
-      }
-
-
-      const time =
-        $('#time');
-
-
-      if (
-        time &&
-        time.tagName ===
-        'SELECT' &&
-        !cartHasPrebook()
-      ) {
-
-        buildDeliveryTimeSlots();
-
-      }
-
-    } catch (error) {
-
-      console.error(
-        'Delivery slot refresh error:',
-        error
+      search.addEventListener(
+        'input',
+        render
       );
 
     }
 
-  },
-  60000
+  }
 );
 
 
+
 /* =========================================================
-   GLOBAL FUNCTIONS
+   INITIALIZE
 ========================================================= */
 
-window.openCustomerLogin =
-  openCustomerLogin;
+document.addEventListener(
+  'DOMContentLoaded',
+  async function () {
 
-window.checkout =
-  checkout;
+    cartUI();
+
+    updateCartCount();
+
+    await loadConfig();
+
+    await loadMenu();
+
+  }
+);
+
+
+
+/* =========================================================
+   EXPORTS
+   IMPORTANT:
+   NO CUSTOMER AUTH VARIABLES ARE OVERWRITTEN.
+========================================================= */
+
+window.toggleMobileMenu =
+  toggleMobileMenu;
+
+window.setCategory =
+  setCategory;
+
+window.render =
+  render;
+
+window.add =
+  add;
 
 window.openCart =
   openCart;
@@ -4946,56 +3771,23 @@ window.openCart =
 window.closeCart =
   closeCart;
 
+window.changeQty =
+  changeQty;
+
+window.removeCartItem =
+  removeCartItem;
+
+window.checkout =
+  checkout;
+
 window.closeCheckout =
   closeCheckout;
-
-window.place =
-  place;
-
-window.placeOrder =
-  placeOrder;
 
 window.gps =
   gps;
 
-window.gpsLocation =
-  gpsLocation;
-
 window.base =
   base;
 
-window.add =
-  add;
-
-window.removeCart =
-  removeCart;
-
-window.render =
-  render;
-
-window.cartUI =
-  cartUI;
-
-
-/* =========================================================
-   BACKWARD COMPATIBILITY
-========================================================= */
-
-if (
-  typeof window.openCustomerAuth !==
-  'function'
-) {
-
-  window.openCustomerAuth =
-    function(mode = 'login') {
-
-      openCustomerLogin(mode);
-
-    };
-
-}
-
-
-/* =========================================================
-   END APP.JS
-========================================================= */
+window.place =
+  place;
