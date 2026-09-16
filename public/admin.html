@@ -1,10 +1,7 @@
 <!doctype html>
 <html lang="en">
-
 <head>
-
   <meta charset="utf-8">
-
   <meta
     name="viewport"
     content="width=device-width,initial-scale=1"
@@ -16,275 +13,542 @@
   >
 
   <title>
-    Chef Sifat's Kitchen — Admin
+    Chef Sifat's Kitchen — Admin Panel
   </title>
 
-
   <style>
-
     * {
       box-sizing: border-box;
     }
 
-
+    html,
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
+      padding: 0;
+      min-height: 100%;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      background: #f5f5f5;
       color: #111;
     }
 
-
     button,
     input,
-    textarea,
-    select {
+    select,
+    textarea {
       font: inherit;
     }
-
 
     button {
       cursor: pointer;
     }
 
+    /* =====================================================
+       LOGIN
+    ===================================================== */
 
-    .login-screen {
+    #login {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 20px;
+      background: #080808;
     }
-
 
     .login-box {
       width: 100%;
       max-width: 420px;
       background: #fff;
-      padding: 30px;
+      padding: 32px;
       border-radius: 18px;
       box-shadow:
-        0 15px 50px rgba(0,0,0,.12);
+        0 20px 60px rgba(0, 0, 0, .25);
     }
-
 
     .login-box h1 {
-      margin-top: 0;
+      margin: 0 0 8px;
+      font-size: 28px;
     }
 
+    .login-box p {
+      color: #666;
+      margin: 0 0 24px;
+    }
 
     .login-box input {
       width: 100%;
-      padding: 13px;
-      margin: 7px 0;
-      border: 1px solid #ccc;
-      border-radius: 9px;
+      padding: 13px 14px;
+      margin-bottom: 12px;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      outline: none;
     }
 
+    .login-box input:focus {
+      border-color: #111;
+    }
 
-    .login-box button {
+    #loginBtn {
       width: 100%;
       padding: 13px;
-      margin-top: 10px;
       border: 0;
-      border-radius: 9px;
+      border-radius: 10px;
       background: #111;
       color: #fff;
+      font-weight: 700;
     }
 
+    #loginMessage {
+      margin-top: 14px;
+      min-height: 20px;
+      font-size: 14px;
+    }
+
+    /* =====================================================
+       APP LAYOUT
+    ===================================================== */
 
     #app {
-      display: none;
       min-height: 100vh;
+      display: none;
     }
 
+    .admin-layout {
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* =====================================================
+       SIDEBAR
+    ===================================================== */
 
     .sidebar {
+      width: 250px;
+      min-width: 250px;
+      background: #080808;
+      color: #fff;
+      padding: 20px 14px;
       position: fixed;
       left: 0;
       top: 0;
       bottom: 0;
-      width: 250px;
-      background: #111;
-      color: #fff;
-      padding: 22px;
-      z-index: 100;
+      overflow-y: auto;
+      z-index: 1000;
     }
 
-
-    .sidebar h2 {
-      margin-top: 0;
+    .admin-brand {
+      padding: 10px 10px 22px;
+      border-bottom: 1px solid #333;
+      margin-bottom: 16px;
     }
 
+    .admin-brand strong {
+      display: block;
+      font-size: 19px;
+    }
+
+    .admin-brand small {
+      display: block;
+      color: #aaa;
+      margin-top: 5px;
+    }
 
     .sidebar button {
       display: block;
       width: 100%;
       text-align: left;
-      border: 0;
       background: transparent;
-      color: #fff;
-      padding: 13px;
-      margin: 4px 0;
-      border-radius: 8px;
+      border: 0;
+      color: #ddd;
+      padding: 12px 13px;
+      border-radius: 9px;
+      margin-bottom: 5px;
     }
 
-
-    .sidebar button:hover {
-      background: #333;
+    .sidebar button:hover,
+    .sidebar button.active {
+      background: #fff;
+      color: #111;
     }
 
-
-    .sidebar .logout {
+    .sidebar .logout-btn {
       margin-top: 25px;
-      background: #a00;
+      color: #ffb3b3;
     }
 
+    .sidebar .logout-btn:hover {
+      color: #111;
+    }
+
+    /* =====================================================
+       MAIN
+    ===================================================== */
 
     .admin-main {
+      flex: 1;
       margin-left: 250px;
-      padding: 25px;
+      min-width: 0;
     }
-
 
     .topbar {
+      min-height: 65px;
       background: #fff;
-      padding: 18px;
-      border-radius: 14px;
-      margin-bottom: 20px;
+      border-bottom: 1px solid #e5e5e5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 500;
     }
 
+    .topbar h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    #adminUser {
+      font-size: 14px;
+      color: #666;
+    }
 
     #view {
-      background: #fff;
-      padding: 22px;
-      border-radius: 14px;
-      min-height: 500px;
+      padding: 24px;
     }
 
+    /* =====================================================
+       COMMON
+    ===================================================== */
+
+    .page-title {
+      margin: 0 0 6px;
+      font-size: 27px;
+    }
+
+    .page-subtitle {
+      color: #666;
+      margin: 0 0 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow:
+        0 4px 18px rgba(0, 0, 0, .05);
+    }
+
+    .card h3 {
+      margin-top: 0;
+    }
 
     .grid {
       display: grid;
       grid-template-columns:
-        repeat(auto-fit,minmax(220px,1fr));
+        repeat(
+          auto-fit,
+          minmax(180px, 1fr)
+        );
       gap: 15px;
     }
 
-
-    .card {
-      border: 1px solid #ddd;
-      padding: 15px;
-      border-radius: 12px;
+    .stat {
       background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow:
+        0 4px 18px rgba(0, 0, 0, .05);
     }
 
-
-    .card img {
-      width: 100%;
-      height: 160px;
-      object-fit: cover;
-      border-radius: 10px;
+    .stat small {
+      display: block;
+      color: #777;
+      margin-bottom: 8px;
     }
 
+    .stat strong {
+      font-size: 28px;
+    }
+
+    .btn {
+      display: inline-block;
+      border: 0;
+      border-radius: 9px;
+      padding: 10px 15px;
+      background: #111;
+      color: #fff;
+      font-weight: 700;
+    }
+
+    .btn:hover {
+      opacity: .88;
+    }
+
+    .btn.secondary {
+      background: #eee;
+      color: #111;
+    }
+
+    .btn.danger {
+      background: #b00020;
+      color: #fff;
+    }
+
+    .btn.success {
+      background: #176b3a;
+      color: #fff;
+    }
+
+    .btn.small {
+      padding: 7px 10px;
+      font-size: 13px;
+    }
+
+    /* =====================================================
+       FORMS
+    ===================================================== */
 
     .form-grid {
       display: grid;
       grid-template-columns:
-        repeat(auto-fit,minmax(220px,1fr));
-      gap: 10px;
+        repeat(
+          auto-fit,
+          minmax(220px, 1fr)
+        );
+      gap: 14px;
     }
 
+    .field {
+      margin-bottom: 14px;
+    }
 
-    .form-grid input,
-    .form-grid select,
-    .form-grid textarea,
-    .admin-input {
+    .field label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .field input,
+    .field select,
+    .field textarea {
       width: 100%;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      border: 1px solid #ddd;
+      border-radius: 9px;
+      padding: 10px 12px;
+      outline: none;
+      background: #fff;
     }
 
-
-    .admin-btn {
-      padding: 10px 14px;
-      border: 0;
-      border-radius: 8px;
-      background: #111;
-      color: #fff;
-      margin: 4px;
+    .field textarea {
+      min-height: 100px;
+      resize: vertical;
     }
 
-
-    .danger {
-      background: #a00;
-      color: #fff;
+    .field input:focus,
+    .field select:focus,
+    .field textarea:focus {
+      border-color: #111;
     }
 
-
-    .success {
-      background: #16733b;
-      color: #fff;
-    }
-
+    /* =====================================================
+       TABLE
+    ===================================================== */
 
     .table-wrap {
       overflow-x: auto;
     }
 
-
     table {
       width: 100%;
       border-collapse: collapse;
+      min-width: 700px;
     }
-
 
     th,
     td {
-      border-bottom: 1px solid #ddd;
-      padding: 10px;
+      padding: 11px 10px;
+      border-bottom: 1px solid #eee;
       text-align: left;
+      vertical-align: top;
     }
 
+    th {
+      font-size: 13px;
+      color: #666;
+      background: #fafafa;
+    }
 
-    @media(max-width:800px) {
+    /* =====================================================
+       STATUS
+    ===================================================== */
+
+    .badge {
+      display: inline-block;
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: #eee;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge.green {
+      background: #dff5e7;
+      color: #176b3a;
+    }
+
+    .badge.red {
+      background: #ffe1e1;
+      color: #a00000;
+    }
+
+    .badge.orange {
+      background: #fff0d2;
+      color: #8a5500;
+    }
+
+    /* =====================================================
+       MENU EDITOR
+    ===================================================== */
+
+    .menu-editor {
+      display: grid;
+      gap: 15px;
+    }
+
+    .menu-row {
+      background: #fff;
+      border: 1px solid #e7e7e7;
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    .menu-row-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .menu-row-head strong {
+      font-size: 17px;
+    }
+
+    .sizes-editor {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .size-line {
+      display: grid;
+      grid-template-columns:
+        1fr 140px auto;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .size-line input {
+      width: 100%;
+      padding: 9px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    /* =====================================================
+       MESSAGE
+    ===================================================== */
+
+    .message {
+      padding: 12px 14px;
+      border-radius: 9px;
+      margin-bottom: 15px;
+      background: #eee;
+    }
+
+    .message.success {
+      background: #dff5e7;
+      color: #176b3a;
+    }
+
+    .message.error {
+      background: #ffe1e1;
+      color: #a00000;
+    }
+
+    /* =====================================================
+       MOBILE
+    ===================================================== */
+
+    .mobile-menu-btn {
+      display: none;
+    }
+
+    @media (max-width: 800px) {
 
       .sidebar {
-        position: relative;
-        width: 100%;
-        min-height: auto;
+        transform:
+          translateX(-100%);
+        transition:
+          transform .2s ease;
       }
 
+      .sidebar.mobile-open {
+        transform:
+          translateX(0);
+      }
 
       .admin-main {
         margin-left: 0;
-        padding: 12px;
       }
 
-
-      .sidebar button {
-        display: inline-block;
-        width: auto;
+      .mobile-menu-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 8px;
+        background: #111;
+        color: #fff;
+        font-size: 20px;
       }
 
+      .topbar {
+        gap: 12px;
+        padding: 0 14px;
+      }
+
+      .topbar h2 {
+        font-size: 17px;
+      }
+
+      #view {
+        padding: 15px;
+      }
+
+      .size-line {
+        grid-template-columns: 1fr;
+      }
     }
-
   </style>
-
 </head>
-
 
 <body>
 
 
-<!-- =====================================================
-     LOGIN
-====================================================== -->
+<!-- =======================================================
+     ADMIN LOGIN
+======================================================= -->
 
-<section
-  id="login"
-  class="login-screen"
->
+<section id="login">
 
   <div class="login-box">
 
@@ -292,137 +556,264 @@
       Chef Sifat's Kitchen
     </h1>
 
-    <h3>
-      Admin Panel
-    </h3>
+    <p>
+      Admin Panel Login
+    </p>
 
 
-    <input
-      id="adminUsername"
-      type="text"
-      placeholder="Username"
-      autocomplete="username"
+    <form
+      id="adminLoginForm"
+      onsubmit="return adminLogin(event)"
     >
 
+      <input
+        id="username"
+        type="text"
+        placeholder="Admin Username"
+        autocomplete="username"
+        required
+      >
 
-    <input
-      id="adminPassword"
-      type="password"
-      placeholder="Password"
-      autocomplete="current-password"
-    >
+      <input
+        id="password"
+        type="password"
+        placeholder="Admin Password"
+        autocomplete="current-password"
+        required
+      >
+
+      <button
+        id="loginBtn"
+        type="submit"
+      >
+        Login
+      </button>
+
+    </form>
 
 
-    <button
-      type="button"
-      onclick="adminLogin()"
-    >
-      Login
-    </button>
-
-
-    <p id="loginMessage"></p>
+    <div id="loginMessage"></div>
 
   </div>
 
 </section>
 
 
+<!-- =======================================================
+     ADMIN APP
+======================================================= -->
 
-<!-- =====================================================
-     APP
-====================================================== -->
+<section id="app">
 
-<div id="app">
-
-
-  <aside class="sidebar">
-
-    <h2>
-      CSK Admin
-    </h2>
+  <div class="admin-layout">
 
 
-    <button
-      type="button"
-      onclick="dash()"
+    <!-- ===================================================
+         SIDEBAR
+    ==================================================== -->
+
+    <aside
+      id="sidebar"
+      class="sidebar"
     >
-      📊 Dashboard
-    </button>
+
+      <div class="admin-brand">
+
+        <strong>
+          Chef Sifat's Kitchen
+        </strong>
+
+        <small>
+          Administration
+        </small>
+
+      </div>
 
 
-    <button
-      type="button"
-      onclick="orders()"
-    >
-      📦 Orders
-    </button>
+      <!-- IMPORTANT:
+           These function names MUST match admin.js
+      -->
+
+      <button
+        id="navDashboard"
+        type="button"
+        onclick="dash()"
+      >
+        📊 Dashboard
+      </button>
 
 
-    <button
-      type="button"
-      onclick="menu()"
-    >
-      🍕 Menu
-    </button>
+      <button
+        id="navOrders"
+        type="button"
+        onclick="orders()"
+      >
+        📦 Orders
+      </button>
 
 
-    <button
-      type="button"
-      onclick="reviews()"
-    >
-      ⭐ Reviews
-    </button>
+      <button
+        id="navMenu"
+        type="button"
+        onclick="menu()"
+      >
+        🍕 Menu
+      </button>
 
 
-    <button
-      type="button"
-      onclick="customers()"
-    >
-      👥 Customers
-    </button>
+      <button
+        id="navReviews"
+        type="button"
+        onclick="reviews()"
+      >
+        ⭐ Reviews
+      </button>
 
 
-    <button
-      type="button"
-      onclick="settings()"
-    >
-      🚚 Delivery & Settings
-    </button>
+      <button
+        id="navCustomers"
+        type="button"
+        onclick="customers()"
+      >
+        👥 Customers
+      </button>
 
 
-    <button
-      type="button"
-      class="logout"
-      onclick="adminLogout()"
-    >
-      🚪 Logout
-    </button>
-
-  </aside>
+      <button
+        id="navSettings"
+        type="button"
+        onclick="settings()"
+      >
+        ⚙️ Delivery & Settings
+      </button>
 
 
+      <button
+        class="logout-btn"
+        type="button"
+        onclick="logout()"
+      >
+        🚪 Logout
+      </button>
 
-  <main class="admin-main">
-
-    <div class="topbar">
-
-      <strong>
-        Chef Sifat's Kitchen — Administration
-      </strong>
-
-    </div>
-
-
-    <div id="view"></div>
-
-  </main>
-
-</div>
+    </aside>
 
 
+    <!-- ===================================================
+         MAIN
+    ==================================================== -->
+
+    <main class="admin-main">
+
+
+      <!-- TOPBAR -->
+      <header class="topbar">
+
+        <button
+          id="adminMobileMenuBtn"
+          class="mobile-menu-btn"
+          type="button"
+          aria-label="Open admin menu"
+          onclick="toggleAdminSidebar()"
+        >
+          ☰
+        </button>
+
+
+        <h2 id="pageTitle">
+          Dashboard
+        </h2>
+
+
+        <span id="adminUser">
+          Admin
+        </span>
+
+      </header>
+
+
+      <!-- DYNAMIC VIEW -->
+      <div id="view"></div>
+
+    </main>
+
+  </div>
+
+</section>
+
+
+<!-- =======================================================
+     ADMIN JS
+======================================================= -->
 
 <script src="/admin.js"></script>
+
+
+<!-- =======================================================
+     SMALL MOBILE FALLBACK
+======================================================= -->
+
+<script>
+
+  function toggleAdminSidebar() {
+
+    const sidebar =
+      document.getElementById(
+        'sidebar'
+      );
+
+    if (!sidebar) return;
+
+    sidebar.classList.toggle(
+      'mobile-open'
+    );
+  }
+
+
+  function closeAdminSidebar() {
+
+    const sidebar =
+      document.getElementById(
+        'sidebar'
+      );
+
+    if (!sidebar) return;
+
+    sidebar.classList.remove(
+      'mobile-open'
+    );
+  }
+
+
+  /*
+    Close mobile sidebar after clicking
+    one of the navigation buttons.
+  */
+
+  document.addEventListener(
+    'click',
+    event => {
+
+      if (
+        event.target.closest(
+          '.sidebar button'
+        )
+      ) {
+
+        closeAdminSidebar();
+      }
+
+    }
+  );
+
+
+  window.toggleAdminSidebar =
+    toggleAdminSidebar;
+
+  window.closeAdminSidebar =
+    closeAdminSidebar;
+
+</script>
 
 </body>
 </html>
