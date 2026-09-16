@@ -1,7 +1,6 @@
 /* =========================================================
    CHEF SIFAT'S KITCHEN — CUSTOMER AUTH
-   Register / Login / Forgot Password / Reset Password
-   My Orders / Logout
+   Clean Navbar + Login/Register + Account
    ========================================================= */
 
 const CUSTOMER_TOKEN_KEY = 'csk_customer_token';
@@ -13,7 +12,9 @@ function getCustomerToken() {
 
 function getCustomerData() {
   try {
-    return JSON.parse(localStorage.getItem(CUSTOMER_DATA_KEY) || 'null');
+    return JSON.parse(
+      localStorage.getItem(CUSTOMER_DATA_KEY) || 'null'
+    );
   } catch {
     return null;
   }
@@ -23,29 +24,30 @@ function isCustomerLoggedIn() {
   return !!getCustomerToken();
 }
 
-function saveCustomerSession(data) {
-  if (!data) return;
+function saveCustomerSession(token, customer) {
+  localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+  localStorage.setItem(
+    CUSTOMER_DATA_KEY,
+    JSON.stringify(customer || {})
+  );
 
-  if (data.token) {
-    localStorage.setItem(CUSTOMER_TOKEN_KEY, data.token);
-  }
-
-  if (data.customer) {
-    localStorage.setItem(
-      CUSTOMER_DATA_KEY,
-      JSON.stringify(data.customer)
-    );
-  }
+  updateCustomerNavbar();
 }
 
 function clearCustomerSession() {
   localStorage.removeItem(CUSTOMER_TOKEN_KEY);
   localStorage.removeItem(CUSTOMER_DATA_KEY);
+
+  updateCustomerNavbar();
 }
 
-async function customerApi(url, options = {}) {
+
+/* =========================================================
+   API
+   ========================================================= */
+
+async function customerAPI(url, options = {}) {
   const headers = {
-    'Content-Type': 'application/json',
     ...(options.headers || {})
   };
 
@@ -53,6 +55,14 @@ async function customerApi(url, options = {}) {
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (
+    options.body &&
+    typeof options.body !== 'string'
+  ) {
+    headers['Content-Type'] = 'application/json';
+    options.body = JSON.stringify(options.body);
   }
 
   const response = await fetch(url, {
@@ -79,358 +89,208 @@ async function customerApi(url, options = {}) {
   return data;
 }
 
+
+/* =========================================================
+   MOBILE NAV
+   ========================================================= */
+
+function toggleMobileMenu() {
+  const nav = document.getElementById('mainNav');
+
+  if (!nav) return;
+
+  nav.classList.toggle('mobile-open');
+}
+
+
+/* Close mobile menu after clicking a link */
+
+document.addEventListener('click', function (event) {
+  const link = event.target.closest(
+    '#mainNav a'
+  );
+
+  if (!link) return;
+
+  const nav =
+    document.getElementById('mainNav');
+
+  if (nav) {
+    nav.classList.remove('mobile-open');
+  }
+});
+
+
+/* =========================================================
+   NAVBAR ACCOUNT BUTTON
+   ========================================================= */
+
+function updateCustomerNavbar() {
+  const button =
+    document.getElementById(
+      'customerAccountBtn'
+    );
+
+  if (!button) return;
+
+  if (isCustomerLoggedIn()) {
+    const customer = getCustomerData();
+
+    const name =
+      customer?.name ||
+      customer?.fullName ||
+      'My Account';
+
+    button.innerHTML =
+      `👤 ${escapeHTML(name)}`;
+
+    button.onclick = function () {
+      openAccountMenu();
+    };
+
+    button.classList.add('logged-in');
+
+  } else {
+
+    button.innerHTML = '👤 Login';
+
+    button.onclick = function () {
+      openAuthModal('login');
+    };
+
+    button.classList.remove('logged-in');
+  }
+}
+
+
+/* =========================================================
+   ACCOUNT MENU
+   ========================================================= */
+
+function openAccountMenu() {
+  closeAccountMenu();
+
+  const customer = getCustomerData();
+
+  const name =
+    customer?.name ||
+    customer?.fullName ||
+    'Customer';
+
+  const email =
+    customer?.email || '';
+
+  const menu =
+    document.createElement('div');
+
+  menu.id = 'customerAccountMenu';
+
+  menu.innerHTML = `
+    <div class="account-menu-inner">
+
+      <div class="account-menu-user">
+        <strong>👤 ${escapeHTML(name)}</strong>
+        ${
+          email
+            ? `<small>${escapeHTML(email)}</small>`
+            : ''
+        }
+      </div>
+
+      <button onclick="showMyOrders()">
+        📦 My Orders
+      </button>
+
+      <button onclick="showCustomerProfile()">
+        👤 My Profile
+      </button>
+
+      <button onclick="customerLogout()">
+        🚪 Logout
+      </button>
+
+    </div>
+  `;
+
+  document.body.appendChild(menu);
+
+  setTimeout(() => {
+    document.addEventListener(
+      'click',
+      accountOutsideClick
+    );
+  }, 10);
+}
+
+function accountOutsideClick(event) {
+  const menu =
+    document.getElementById(
+      'customerAccountMenu'
+    );
+
+  const button =
+    document.getElementById(
+      'customerAccountBtn'
+    );
+
+  if (
+    menu &&
+    !menu.contains(event.target) &&
+    event.target !== button
+  ) {
+    closeAccountMenu();
+  }
+}
+
+function closeAccountMenu() {
+  const menu =
+    document.getElementById(
+      'customerAccountMenu'
+    );
+
+  if (menu) {
+    menu.remove();
+  }
+
+  document.removeEventListener(
+    'click',
+    accountOutsideClick
+  );
+}
+
+
 /* =========================================================
    AUTH MODAL
    ========================================================= */
 
-function createCustomerAuthUI() {
-  if (document.getElementById('customerAuthModal')) {
-    updateCustomerAccountButton();
+function createAuthModal() {
+  if (
+    document.getElementById(
+      'customerAuthModal'
+    )
+  ) {
     return;
   }
 
-  const modal = document.createElement('div');
+  const modal =
+    document.createElement('div');
 
   modal.id = 'customerAuthModal';
-  modal.className = 'modal hidden';
 
   modal.innerHTML = `
-    <div class="modal-card customer-auth-card">
+    <div class="customer-auth-overlay">
 
-      <button
-        class="modal-close"
-        type="button"
-        onclick="closeCustomerAuth()"
-      >
-        ×
-      </button>
-
-      <span class="mini">CUSTOMER ACCOUNT</span>
-
-      <h2 id="customerAuthTitle">
-        Login
-      </h2>
-
-      <div id="customerAuthMessage"></div>
-
-      <!-- LOGIN -->
-
-      <form
-        id="customerLoginForm"
-        onsubmit="customerLogin(event)"
-      >
-
-        <label>
-          Mobile Number or Email
-
-          <input
-            id="loginIdentifier"
-            required
-            autocomplete="username"
-            placeholder="01XXXXXXXXX or email"
-          >
-        </label>
-
-        <label>
-          Password
-
-          <input
-            id="loginPassword"
-            type="password"
-            required
-            autocomplete="current-password"
-            placeholder="Enter password"
-          >
-        </label>
+      <div class="customer-auth-box">
 
         <button
-          class="btn gold full"
-          type="submit"
-        >
-          Login
-        </button>
-
-        <div class="auth-links">
-          <button
-            type="button"
-            class="text-button"
-            onclick="showForgotPassword()"
-          >
-            Forgot Password?
-          </button>
-
-          <button
-            type="button"
-            class="text-button"
-            onclick="showRegister()"
-          >
-            Create Account
-          </button>
-        </div>
-
-      </form>
-
-
-      <!-- REGISTER -->
-
-      <form
-        id="customerRegisterForm"
-        class="hidden"
-        onsubmit="customerRegister(event)"
-      >
-
-        <label>
-          Full Name
-
-          <input
-            id="registerName"
-            required
-            autocomplete="name"
-            placeholder="Your full name"
-          >
-        </label>
-
-        <label>
-          Mobile Number
-
-          <input
-            id="registerPhone"
-            required
-            autocomplete="tel"
-            placeholder="01XXXXXXXXX"
-          >
-        </label>
-
-        <label>
-          Email
-
-          <input
-            id="registerEmail"
-            type="email"
-            required
-            autocomplete="email"
-            placeholder="your@email.com"
-          >
-        </label>
-
-        <label>
-          Password
-
-          <input
-            id="registerPassword"
-            type="password"
-            required
-            minlength="8"
-            autocomplete="new-password"
-            placeholder="Minimum 8 characters"
-          >
-        </label>
-
-        <label>
-          Confirm Password
-
-          <input
-            id="registerConfirmPassword"
-            type="password"
-            required
-            minlength="8"
-            autocomplete="new-password"
-            placeholder="Repeat your password"
-          >
-        </label>
-
-        <button
-          class="btn gold full"
-          type="submit"
-        >
-          Create Account
-        </button>
-
-        <div class="auth-links">
-
-          <button
-            type="button"
-            class="text-button"
-            onclick="showLogin()"
-          >
-            Already have an account? Login
-          </button>
-
-        </div>
-
-      </form>
-
-
-      <!-- FORGOT PASSWORD -->
-
-      <form
-        id="customerForgotForm"
-        class="hidden"
-        onsubmit="requestPasswordReset(event)"
-      >
-
-        <p class="auth-description">
-          Enter the email address connected to your account.
-          We will send you a password reset code.
-        </p>
-
-        <label>
-          Email
-
-          <input
-            id="forgotEmail"
-            type="email"
-            required
-            autocomplete="email"
-            placeholder="your@email.com"
-          >
-        </label>
-
-        <button
-          class="btn gold full"
-          type="submit"
-        >
-          Send Reset Code
-        </button>
-
-        <div class="auth-links">
-
-          <button
-            type="button"
-            class="text-button"
-            onclick="showLogin()"
-          >
-            Back to Login
-          </button>
-
-        </div>
-
-      </form>
-
-
-      <!-- RESET PASSWORD -->
-
-      <form
-        id="customerResetForm"
-        class="hidden"
-        onsubmit="resetCustomerPassword(event)"
-      >
-
-        <p class="auth-description">
-          Enter the 6-digit code sent to your email
-          and choose a new password.
-        </p>
-
-        <label>
-          Email
-
-          <input
-            id="resetEmail"
-            type="email"
-            required
-            autocomplete="email"
-            placeholder="your@email.com"
-          >
-        </label>
-
-        <label>
-          Reset Code
-
-          <input
-            id="resetCode"
-            required
-            inputmode="numeric"
-            maxlength="6"
-            placeholder="6-digit code"
-          >
-        </label>
-
-        <label>
-          New Password
-
-          <input
-            id="resetPassword"
-            type="password"
-            required
-            minlength="8"
-            autocomplete="new-password"
-            placeholder="Minimum 8 characters"
-          >
-        </label>
-
-        <label>
-          Confirm New Password
-
-          <input
-            id="resetConfirmPassword"
-            type="password"
-            required
-            minlength="8"
-            autocomplete="new-password"
-            placeholder="Repeat new password"
-          >
-        </label>
-
-        <button
-          class="btn gold full"
-          type="submit"
-        >
-          Reset Password
-        </button>
-
-        <div class="auth-links">
-
-          <button
-            type="button"
-            class="text-button"
-            onclick="showLogin()"
-          >
-            Back to Login
-          </button>
-
-        </div>
-
-      </form>
-
-
-      <!-- ACCOUNT -->
-
-      <div
-        id="customerAccountPanel"
-        class="hidden"
-      >
-
-        <div class="customer-profile">
-
-          <h3 id="customerAccountName">
-            Customer
-          </h3>
-
-          <p id="customerAccountPhone"></p>
-          <p id="customerAccountEmail"></p>
-
-        </div>
-
-        <button
-          class="btn gold full"
+          class="customer-auth-close"
+          onclick="closeAuthModal()"
           type="button"
-          onclick="showCustomerOrders()"
         >
-          My Orders
+          ×
         </button>
 
-        <button
-          class="btn secondary full"
-          type="button"
-          onclick="customerLogout()"
-        >
-          Logout
-        </button>
-
-        <div
-          id="customerOrders"
-          class="customer-orders hidden"
-        ></div>
+        <div id="authContent"></div>
 
       </div>
 
@@ -438,771 +298,554 @@ function createCustomerAuthUI() {
   `;
 
   document.body.appendChild(modal);
-
-  addCustomerAuthStyles();
-
-  updateCustomerAccountButton();
 }
 
-/* =========================================================
-   ACCOUNT BUTTON
-   ========================================================= */
+function openAuthModal(mode = 'login') {
+  closeAccountMenu();
+  createAuthModal();
 
-function createCustomerAccountButton() {
+  const modal =
+    document.getElementById(
+      'customerAuthModal'
+    );
 
-  const nav = document.querySelector('.nav');
+  modal.classList.add('show');
 
-  if (!nav) return;
-
-  if (document.getElementById('customerAccountButton')) {
-    updateCustomerAccountButton();
-    return;
-  }
-
-  const button = document.createElement('button');
-
-  button.id = 'customerAccountButton';
-  button.type = 'button';
-  button.className = 'btn secondary customer-account-button';
-
-  button.onclick = openCustomerAccount;
-
-  button.textContent = 'Login';
-
-  nav.appendChild(button);
-
-  updateCustomerAccountButton();
-}
-
-function updateCustomerAccountButton() {
-
-  const button =
-    document.getElementById('customerAccountButton');
-
-  if (!button) return;
-
-  const customer = getCustomerData();
-
-  if (isCustomerLoggedIn() && customer) {
-    button.textContent = 'My Account';
-  } else {
-    button.textContent = 'Login';
-  }
-}
-
-/* =========================================================
-   OPEN / CLOSE
-   ========================================================= */
-
-function openCustomerAccount() {
-
-  createCustomerAuthUI();
-
-  const customer = getCustomerData();
-
-  if (isCustomerLoggedIn() && customer) {
-    showAccountPanel();
+  if (mode === 'register') {
+    showRegister();
   } else {
     showLogin();
   }
-
-  document
-    .getElementById('customerAuthModal')
-    ?.classList.remove('hidden');
 }
 
-function closeCustomerAuth() {
-
-  document
-    .getElementById('customerAuthModal')
-    ?.classList.add('hidden');
-
-  clearAuthMessage();
-}
-
-function showAuthMessage(message, type = 'error') {
-
-  const box =
-    document.getElementById('customerAuthMessage');
-
-  if (!box) return;
-
-  box.innerHTML = `
-    <div class="customer-auth-message ${type}">
-      ${escapeCustomerHtml(message)}
-    </div>
-  `;
-}
-
-function clearAuthMessage() {
-
-  const box =
-    document.getElementById('customerAuthMessage');
-
-  if (box) {
-    box.innerHTML = '';
-  }
-}
-
-/* =========================================================
-   FORM SWITCHING
-   ========================================================= */
-
-function hideAllCustomerForms() {
-
-  [
-    'customerLoginForm',
-    'customerRegisterForm',
-    'customerForgotForm',
-    'customerResetForm',
-    'customerAccountPanel'
-  ].forEach(id => {
-
-    document
-      .getElementById(id)
-      ?.classList.add('hidden');
-
-  });
-}
-
-function showLogin() {
-
-  hideAllCustomerForms();
-
-  document
-    .getElementById('customerLoginForm')
-    ?.classList.remove('hidden');
-
-  const title =
-    document.getElementById('customerAuthTitle');
-
-  if (title) title.textContent = 'Login';
-
-  clearAuthMessage();
-}
-
-function showRegister() {
-
-  hideAllCustomerForms();
-
-  document
-    .getElementById('customerRegisterForm')
-    ?.classList.remove('hidden');
-
-  const title =
-    document.getElementById('customerAuthTitle');
-
-  if (title) title.textContent = 'Create Account';
-
-  clearAuthMessage();
-}
-
-function showForgotPassword() {
-
-  hideAllCustomerForms();
-
-  document
-    .getElementById('customerForgotForm')
-    ?.classList.remove('hidden');
-
-  const title =
-    document.getElementById('customerAuthTitle');
-
-  if (title) title.textContent = 'Forgot Password';
-
-  clearAuthMessage();
-}
-
-function showResetPassword(email = '') {
-
-  hideAllCustomerForms();
-
-  document
-    .getElementById('customerResetForm')
-    ?.classList.remove('hidden');
-
-  const title =
-    document.getElementById('customerAuthTitle');
-
-  if (title) title.textContent = 'Reset Password';
-
-  if (email) {
-
-    const input =
-      document.getElementById('resetEmail');
-
-    if (input) {
-      input.value = email;
-    }
-
-  }
-
-  clearAuthMessage();
-}
-
-function showAccountPanel() {
-
-  hideAllCustomerForms();
-
-  document
-    .getElementById('customerAccountPanel')
-    ?.classList.remove('hidden');
-
-  const title =
-    document.getElementById('customerAuthTitle');
-
-  if (title) title.textContent = 'My Account';
-
-  const customer = getCustomerData();
-
-  if (!customer) return;
-
-  const name =
-    document.getElementById('customerAccountName');
-
-  const phone =
-    document.getElementById('customerAccountPhone');
-
-  const email =
-    document.getElementById('customerAccountEmail');
-
-  if (name) {
-    name.textContent = customer.name || 'Customer';
-  }
-
-  if (phone) {
-    phone.textContent =
-      customer.phone
-        ? `Phone: ${customer.phone}`
-        : '';
-  }
-
-  if (email) {
-    email.textContent =
-      customer.email
-        ? `Email: ${customer.email}`
-        : '';
-  }
-}
-
-/* =========================================================
-   REGISTER
-   ========================================================= */
-
-async function customerRegister(event) {
-
-  event.preventDefault();
-
-  clearAuthMessage();
-
-  const name =
-    document.getElementById('registerName')?.value.trim();
-
-  const phone =
-    document.getElementById('registerPhone')?.value.trim();
-
-  const email =
-    document.getElementById('registerEmail')?.value.trim();
-
-  const password =
-    document.getElementById('registerPassword')?.value;
-
-  const confirmPassword =
-    document.getElementById('registerConfirmPassword')?.value;
-
-  if (!name || !phone || !email || !password) {
-    showAuthMessage('Please fill in all fields.');
-    return;
-  }
-
-  if (password.length < 8) {
-    showAuthMessage(
-      'Password must be at least 8 characters.'
-    );
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    showAuthMessage(
-      'Passwords do not match.'
-    );
-    return;
-  }
-
-  const button =
-    event.submitter;
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Creating Account...';
-  }
-
-  try {
-
-    const data = await customerApi(
-      '/api/customer/register',
-      {
-        method: 'POST',
-
-        body: JSON.stringify({
-          name,
-          phone,
-          email,
-          password,
-          confirmPassword
-        })
-      }
+function closeAuthModal() {
+  const modal =
+    document.getElementById(
+      'customerAuthModal'
     );
 
-    saveCustomerSession(data);
-
-    showAuthMessage(
-      'Account created successfully.',
-      'success'
-    );
-
-    updateCustomerAccountButton();
-
-    setTimeout(() => {
-
-      closeCustomerAuth();
-
-      if (typeof toast === 'function') {
-        toast('Account created successfully.');
-      }
-
-    }, 700);
-
-  } catch (error) {
-
-    showAuthMessage(
-      error.message || 'Registration failed.'
-    );
-
-  } finally {
-
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'Create Account';
-    }
-
+  if (modal) {
+    modal.classList.remove('show');
   }
 }
+
 
 /* =========================================================
    LOGIN
    ========================================================= */
 
-async function customerLogin(event) {
+function showLogin() {
+  const box =
+    document.getElementById(
+      'authContent'
+    );
 
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="auth-heading">
+      <small>CUSTOMER ACCOUNT</small>
+      <h2>Welcome Back</h2>
+      <p>Login to continue your order.</p>
+    </div>
+
+    <form id="customerLoginForm">
+
+      <input
+        id="loginEmail"
+        type="email"
+        placeholder="Email *"
+        required
+      >
+
+      <input
+        id="loginPassword"
+        type="password"
+        placeholder="Password *"
+        required
+      >
+
+      <button
+        class="btn full"
+        type="submit"
+      >
+        Login
+      </button>
+
+    </form>
+
+    <div class="auth-links">
+      <button
+        type="button"
+        onclick="showForgotPassword()"
+      >
+        Forgot Password?
+      </button>
+
+      <button
+        type="button"
+        onclick="showRegister()"
+      >
+        Create Account
+      </button>
+    </div>
+
+    <div id="authMessage"></div>
+  `;
+
+  document
+    .getElementById('customerLoginForm')
+    .addEventListener(
+      'submit',
+      handleCustomerLogin
+    );
+}
+
+async function handleCustomerLogin(event) {
   event.preventDefault();
 
-  clearAuthMessage();
-
-  const identifier =
-    document.getElementById('loginIdentifier')?.value.trim();
+  const email =
+    document.getElementById(
+      'loginEmail'
+    ).value.trim();
 
   const password =
-    document.getElementById('loginPassword')?.value;
+    document.getElementById(
+      'loginPassword'
+    ).value;
 
-  if (!identifier || !password) {
-    showAuthMessage(
-      'Please enter your login information.'
+  const message =
+    document.getElementById(
+      'authMessage'
     );
-    return;
-  }
-
-  const button =
-    event.submitter;
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Logging in...';
-  }
 
   try {
 
-    const data = await customerApi(
-      '/api/customer/login',
-      {
-        method: 'POST',
+    message.innerHTML =
+      'Logging in...';
 
-        body: JSON.stringify({
-          identifier,
-          password
-        })
-      }
+    const result =
+      await customerAPI(
+        '/api/customer/login',
+        {
+          method: 'POST',
+          body: {
+            email,
+            password
+          }
+        }
+      );
+
+    saveCustomerSession(
+      result.token,
+      result.customer
     );
 
-    saveCustomerSession(data);
-
-    updateCustomerAccountButton();
-
-    showAuthMessage(
-      'Login successful.',
-      'success'
-    );
+    message.innerHTML =
+      '<span class="success">Login successful.</span>';
 
     setTimeout(() => {
-
-      closeCustomerAuth();
-
-      if (typeof toast === 'function') {
-        toast('Welcome back!');
-      }
-
+      closeAuthModal();
     }, 500);
 
   } catch (error) {
 
-    showAuthMessage(
-      error.message || 'Login failed.'
-    );
-
-  } finally {
-
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'Login';
-    }
-
+    message.innerHTML =
+      `<span class="error">${escapeHTML(
+        error.message
+      )}</span>`;
   }
 }
+
+
+/* =========================================================
+   REGISTER
+   ========================================================= */
+
+function showRegister() {
+  const box =
+    document.getElementById(
+      'authContent'
+    );
+
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="auth-heading">
+      <small>CUSTOMER ACCOUNT</small>
+      <h2>Create Account</h2>
+      <p>Register before placing your order.</p>
+    </div>
+
+    <form id="customerRegisterForm">
+
+      <input
+        id="registerName"
+        type="text"
+        placeholder="Full Name *"
+        required
+      >
+
+      <input
+        id="registerMobile"
+        type="tel"
+        placeholder="Mobile Number *"
+        required
+      >
+
+      <input
+        id="registerEmail"
+        type="email"
+        placeholder="Email *"
+        required
+      >
+
+      <input
+        id="registerPassword"
+        type="password"
+        placeholder="Password *"
+        minlength="6"
+        required
+      >
+
+      <button
+        class="btn full"
+        type="submit"
+      >
+        Register
+      </button>
+
+    </form>
+
+    <div class="auth-links">
+      <button
+        type="button"
+        onclick="showLogin()"
+      >
+        Already have an account? Login
+      </button>
+    </div>
+
+    <div id="authMessage"></div>
+  `;
+
+  document
+    .getElementById(
+      'customerRegisterForm'
+    )
+    .addEventListener(
+      'submit',
+      handleCustomerRegister
+    );
+}
+
+async function handleCustomerRegister(event) {
+  event.preventDefault();
+
+  const name =
+    document.getElementById(
+      'registerName'
+    ).value.trim();
+
+  const mobile =
+    document.getElementById(
+      'registerMobile'
+    ).value.trim();
+
+  const email =
+    document.getElementById(
+      'registerEmail'
+    ).value.trim();
+
+  const password =
+    document.getElementById(
+      'registerPassword'
+    ).value;
+
+  const message =
+    document.getElementById(
+      'authMessage'
+    );
+
+  try {
+
+    message.innerHTML =
+      'Creating account...';
+
+    const result =
+      await customerAPI(
+        '/api/customer/register',
+        {
+          method: 'POST',
+          body: {
+            name,
+            mobile,
+            email,
+            password
+          }
+        }
+      );
+
+    saveCustomerSession(
+      result.token,
+      result.customer
+    );
+
+    message.innerHTML =
+      '<span class="success">Account created successfully.</span>';
+
+    setTimeout(() => {
+      closeAuthModal();
+    }, 600);
+
+  } catch (error) {
+
+    message.innerHTML =
+      `<span class="error">${escapeHTML(
+        error.message
+      )}</span>`;
+  }
+}
+
 
 /* =========================================================
    FORGOT PASSWORD
    ========================================================= */
 
-async function requestPasswordReset(event) {
+function showForgotPassword() {
+  const box =
+    document.getElementById(
+      'authContent'
+    );
 
+  if (!box) return;
+
+  box.innerHTML = `
+    <div class="auth-heading">
+      <small>ACCOUNT RECOVERY</small>
+      <h2>Forgot Password?</h2>
+      <p>Enter your registered email.</p>
+    </div>
+
+    <form id="forgotPasswordForm">
+
+      <input
+        id="forgotEmail"
+        type="email"
+        placeholder="Email *"
+        required
+      >
+
+      <button
+        class="btn full"
+        type="submit"
+      >
+        Send Reset Code
+      </button>
+
+    </form>
+
+    <div class="auth-links">
+      <button
+        type="button"
+        onclick="showLogin()"
+      >
+        Back to Login
+      </button>
+    </div>
+
+    <div id="authMessage"></div>
+  `;
+
+  document
+    .getElementById(
+      'forgotPasswordForm'
+    )
+    .addEventListener(
+      'submit',
+      handleForgotPassword
+    );
+}
+
+async function handleForgotPassword(event) {
   event.preventDefault();
 
-  clearAuthMessage();
-
   const email =
-    document.getElementById('forgotEmail')?.value.trim();
+    document.getElementById(
+      'forgotEmail'
+    ).value.trim();
 
-  if (!email) {
-    showAuthMessage('Please enter your email.');
-    return;
-  }
-
-  const button =
-    event.submitter;
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Sending...';
-  }
+  const message =
+    document.getElementById(
+      'authMessage'
+    );
 
   try {
 
-    await customerApi(
+    message.innerHTML =
+      'Sending reset code...';
+
+    await customerAPI(
       '/api/customer/forgot-password',
       {
         method: 'POST',
-
-        body: JSON.stringify({
-          email
-        })
+        body: { email }
       }
     );
 
-    showAuthMessage(
-      'If an account exists for this email, a reset code has been sent.',
-      'success'
-    );
+    message.innerHTML =
+      '<span class="success">Reset code sent to your email.</span>';
 
     setTimeout(() => {
       showResetPassword(email);
-    }, 800);
+    }, 700);
 
   } catch (error) {
 
-    showAuthMessage(
-      error.message || 'Unable to send reset code.'
-    );
-
-  } finally {
-
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'Send Reset Code';
-    }
-
+    message.innerHTML =
+      `<span class="error">${escapeHTML(
+        error.message
+      )}</span>`;
   }
 }
+
 
 /* =========================================================
    RESET PASSWORD
    ========================================================= */
 
-async function resetCustomerPassword(event) {
-
-  event.preventDefault();
-
-  clearAuthMessage();
-
-  const email =
-    document.getElementById('resetEmail')?.value.trim();
-
-  const code =
-    document.getElementById('resetCode')?.value.trim();
-
-  const password =
-    document.getElementById('resetPassword')?.value;
-
-  const confirmPassword =
-    document.getElementById('resetConfirmPassword')?.value;
-
-  if (!email || !code || !password) {
-    showAuthMessage(
-      'Please complete all fields.'
-    );
-    return;
-  }
-
-  if (!/^\d{6}$/.test(code)) {
-    showAuthMessage(
-      'Reset code must be 6 digits.'
-    );
-    return;
-  }
-
-  if (password.length < 8) {
-    showAuthMessage(
-      'Password must be at least 8 characters.'
-    );
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    showAuthMessage(
-      'Passwords do not match.'
-    );
-    return;
-  }
-
-  const button =
-    event.submitter;
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = 'Resetting...';
-  }
-
-  try {
-
-    await customerApi(
-      '/api/customer/reset-password',
-      {
-        method: 'POST',
-
-        body: JSON.stringify({
-          email,
-          code,
-          password,
-          confirmPassword
-        })
-      }
-    );
-
-    showAuthMessage(
-      'Password reset successfully. You can now login.',
-      'success'
-    );
-
-    setTimeout(() => {
-      showLogin();
-    }, 900);
-
-  } catch (error) {
-
-    showAuthMessage(
-      error.message || 'Password reset failed.'
-    );
-
-  } finally {
-
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'Reset Password';
-    }
-
-  }
-}
-
-/* =========================================================
-   MY ORDERS
-   ========================================================= */
-
-async function showCustomerOrders() {
-
+function showResetPassword(email = '') {
   const box =
-    document.getElementById('customerOrders');
+    document.getElementById(
+      'authContent'
+    );
 
   if (!box) return;
 
-  box.classList.remove('hidden');
-
   box.innerHTML = `
-    <div class="customer-order-loading">
-      Loading your orders...
+    <div class="auth-heading">
+      <small>ACCOUNT RECOVERY</small>
+      <h2>Reset Password</h2>
+      <p>Enter the 6-digit code sent to your email.</p>
     </div>
+
+    <form id="resetPasswordForm">
+
+      <input
+        id="resetEmail"
+        type="email"
+        value="${escapeHTML(email)}"
+        placeholder="Email *"
+        required
+      >
+
+      <input
+        id="resetCode"
+        type="text"
+        inputmode="numeric"
+        maxlength="6"
+        placeholder="6-digit code *"
+        required
+      >
+
+      <input
+        id="resetPassword"
+        type="password"
+        minlength="6"
+        placeholder="New Password *"
+        required
+      >
+
+      <button
+        class="btn full"
+        type="submit"
+      >
+        Reset Password
+      </button>
+
+    </form>
+
+    <div class="auth-links">
+      <button
+        type="button"
+        onclick="showLogin()"
+      >
+        Back to Login
+      </button>
+    </div>
+
+    <div id="authMessage"></div>
   `;
+
+  document
+    .getElementById(
+      'resetPasswordForm'
+    )
+    .addEventListener(
+      'submit',
+      handleResetPassword
+    );
+}
+
+async function handleResetPassword(event) {
+  event.preventDefault();
+
+  const email =
+    document.getElementById(
+      'resetEmail'
+    ).value.trim();
+
+  const code =
+    document.getElementById(
+      'resetCode'
+    ).value.trim();
+
+  const password =
+    document.getElementById(
+      'resetPassword'
+    ).value;
+
+  const message =
+    document.getElementById(
+      'authMessage'
+    );
 
   try {
 
-    const data =
-      await customerApi('/api/customer/orders');
+    message.innerHTML =
+      'Resetting password...';
 
-    const orders =
-      Array.isArray(data.orders)
-        ? data.orders
-        : [];
+    await customerAPI(
+      '/api/customer/reset-password',
+      {
+        method: 'POST',
+        body: {
+          email,
+          code,
+          password
+        }
+      }
+    );
 
-    if (!orders.length) {
+    message.innerHTML =
+      '<span class="success">Password reset successful.</span>';
 
-      box.innerHTML = `
-        <div class="customer-order-empty">
-          You have no orders yet.
-        </div>
-      `;
-
-      return;
-    }
-
-    box.innerHTML =
-      orders.map(order => {
-
-        const items =
-          Array.isArray(order.items)
-            ? order.items
-            : [];
-
-        const itemText =
-          items
-            .map(item =>
-              `${escapeCustomerHtml(item.name || 'Item')} × ${item.qty || 1}`
-            )
-            .join('<br>');
-
-        return `
-          <div class="customer-order-card">
-
-            <div class="customer-order-top">
-
-              <strong>
-                ${escapeCustomerHtml(order.id || '')}
-              </strong>
-
-              <span>
-                ${escapeCustomerHtml(order.status || 'Pending')}
-              </span>
-
-            </div>
-
-            <div class="customer-order-items">
-              ${itemText}
-            </div>
-
-            <div class="customer-order-total">
-              Total:
-              <b>
-                ৳${Number(order.total || 0).toFixed(0)}
-              </b>
-            </div>
-
-          </div>
-        `;
-
-      }).join('');
+    setTimeout(() => {
+      showLogin();
+    }, 800);
 
   } catch (error) {
 
-    if (
-      error.message &&
-      /token|login|auth|unauthorized/i.test(error.message)
-    ) {
-
-      clearCustomerSession();
-
-      updateCustomerAccountButton();
-
-      box.innerHTML = `
-        <div class="customer-order-empty">
-          Please login again to view your orders.
-        </div>
-      `;
-
-      return;
-    }
-
-    box.innerHTML = `
-      <div class="customer-auth-message error">
-        ${escapeCustomerHtml(
-          error.message || 'Unable to load orders.'
-        )}
-      </div>
-    `;
+    message.innerHTML =
+      `<span class="error">${escapeHTML(
+        error.message
+      )}</span>`;
   }
 }
 
-/* =========================================================
-   LOGOUT
-   ========================================================= */
-
-function customerLogout() {
-
-  clearCustomerSession();
-
-  updateCustomerAccountButton();
-
-  closeCustomerAuth();
-
-  if (typeof toast === 'function') {
-    toast('You have been logged out.');
-  }
-}
 
 /* =========================================================
-   SESSION CHECK
-   ========================================================= */
-
-async function restoreCustomerSession() {
-
-  const token = getCustomerToken();
-
-  if (!token) {
-    updateCustomerAccountButton();
-    return;
-  }
-
-  try {
-
-    const data =
-      await customerApi('/api/customer/me');
-
-    if (data.customer) {
-
-      localStorage.setItem(
-        CUSTOMER_DATA_KEY,
-        JSON.stringify(data.customer)
-      );
-
-    }
-
-  } catch {
-
-    clearCustomerSession();
-
-  }
-
-  updateCustomerAccountButton();
-}
-
-/* =========================================================
-   CHECKOUT LOGIN HELPER
+   REQUIRE LOGIN BEFORE CHECKOUT
    ========================================================= */
 
 function requireCustomerLogin() {
@@ -1211,173 +854,542 @@ function requireCustomerLogin() {
     return true;
   }
 
-  openCustomerAccount();
+  openAuthModal('login');
 
-  showLogin();
+  const message =
+    document.getElementById(
+      'authMessage'
+    );
 
-  showAuthMessage(
-    'Please login or create an account before placing an order.'
-  );
+  if (message) {
+    message.innerHTML =
+      '<span class="error">Please login before placing an order.</span>';
+  }
 
   return false;
 }
 
+
 /* =========================================================
-   ESCAPE HTML
+   MY ORDERS
    ========================================================= */
 
-function escapeCustomerHtml(value) {
+async function showMyOrders() {
+  closeAccountMenu();
 
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  if (!isCustomerLoggedIn()) {
+    openAuthModal('login');
+    return;
+  }
 
+  createAuthModal();
+
+  const modal =
+    document.getElementById(
+      'customerAuthModal'
+    );
+
+  modal.classList.add('show');
+
+  const box =
+    document.getElementById(
+      'authContent'
+    );
+
+  box.innerHTML = `
+    <div class="auth-heading">
+      <small>MY ACCOUNT</small>
+      <h2>My Orders</h2>
+    </div>
+
+    <div id="myOrdersList">
+      Loading orders...
+    </div>
+  `;
+
+  try {
+
+    const result =
+      await customerAPI(
+        '/api/customer/orders'
+      );
+
+    const orders =
+      result.orders ||
+      result ||
+      [];
+
+    if (!orders.length) {
+      box.querySelector(
+        '#myOrdersList'
+      ).innerHTML =
+        '<p>No orders found yet.</p>';
+
+      return;
+    }
+
+    box.querySelector(
+      '#myOrdersList'
+    ).innerHTML =
+      orders.map(order => `
+        <div class="customer-order">
+          <strong>
+            Order #${escapeHTML(
+              String(
+                order.id ||
+                order.orderId ||
+                ''
+              )
+            )}
+          </strong>
+
+          <span>
+            ${escapeHTML(
+              order.status ||
+              'Pending'
+            )}
+          </span>
+
+          <p>
+            Total:
+            ৳${Number(
+              order.total || 0
+            ).toFixed(0)}
+          </p>
+        </div>
+      `).join('');
+
+  } catch (error) {
+
+    box.querySelector(
+      '#myOrdersList'
+    ).innerHTML =
+      `<p class="error">${escapeHTML(
+        error.message
+      )}</p>`;
+  }
 }
 
+
 /* =========================================================
-   BASIC STYLES
+   PROFILE
    ========================================================= */
 
-function addCustomerAuthStyles() {
+function showCustomerProfile() {
+  closeAccountMenu();
+  createAuthModal();
 
-  if (document.getElementById('customerAuthStyles')) {
+  const customer =
+    getCustomerData() || {};
+
+  const modal =
+    document.getElementById(
+      'customerAuthModal'
+    );
+
+  modal.classList.add('show');
+
+  const box =
+    document.getElementById(
+      'authContent'
+    );
+
+  box.innerHTML = `
+    <div class="auth-heading">
+      <small>MY ACCOUNT</small>
+      <h2>My Profile</h2>
+    </div>
+
+    <div class="profile-card">
+
+      <p>
+        <strong>Name</strong><br>
+        ${escapeHTML(
+          customer.name ||
+          customer.fullName ||
+          ''
+        )}
+      </p>
+
+      <p>
+        <strong>Mobile</strong><br>
+        ${escapeHTML(
+          customer.mobile ||
+          customer.phone ||
+          ''
+        )}
+      </p>
+
+      <p>
+        <strong>Email</strong><br>
+        ${escapeHTML(
+          customer.email ||
+          ''
+        )}
+      </p>
+
+    </div>
+
+    <button
+      class="btn full"
+      onclick="closeAuthModal()"
+    >
+      Close
+    </button>
+  `;
+}
+
+
+/* =========================================================
+   LOGOUT
+   ========================================================= */
+
+function customerLogout() {
+  closeAccountMenu();
+  clearCustomerSession();
+
+  alert('You have been logged out.');
+}
+
+
+/* =========================================================
+   HTML ESCAPE
+   ========================================================= */
+
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+
+/* =========================================================
+   AUTH STYLES
+   ========================================================= */
+
+(function addCustomerAuthStyles() {
+
+  if (
+    document.getElementById(
+      'customerAuthStyles'
+    )
+  ) {
     return;
   }
 
   const style =
     document.createElement('style');
 
-  style.id = 'customerAuthStyles';
+  style.id =
+    'customerAuthStyles';
 
   style.textContent = `
 
-    .customer-auth-card {
-      max-width: 520px;
+    /* NAVBAR */
+
+    .site-header {
+      position: relative;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
     }
 
-    .customer-auth-card label {
+    .main-nav {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 24px;
+      flex: 1;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .nav-links a,
+    .nav-cart,
+    .nav-account {
+      white-space: nowrap;
+    }
+
+    .nav-cart,
+    .nav-account {
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 999px;
+      padding: 10px 15px;
+      cursor: pointer;
+    }
+
+    .nav-account.logged-in {
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mobile-menu-btn {
+      display: none;
+      border: 0;
+      background: transparent;
+      font-size: 25px;
+      cursor: pointer;
+    }
+
+
+    /* ACCOUNT DROPDOWN */
+
+    #customerAccountMenu {
+      position: fixed;
+      top: 76px;
+      right: 24px;
+      z-index: 3000;
+      width: 250px;
+    }
+
+    .account-menu-inner {
+      padding: 12px;
+      border-radius: 16px;
+      background: #111;
+      border: 1px solid rgba(255,255,255,.15);
+      box-shadow: 0 15px 45px rgba(0,0,0,.35);
+    }
+
+    .account-menu-user {
+      padding: 10px 12px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      margin-bottom: 8px;
+    }
+
+    .account-menu-user strong,
+    .account-menu-user small {
       display: block;
-      margin-bottom: 14px;
     }
 
-    .customer-auth-card input {
+    .account-menu-user small {
+      margin-top: 4px;
+      opacity: .65;
+      word-break: break-word;
+    }
+
+    .account-menu-inner button {
+      width: 100%;
+      text-align: left;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      padding: 11px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .account-menu-inner button:hover {
+      background: rgba(255,255,255,.08);
+    }
+
+
+    /* AUTH MODAL */
+
+    #customerAuthModal {
+      display: none;
+    }
+
+    #customerAuthModal.show {
+      display: block;
+    }
+
+    .customer-auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 4000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,.75);
+    }
+
+    .customer-auth-box {
+      position: relative;
+      width: min(430px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      padding: 30px;
+      border-radius: 20px;
+      background: #111;
+      box-shadow: 0 20px 70px rgba(0,0,0,.5);
+    }
+
+    .customer-auth-close {
+      position: absolute;
+      top: 12px;
+      right: 15px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    .auth-heading {
+      margin-bottom: 20px;
+    }
+
+    .auth-heading h2 {
+      margin: 5px 0;
+    }
+
+    .auth-heading p {
+      opacity: .7;
+      margin: 0;
+    }
+
+    #customerAuthModal input {
       width: 100%;
       box-sizing: border-box;
-      margin-top: 6px;
+      margin-bottom: 12px;
     }
 
     .auth-links {
       display: flex;
-      justify-content: space-between;
-      gap: 12px;
+      flex-direction: column;
+      gap: 7px;
       margin-top: 14px;
-      flex-wrap: wrap;
     }
 
-    .text-button {
+    .auth-links button {
       border: 0;
       background: transparent;
-      cursor: pointer;
-      padding: 4px 0;
-      text-decoration: underline;
-      font: inherit;
-    }
-
-    .auth-description {
-      line-height: 1.6;
-      opacity: .85;
-      margin-bottom: 18px;
-    }
-
-    .customer-auth-message {
-      padding: 12px 14px;
-      border-radius: 10px;
-      margin-bottom: 16px;
-      line-height: 1.5;
-    }
-
-    .customer-auth-message.error {
-      background: rgba(180, 30, 30, .12);
-    }
-
-    .customer-auth-message.success {
-      background: rgba(30, 150, 80, .12);
-    }
-
-    .customer-profile {
-      padding: 16px;
-      border-radius: 12px;
-      margin-bottom: 16px;
-      background: rgba(255,255,255,.05);
-    }
-
-    .customer-profile h3 {
-      margin-top: 0;
-      margin-bottom: 8px;
-    }
-
-    .customer-profile p {
-      margin: 5px 0;
-      opacity: .8;
-    }
-
-    .customer-account-button {
-      white-space: nowrap;
-      margin-left: 10px;
-    }
-
-    .customer-orders {
-      margin-top: 18px;
-    }
-
-    .customer-order-card {
-      padding: 14px;
-      border-radius: 12px;
-      margin-bottom: 10px;
-      background: rgba(255,255,255,.05);
-    }
-
-    .customer-order-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .customer-order-items {
-      line-height: 1.6;
-      opacity: .85;
-    }
-
-    .customer-order-total {
-      margin-top: 10px;
-    }
-
-    .customer-order-loading,
-    .customer-order-empty {
-      padding: 14px;
-      text-align: center;
+      color: inherit;
       opacity: .75;
+      cursor: pointer;
+    }
+
+    .success {
+      display: block;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    .error {
+      display: block;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    .customer-order,
+    .profile-card {
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.1);
+    }
+
+    .customer-order {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+
+    /* MOBILE */
+
+    @media (max-width: 850px) {
+
+      .site-header {
+        gap: 12px;
+      }
+
+      .main-nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        padding: 18px;
+        background: #111;
+        border-top: 1px solid rgba(255,255,255,.1);
+        box-shadow: 0 15px 30px rgba(0,0,0,.25);
+      }
+
+      .main-nav.mobile-open {
+        display: flex;
+      }
+
+      .nav-links {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+      }
+
+      .nav-links a {
+        display: block;
+        padding: 12px;
+        border-radius: 10px;
+      }
+
+      .nav-links a:hover {
+        background: rgba(255,255,255,.08);
+      }
+
+      .nav-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .nav-cart,
+      .nav-account {
+        width: 100%;
+      }
+
+      .mobile-menu-btn {
+        display: block;
+      }
+
+      #customerAccountMenu {
+        top: 70px;
+        right: 15px;
+        left: 15px;
+        width: auto;
+      }
+
+      .customer-auth-box {
+        padding: 24px 20px;
+      }
     }
 
   `;
 
   document.head.appendChild(style);
-}
+
+})();
+
 
 /* =========================================================
-   START AUTH SYSTEM
+   INITIALIZE
    ========================================================= */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener(
+  'DOMContentLoaded',
+  function () {
 
-  createCustomerAuthUI();
+    updateCustomerNavbar();
 
-  createCustomerAccountButton();
-
-  restoreCustomerSession();
-
-});
+  }
+);
