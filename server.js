@@ -670,12 +670,70 @@ function getMenu() {
 
   return menu.map(normalizeProduct);
 }
-
 function normalizeProduct(product) {
+
+  const rawSizes =
+    Array.isArray(product.sizes)
+      ? product.sizes
+      : [];
+
+
+  const sizes =
+    rawSizes
+      .map(size => {
+
+        if (Array.isArray(size)) {
+
+          return [
+            cleanString(size[0], 100),
+            Number(size[1]) || 0
+          ];
+
+        }
+
+        if (
+          size &&
+          typeof size === 'object'
+        ) {
+
+          return [
+            cleanString(
+              size.name ||
+              size.label ||
+              size.size ||
+              '',
+              100
+            ),
+
+            Number(
+              size.price
+            ) || 0
+          ];
+
+        }
+
+        return ['', 0];
+
+      })
+      .filter(
+        size =>
+          size[0] &&
+          size[1] > 0
+      );
+
+
+  const firstPrice =
+    sizes.length
+      ? Number(sizes[0][1])
+      : Number(product.price) || 0;
+
+
   const item = {
+
     id:
       product.id ||
       makeId('item'),
+
 
     name:
       cleanString(
@@ -683,14 +741,20 @@ function normalizeProduct(product) {
         200
       ),
 
+
     cat:
       cleanString(
         product.cat,
         50
       ).toLowerCase(),
 
+
     price:
-      Number(product.price) || 0,
+      firstPrice,
+
+
+    sizes,
+
 
     image:
       cleanString(
@@ -698,48 +762,62 @@ function normalizeProduct(product) {
         500
       ),
 
+
     description:
       cleanString(
         product.description,
         1000
       ),
 
+
     choice:
       cleanString(
-        product.choice,
+        product.choice ||
+        (sizes[0] ? sizes[0][0] : ''),
         200
       ),
+
 
     options:
       Array.isArray(product.options)
         ? product.options
         : [],
 
+
     minQty:
       Number(product.minQty) > 0
         ? Number(product.minQty)
         : 1,
+
 
     maxQty:
       Number(product.maxQty) > 0
         ? Number(product.maxQty)
         : 100,
 
+
     prebook:
       Boolean(product.prebook),
 
+
     active:
       product.active !== false
+
   };
 
+
   /*
-    Pizza NEVER supports pre-booking.
+    PIZZA IS ALWAYS NON-PREBOOK.
   */
+
   if (
     item.cat === 'pizza'
   ) {
-    item.prebook = false;
+
+    item.prebook =
+      false;
   }
+
 
   return item;
 }
