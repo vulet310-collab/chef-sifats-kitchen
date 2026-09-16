@@ -2,182 +2,396 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1"
-  >
-
-  <meta
-    name="theme-color"
-    content="#080808"
-  >
+  <meta name="viewport" content="width=device-width,initial-scale=1">
 
   <title>Chef Sifat's Kitchen — Admin</title>
 
-  <link
-    rel="stylesheet"
-    href="/admin.css"
-  >
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f5f7;
+      color: #222;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    /* LOGIN */
+
+    #login {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-box {
+      width: 100%;
+      max-width: 420px;
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,.12);
+    }
+
+    .login-box h1 {
+      margin-top: 0;
+      text-align: center;
+    }
+
+    .login-box input {
+      width: 100%;
+      padding: 13px;
+      margin: 8px 0;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 13px;
+      margin-top: 10px;
+      border: 0;
+      border-radius: 8px;
+      background: #111;
+      color: white;
+      font-weight: bold;
+    }
+
+    #loginError {
+      color: #d00;
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    /* APP */
+
+    #app {
+      display: none;
+      min-height: 100vh;
+    }
+
+    aside {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 240px;
+      background: #111;
+      color: white;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    aside h2 {
+      margin-top: 0;
+      margin-bottom: 25px;
+    }
+
+    .nav-btn {
+      width: 100%;
+      display: block;
+      text-align: left;
+      padding: 12px 14px;
+      margin: 7px 0;
+      border: 0;
+      border-radius: 8px;
+      background: #222;
+      color: white;
+    }
+
+    .nav-btn:hover {
+      background: #333;
+    }
+
+    .logout-btn {
+      background: #8b0000;
+      margin-top: 25px;
+    }
+
+    main {
+      margin-left: 240px;
+      padding: 25px;
+      min-height: 100vh;
+    }
+
+    .page-title {
+      margin-top: 0;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 15px rgba(0,0,0,.06);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+    }
+
+    .stat {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 15px rgba(0,0,0,.06);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      margin-top: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th,
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f7f7f7;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 7px;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .full {
+      grid-column: 1 / -1;
+    }
+
+    .btn {
+      border: 0;
+      padding: 10px 14px;
+      border-radius: 7px;
+      background: #111;
+      color: white;
+      margin: 3px;
+    }
+
+    .btn.green {
+      background: #16833b;
+    }
+
+    .btn.red {
+      background: #b00020;
+    }
+
+    .btn.gray {
+      background: #666;
+    }
+
+    .menu-item {
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      background: #fff;
+    }
+
+    .menu-item-grid {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 15px;
+    }
+
+    .menu-image {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 10px;
+      background: #eee;
+    }
+
+    .message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      background: #eee;
+    }
+
+    .success {
+      background: #dff6e5;
+      color: #12652a;
+    }
+
+    .error {
+      background: #ffe1e1;
+      color: #9b0000;
+    }
+
+    @media (max-width: 900px) {
+      aside {
+        position: relative;
+        width: 100%;
+      }
+
+      #app {
+        display: block;
+      }
+
+      main {
+        margin-left: 0;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .stats {
+        grid-template-columns: 1fr;
+      }
+
+      .menu-item-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .menu-image {
+        width: 100%;
+        height: 200px;
+      }
+    }
+  </style>
 </head>
 
 <body>
 
-  <!-- =====================================================
-       LOGIN
-  ====================================================== -->
+  <!-- LOGIN -->
 
   <section id="login">
-
-    <div class="panel">
-
-      <h1>CSK Admin</h1>
-
-      <p>
-        Chef Sifat's Kitchen
-      </p>
+    <div class="login-box">
+      <h1>Chef Sifat's Kitchen</h1>
+      <p style="text-align:center;">Admin Panel</p>
 
       <input
-        id="u"
+        id="username"
         type="text"
+        placeholder="Username"
         autocomplete="username"
-        placeholder="Admin Username"
       >
 
       <input
-        id="p"
+        id="password"
         type="password"
+        placeholder="Password"
         autocomplete="current-password"
-        placeholder="Admin Password"
       >
 
-      <button
-        type="button"
-        onclick="login()"
-      >
+      <button class="login-btn" onclick="login()">
         Sign In
       </button>
 
-      <p
-        id="e"
-        style="color:#d00;margin-top:12px"
-      ></p>
-
+      <div id="loginError"></div>
     </div>
-
   </section>
 
 
-  <!-- =====================================================
-       ADMIN APP
-  ====================================================== -->
+  <!-- ADMIN APP -->
 
   <section id="app">
 
     <aside>
 
-      <div class="admin-brand">
+      <h2>CSK Admin</h2>
 
-        <div class="admin-logo">
-          CSK
-        </div>
+      <button class="nav-btn" onclick="dashboard()">
+        📊 Dashboard
+      </button>
 
-        <div>
-          <strong>
-            Chef Sifat's Kitchen
-          </strong>
+      <button class="nav-btn" onclick="orders()">
+        🛒 Orders
+      </button>
 
-          <small>
-            Admin Panel
-          </small>
-        </div>
+      <button class="nav-btn" onclick="menu()">
+        🍕 Menu
+      </button>
 
-      </div>
+      <button class="nav-btn" onclick="reviews()">
+        ⭐ Reviews
+      </button>
 
+      <button class="nav-btn" onclick="customers()">
+        👤 Customers
+      </button>
 
-      <nav>
+      <button class="nav-btn" onclick="settings()">
+        ⚙️ Delivery & Settings
+      </button>
 
-        <button
-          type="button"
-          onclick="dash()"
-        >
-          📊 Dashboard
-        </button>
-
-        <button
-          type="button"
-          onclick="orders()"
-        >
-          📦 Orders
-        </button>
-
-        <button
-          type="button"
-          onclick="menu()"
-        >
-          🍕 Menu
-        </button>
-
-        <button
-          type="button"
-          onclick="addItem()"
-        >
-          ➕ Add Item
-        </button>
-
-        <button
-          type="button"
-          onclick="reviews()"
-        >
-          ⭐ Reviews
-        </button>
-
-        <button
-          type="button"
-          onclick="customers()"
-        >
-          👥 Customers
-        </button>
-
-        <button
-          type="button"
-          onclick="settings()"
-        >
-          ⚙️ Delivery & Settings
-        </button>
-
-      </nav>
-
-
-      <div class="admin-bottom">
-
-        <button
-          type="button"
-          onclick="logout()"
-        >
-          🚪 Logout
-        </button>
-
-      </div>
+      <button class="nav-btn logout-btn" onclick="logout()">
+        🚪 Logout
+      </button>
 
     </aside>
 
-
-    <main>
-
-      <div id="view">
-
-        <div class="box">
-          Loading Admin Panel...
-        </div>
-
+    <main id="view">
+      <div class="card">
+        Loading Admin Panel...
       </div>
-
     </main>
 
   </section>
 
 
-  <script src="/admin.js"></script>
+  <script src="/admin.js?v=20260917"></script>
 
 </body>
 </html>
