@@ -1,0 +1,22 @@
+[
+{"id":"pizza-bbq","name":"BBQ Chicken Pizza","cat":"Pizza","image":"/assets/bbq-chicken-pizza.jpg","prebook":false,"sizes":[["6 inch",300],["8 inch",380],["10 inch",480],["12 inch",580]]},
+{"id":"pizza-meat","name":"Meat Pizza","cat":"Pizza","image":"/assets/meat-pizza.jpg","prebook":false,"sizes":[["6 inch",350],["8 inch",450],["10 inch",550],["12 inch",650]]},
+{"id":"pizza-flaming","name":"Flaming Chicken Pizza","cat":"Pizza","image":"/assets/flaming-chicken-pizza.jpg","prebook":false,"sizes":[["6 inch",300],["8 inch",350],["10 inch",450],["12 inch",550]]},
+{"id":"pizza-6season","name":"6 Season Pizza","cat":"Pizza","image":"/assets/6-season-pizza.jpg","prebook":false,"sizes":[["6 inch",350],["8 inch",420],["10 inch",500],["12 inch",600]]},
+{"id":"pizza-margherita","name":"Margherita Pizza","cat":"Pizza","image":"/assets/margherita-pizza.jpg","prebook":false,"sizes":[["6 inch",280],["8 inch",350],["10 inch",420],["12 inch",500]]},
+{"id":"pizza-neapolitan-bbq","name":"Neapolitan BBQ Chicken Pizza","cat":"Pizza","image":"/assets/bbq-chicken-pizza.jpg","prebook":false,"sizes":[["8 inch",450],["10 inch",600],["12 inch",750]]},
+{"id":"pizza-neapolitan-meat","name":"Neapolitan Meat Pizza","cat":"Pizza","image":"/assets/neapolitan-meat-pizza.jpg","prebook":false,"sizes":[["8 inch",500],["10 inch",650],["12 inch",800]]},
+{"id":"pizza-neapolitan-margherita","name":"Neapolitan Margherita Pizza","cat":"Pizza","image":"/assets/neapolitan-margherita-pizza.jpg","prebook":false,"sizes":[["6 inch",350],["8 inch",450],["10 inch",550],["12 inch",650]]},
+{"id":"pizza-emergency-bbq","name":"Emergency BBQ Chicken Pizza","cat":"Pizza","image":"/assets/emergency-bbq-chicken-pizza.jpg","prebook":false,"sizes":[["8 inch",400],["10 inch",550],["12 inch",700]]},
+{"id":"pizza-emergency-meat","name":"Emergency Meat Pizza","cat":"Pizza","image":"/assets/emergency-meat-pizza.jpg","prebook":false,"sizes":[["8 inch",450],["10 inch",600],["12 inch",750]]},
+{"id":"pizza-emergency-margherita","name":"Emergency Margherita Pizza","cat":"Pizza","image":"/assets/margherita-pizza.jpg","prebook":false,"sizes":[["6 inch",300],["8 inch",400],["10 inch",500],["12 inch",600]]},
+{"id":"momo-chicken","name":"Chicken Momo","cat":"Momo","image":"/assets/chicken-momo.jpg","prebook":false,"sizes":[["6 pcs",120],["10 pcs",200]]},
+{"id":"momo-veg","name":"Vegetable Momo","cat":"Momo","image":"/assets/vegetable-momo.jpg","prebook":false,"sizes":[["6 pcs",100],["10 pcs",160]]},
+{"id":"momo-bbq","name":"BBQ Chicken Momo","cat":"Momo","image":"/assets/bbq-chicken-momo.jpg","prebook":false,"sizes":[["6 pcs",160],["10 pcs",250]]},
+{"id":"momo-cheese","name":"Cheese Chicken Momo","cat":"Momo","image":"/assets/cheese-chicken-momo.jpg","prebook":false,"sizes":[["6 pcs",180],["10 pcs",300]]},
+{"id":"continental-prawns","name":"Prawns Cocktail","cat":"Continental","image":"/assets/prawns-cocktail.png","prebook":true,"sizes":[["5–6 pcs / 1 person",350],["10–12 pcs / 2 persons",700]]},
+{"id":"continental-fish","name":"Grilled Fish with Special Fried Potato","cat":"Continental","image":"/assets/grilled-fish.png","prebook":true,"sizes":[["1 person",380],["2 persons",700]]},
+{"id":"continental-coleslaw","name":"Coleslaw Salad","cat":"Continental","image":"/assets/coleslaw.png","prebook":true,"sizes":[["1 serving",80]]},
+{"id":"kacchi-authentic","name":"Authentic Kacchi Biryani","cat":"Kacchi","image":"/assets/authentic-kacchi.jpg","prebook":true,"minQty":2,"maxQty":20,"sizes":[["1 person",399]]},
+{"id":"kacchi-beef","name":"Beef Kacchi Biryani","cat":"Kacchi","image":"/assets/beef-kacchi.jpg","prebook":true,"minQty":2,"maxQty":20,"sizes":[["1 person",349]]}
+]
