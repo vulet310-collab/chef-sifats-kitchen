@@ -1,1 +1,183 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CSK Admin</title><link rel="stylesheet" href="/admin.css"></head><body><div id="login"><div class="panel"><h1>CSK Admin</h1><input id="u" placeholder="Username"><input id="p" type="password" placeholder="Password"><button onclick="login()">Sign in</button><p id="e"></p></div></div><div id="app"><aside><h2>CSK Admin</h2><button onclick="dash()">Dashboard</button><button onclick="orders()">Orders</button><button onclick="menu()">Menu</button><button onclick="reviews()">Reviews</button><button onclick="settings()">Delivery & Settings</button><button onclick="logout()">Logout</button></aside><main id="view"></main></div><script src="/admin.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  >
+
+  <meta
+    name="theme-color"
+    content="#080808"
+  >
+
+  <title>Chef Sifat's Kitchen — Admin</title>
+
+  <link
+    rel="stylesheet"
+    href="/admin.css"
+  >
+</head>
+
+<body>
+
+  <!-- =====================================================
+       LOGIN
+  ====================================================== -->
+
+  <section id="login">
+
+    <div class="panel">
+
+      <h1>CSK Admin</h1>
+
+      <p>
+        Chef Sifat's Kitchen
+      </p>
+
+      <input
+        id="u"
+        type="text"
+        autocomplete="username"
+        placeholder="Admin Username"
+      >
+
+      <input
+        id="p"
+        type="password"
+        autocomplete="current-password"
+        placeholder="Admin Password"
+      >
+
+      <button
+        type="button"
+        onclick="login()"
+      >
+        Sign In
+      </button>
+
+      <p
+        id="e"
+        style="color:#d00;margin-top:12px"
+      ></p>
+
+    </div>
+
+  </section>
+
+
+  <!-- =====================================================
+       ADMIN APP
+  ====================================================== -->
+
+  <section id="app">
+
+    <aside>
+
+      <div class="admin-brand">
+
+        <div class="admin-logo">
+          CSK
+        </div>
+
+        <div>
+          <strong>
+            Chef Sifat's Kitchen
+          </strong>
+
+          <small>
+            Admin Panel
+          </small>
+        </div>
+
+      </div>
+
+
+      <nav>
+
+        <button
+          type="button"
+          onclick="dash()"
+        >
+          📊 Dashboard
+        </button>
+
+        <button
+          type="button"
+          onclick="orders()"
+        >
+          📦 Orders
+        </button>
+
+        <button
+          type="button"
+          onclick="menu()"
+        >
+          🍕 Menu
+        </button>
+
+        <button
+          type="button"
+          onclick="addItem()"
+        >
+          ➕ Add Item
+        </button>
+
+        <button
+          type="button"
+          onclick="reviews()"
+        >
+          ⭐ Reviews
+        </button>
+
+        <button
+          type="button"
+          onclick="customers()"
+        >
+          👥 Customers
+        </button>
+
+        <button
+          type="button"
+          onclick="settings()"
+        >
+          ⚙️ Delivery & Settings
+        </button>
+
+      </nav>
+
+
+      <div class="admin-bottom">
+
+        <button
+          type="button"
+          onclick="logout()"
+        >
+          🚪 Logout
+        </button>
+
+      </div>
+
+    </aside>
+
+
+    <main>
+
+      <div id="view">
+
+        <div class="box">
+          Loading Admin Panel...
+        </div>
+
+      </div>
+
+    </main>
+
+  </section>
+
+
+  <script src="/admin.js"></script>
+
+</body>
+</html>
