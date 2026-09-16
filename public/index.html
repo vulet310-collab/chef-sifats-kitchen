@@ -1,5 +1,48 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chef Sifat's Kitchen</title><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><link rel="stylesheet" href="/styles.css"></head><body>
-<header><div class="brand"><b>CSK</b><span>Chef Sifat's Kitchen<small>Freshly Made. Deliciously Delivered.</small></span></div><nav><a href="#home">Home</a><a href="#menu">Menu</a><a href="#about">About</a><a href="#contact">Contact</a><button onclick="openCart()">Cart <i id="count">0</i></button></nav></header>
+<header class="site-header">
+  <div class="brand">
+    <b>CSK</b>
+    <span>
+      Chef Sifat's Kitchen
+      <small>Freshly Made. Deliciously Delivered.</small>
+    </span>
+  </div>
+
+  <nav class="main-nav" id="mainNav">
+    <div class="nav-links">
+      <a href="#home">Home</a>
+      <a href="#menu">Menu</a>
+      <a href="#about">About</a>
+      <a href="#contact">Contact</a>
+    </div>
+
+    <div class="nav-actions">
+      <button class="nav-cart" type="button" onclick="openCart()">
+        🛒 Cart <i id="count">0</i>
+      </button>
+
+      <!-- customer-auth.js will control this button -->
+      <button
+        id="customerAccountBtn"
+        class="nav-account"
+        type="button"
+        onclick="openAuthModal()"
+      >
+        👤 Login
+      </button>
+    </div>
+  </nav>
+
+  <button
+    id="mobileMenuBtn"
+    class="mobile-menu-btn"
+    type="button"
+    aria-label="Open menu"
+    onclick="toggleMobileMenu()"
+  >
+    ☰
+  </button>
+</header>
 <section id="home" class="hero"><div><p>★ BEACON Certified • Certificate F&B-78006001</p><h1>Premium food,<br><em>made with care.</em></h1><p>Freshly prepared Pizza, Momo, Continental dishes and Kacchi Biryani.</p><a class="btn" href="#menu">Order Now</a></div><div class="heroBox"><b>Home Delivery</b><span>GPS location • draggable map pin • automatic distance</span><span>COD in the COD zone</span></div></section>
 <section id="menu"><div class="head"><div><small>OUR MENU</small><h2>Choose your favourites</h2></div><input id="search" placeholder="Search food" oninput="render()"></div><div class="chips"><button onclick="cat='All';render()">All</button><button onclick="cat='Pizza';render()">Pizza</button><button onclick="cat='Momo';render()">Momo</button><button onclick="cat='Continental';render()">Continental</button><button onclick="cat='Kacchi';render()">Kacchi</button></div><div id="grid" class="grid"></div></section>
 <section id="about" class="dark"><small>ABOUT US</small><h2>Chef Sifat's Kitchen</h2><p>Owned and managed by <b>MD Sifat Islam</b>. Freshly prepared food, quality ingredients and made-to-order service.</p><div class="info"><div><b>Address</b><p>Kahalthuri, Shahedapur-3630, Kachua, Chandpur</p></div><div><b>Hours</b><p>Sun–Thu 11 AM–7 PM<br>Friday 3 PM–9 PM</p></div><div><b>Training</b><p>BEACON Academy Bangladesh — Food & Beverage Production, 3-Month Professional Course, Grade A+, August 2026.</p></div></div></section>
