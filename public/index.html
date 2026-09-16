@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
 
@@ -9,11 +10,14 @@
   >
 
   <meta
-    name="description"
-    content="Chef Sifat's Kitchen — Freshly prepared Pizza, Momo, Continental food and Kacchi Biryani."
+    name="theme-color"
+    content="#080808"
   >
 
-  <meta name="theme-color" content="#080808">
+  <meta
+    name="description"
+    content="Chef Sifat's Kitchen — Premium freshly prepared Pizza, Momo, Continental food and Kacchi Biryani."
+  >
 
   <title>Chef Sifat's Kitchen</title>
 
@@ -22,33 +26,33 @@
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   >
 
-  <link rel="stylesheet" href="/styles.css">
+  <link
+    rel="stylesheet"
+    href="/styles.css"
+  >
 </head>
 
 <body>
 
-<!-- =========================================================
-     HEADER
-========================================================= -->
-
 <header class="site-header">
 
   <div class="brand">
-    <div class="brand-logo">CSK</div>
+
+    <div class="brand-logo">
+      CSK
+    </div>
 
     <div class="brand-text">
       <strong>Chef Sifat's Kitchen</strong>
       <small>Freshly Made. Deliciously Delivered.</small>
     </div>
+
   </div>
 
-
-  <!-- Desktop / Mobile Navigation -->
 
   <nav
     id="mainNav"
     class="main-nav"
-    aria-label="Main navigation"
   >
 
     <div class="nav-links">
@@ -91,11 +95,9 @@
 
 
   <button
-    type="button"
     id="mobileMenuBtn"
+    type="button"
     class="mobile-menu-btn"
-    aria-label="Open navigation menu"
-    aria-expanded="false"
     onclick="toggleMobileMenu()"
   >
     ☰
@@ -105,15 +107,14 @@
 
 
 
-<!-- =========================================================
-     HOME
-========================================================= -->
+<section
+  id="home"
+  class="hero"
+>
 
-<section id="home" class="hero">
+  <div>
 
-  <div class="hero-content">
-
-    <p class="eyebrow">
+    <p>
       ★ BEACON Certified • Certificate F&B-78006001
     </p>
 
@@ -123,46 +124,39 @@
       <em>made with care.</em>
     </h1>
 
-    <p class="hero-description">
-      Freshly prepared Pizza, Momo, Continental dishes
-      and Kacchi Biryani.
+    <p>
+      Freshly prepared Pizza, Momo,
+      Continental dishes and Kacchi Biryani.
     </p>
 
-    <div class="hero-buttons">
-
-      <a
-        class="btn"
-        href="#menu"
-      >
-        Order Now
-      </a>
-
-      <a
-        class="btn secondary"
-        href="#about"
-      >
-        About Us
-      </a>
-
-    </div>
+    <a
+      href="#menu"
+      class="btn"
+    >
+      Order Now
+    </a>
 
   </div>
 
 
-  <div class="hero-box">
+  <div class="heroBox">
 
-    <strong>Home Delivery</strong>
+    <b>Home Delivery</b>
 
     <span>
-      📍 GPS location + draggable map pin
+      📍 GPS location
     </span>
 
     <span>
-      🚚 Automatic distance & delivery charge
+      🗺️ Select exact location on map
     </span>
 
     <span>
-      💵 COD available inside COD zone
+      🚚 Automatic delivery charge
+    </span>
+
+    <span>
+      💵 COD inside COD zone
     </span>
 
   </div>
@@ -171,13 +165,9 @@
 
 
 
-<!-- =========================================================
-     MENU
-========================================================= -->
+<section id="menu">
 
-<section id="menu" class="menu-section">
-
-  <div class="section-head">
+  <div class="head">
 
     <div>
 
@@ -190,22 +180,15 @@
     </div>
 
 
-    <div class="search-box">
-
-      <input
-        id="search"
-        type="search"
-        placeholder="Search food..."
-        autocomplete="off"
-      >
-
-    </div>
+    <input
+      id="search"
+      type="search"
+      placeholder="Search food..."
+      autocomplete="off"
+    >
 
   </div>
 
-
-
-  <!-- Category buttons -->
 
   <div
     id="categoryButtons"
@@ -251,9 +234,6 @@
   </div>
 
 
-
-  <!-- Products -->
-
   <div
     id="grid"
     class="grid"
@@ -262,7 +242,6 @@
 
   <div
     id="menuLoading"
-    class="loading"
     style="display:none"
   >
     Loading menu...
@@ -271,7 +250,6 @@
 
   <div
     id="menuEmpty"
-    class="empty"
     style="display:none"
   >
     No food found.
@@ -281,90 +259,74 @@
 
 
 
-<!-- =========================================================
-     ABOUT
-========================================================= -->
-
 <section
   id="about"
   class="dark"
 >
 
-  <div class="section-container">
+  <small>ABOUT US</small>
 
-    <small>ABOUT US</small>
+  <h2>
+    Chef Sifat's Kitchen
+  </h2>
 
-    <h2>
-      Chef Sifat's Kitchen
-    </h2>
-
-    <p>
-      Chef Sifat's Kitchen is dedicated to freshly prepared
-      food, quality ingredients and chef-crafted dishes.
-    </p>
-
-
-    <p>
-      Owned and managed by
-      <strong>MD Sifat Islam</strong>,
-      Owner & Managing Director and Head Chef of
-      Chef Sifat's Kitchen.
-    </p>
+  <p>
+    Owned and managed by
+    <strong>MD Sifat Islam</strong>,
+    Owner & Managing Director and Head Chef
+    of Chef Sifat's Kitchen.
+  </p>
 
 
-    <div class="info-grid">
+  <div class="info">
 
-      <div class="info-card">
+    <div>
 
-        <strong>Address</strong>
+      <b>Address</b>
 
-        <p>
-          Kahalthuri, Shahedapur-3630,
-          Kachua, Chandpur
-        </p>
+      <p>
+        Kahalthuri, Shahedapur-3630,
+        Kachua, Chandpur
+      </p>
 
-      </div>
-
-
-      <div class="info-card">
-
-        <strong>Regular Hours</strong>
-
-        <p>
-          Sunday–Thursday
-          <br>
-          11:00 AM–7:00 PM
-        </p>
-
-      </div>
+    </div>
 
 
-      <div class="info-card">
+    <div>
 
-        <strong>Friday Hours</strong>
+      <b>Regular Hours</b>
 
-        <p>
-          Friday
-          <br>
-          3:00 PM–9:00 PM
-        </p>
+      <p>
+        Sunday–Thursday
+        <br>
+        11 AM–7 PM
+      </p>
 
-      </div>
+    </div>
 
 
-      <div class="info-card">
+    <div>
 
-        <strong>Certification</strong>
+      <b>Friday</b>
 
-        <p>
-          BEACON Academy Bangladesh
-          <br>
-          Food & Beverage Production
-          <br>
-          Grade A+
-        </p>
+      <p>
+        3 PM–9 PM
+      </p>
 
-      </div>
+    </div>
+
+
+    <div>
+
+      <b>Certification</b>
+
+      <p>
+        BEACON Academy Bangladesh
+        <br>
+        Food & Beverage Production
+        <br>
+        Grade A+
+      </p>
 
     </div>
 
@@ -373,65 +335,55 @@
 </section>
 
 
-
-<!-- =========================================================
-     CONTACT
-========================================================= -->
 
 <section id="contact">
 
-  <div class="section-container">
+  <small>CONTACT</small>
 
-    <small>CONTACT</small>
-
-    <h2>
-      Get in touch
-    </h2>
+  <h2>
+    Get in touch
+  </h2>
 
 
-    <div class="info-grid">
+  <div class="info">
 
-      <div class="info-card">
+    <div>
 
-        <strong>Phone</strong>
+      <b>Phone</b>
 
-        <p>
-          01792494275
-          <br>
-          01815905178
-        </p>
+      <p>
+        01792494275
+        <br>
+        01815905178
+      </p>
 
-      </div>
-
-
-      <div class="info-card">
-
-        <strong>Email</strong>
-
-        <p>
-          chefsifatskitchen@gmail.com
-        </p>
-
-      </div>
+    </div>
 
 
-      <div class="info-card">
+    <div>
 
-        <strong>Facebook</strong>
+      <b>Email</b>
 
-        <p>
+      <p>
+        chefsifatskitchen@gmail.com
+      </p>
 
-          <a
-            href="https://web.facebook.com/ChefSifatsKitchen"
-            target="_blank"
-            rel="noopener"
-          >
-            Chef Sifat's Kitchen
-          </a>
+    </div>
 
-        </p>
 
-      </div>
+    <div>
+
+      <b>Facebook</b>
+
+      <p>
+        <a
+          href="https://web.facebook.com/ChefSifatsKitchen"
+          target="_blank"
+          rel="noopener"
+        >
+          Chef Sifat's Kitchen
+        </a>
+      </p>
 
     </div>
 
@@ -441,28 +393,19 @@
 
 
 
-<!-- =========================================================
-     CART OVERLAY
-========================================================= -->
+<!-- CART -->
 
 <div
   id="shade"
-  class="shade"
   onclick="closeCart()"
 ></div>
 
 
-<aside
-  id="cart"
-  class="cart"
-  aria-label="Shopping cart"
->
+<aside id="cart">
 
   <button
     type="button"
-    class="cart-close"
     onclick="closeCart()"
-    aria-label="Close cart"
   >
     ×
   </button>
@@ -473,23 +416,12 @@
   </h2>
 
 
-  <div
-    id="cartItems"
-    class="cart-items"
-  ></div>
+  <div id="cartItems"></div>
 
 
-  <div class="cart-total">
-
-    <span>
-      Subtotal
-    </span>
-
-    <strong id="subtotal">
-      ৳0
-    </strong>
-
-  </div>
+  <h3 id="subtotal">
+    ৳0
+  </h3>
 
 
   <button
@@ -504,23 +436,19 @@
 
 
 
-<!-- =========================================================
-     CHECKOUT MODAL
-========================================================= -->
+<!-- CHECKOUT -->
 
 <div
   id="modal"
-  class="modal"
   aria-hidden="true"
 >
 
-  <div class="checkout-box">
+  <div class="box">
 
     <button
       type="button"
       class="x"
       onclick="closeCheckout()"
-      aria-label="Close checkout"
     >
       ×
     </button>
@@ -536,209 +464,153 @@
     </h2>
 
 
-
-    <!-- Login notice -->
-
     <div
       id="loginNotice"
-      class="notice"
       style="display:none"
     >
-      Please login before placing an order.
+      Please login before ordering.
     </div>
 
 
+    <!-- LOCATION -->
 
-    <!-- =====================================================
-         LOCATION
-    ====================================================== -->
-
-    <div class="checkout-section">
-
-      <h3>
-        📍 Delivery Location
-      </h3>
+    <h3>
+      📍 Delivery Location
+    </h3>
 
 
-      <div class="locBtns">
+    <div class="locBtns">
 
-        <button
-          type="button"
-          class="btn"
-          onclick="gps()"
-        >
-          📍 Use my current location
-        </button>
-
-
-        <button
-          type="button"
-          onclick="base()"
-        >
-          🏫 Use shop location
-        </button>
-
-      </div>
-
-
-      <div
-        id="map"
-        class="checkout-map"
-      ></div>
-
-
-      <div
-        id="status"
-        class="location-status"
+      <button
+        type="button"
+        class="btn"
+        onclick="gps()"
       >
-        Select your delivery location from the map.
-      </div>
+        📍 Use my current location
+      </button>
+
+
+      <button
+        type="button"
+        onclick="base()"
+      >
+        🏫 Use shop location
+      </button>
+
+    </div>
+
+
+    <div id="map"></div>
+
+
+    <div id="status">
+      Select your delivery location.
+    </div>
+
+
+
+    <!-- CUSTOMER -->
+
+    <h3>
+      👤 Customer Information
+    </h3>
+
+
+    <div class="form">
+
+      <input
+        id="name"
+        type="text"
+        placeholder="Customer Name *"
+        autocomplete="name"
+      >
+
+
+      <input
+        id="phone"
+        type="tel"
+        placeholder="Phone *"
+        autocomplete="tel"
+      >
+
+
+      <input
+        id="email"
+        type="email"
+        placeholder="Email"
+        readonly
+      >
+
+
+      <input
+        id="house"
+        type="text"
+        placeholder="House / Building"
+      >
+
+
+      <input
+        id="road"
+        type="text"
+        placeholder="Road / Area"
+      >
 
     </div>
 
 
 
-    <!-- =====================================================
-         CUSTOMER INFORMATION
-    ====================================================== -->
+    <!-- DELIVERY TIME -->
 
-    <div class="checkout-section">
-
-      <h3>
-        👤 Customer Information
-      </h3>
+    <h3>
+      🕐 Delivery Time
+    </h3>
 
 
-      <div class="form">
+    <div id="timeBox">
 
-        <input
-          id="name"
-          type="text"
-          placeholder="Customer Name *"
-          autocomplete="name"
-        >
+      <select id="time">
 
+        <option value="">
+          Select delivery time
+        </option>
 
-        <input
-          id="phone"
-          type="tel"
-          placeholder="Phone *"
-          autocomplete="tel"
-        >
-
-
-        <input
-          id="email"
-          type="email"
-          placeholder="Email"
-          autocomplete="email"
-          readonly
-        >
-
-
-        <input
-          id="house"
-          type="text"
-          placeholder="House / Building"
-          autocomplete="street-address"
-        >
-
-
-        <input
-          id="road"
-          type="text"
-          placeholder="Road / Area"
-        >
-
-      </div>
+      </select>
 
     </div>
 
-
-
-    <!-- =====================================================
-         DELIVERY TIME
-    ====================================================== -->
-
-    <div class="checkout-section">
-
-      <h3>
-        🕐 Delivery Time
-      </h3>
-
-
-      <div id="timeBox">
-
-        <select
-          id="time"
-        >
-          <option value="">
-            Select delivery time
-          </option>
-        </select>
-
-      </div>
-
-
-      <div
-        id="prebookBox"
-        style="display:none"
-      ></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         PAYMENT
-    ====================================================== -->
-
-    <div class="checkout-section">
-
-      <h3>
-        💳 Payment
-      </h3>
-
-
-      <div
-        id="pay"
-        class="pay"
-      ></div>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         ORDER NOTE
-    ====================================================== -->
-
-    <div class="checkout-section">
-
-      <textarea
-        id="note"
-        placeholder="Order note (optional)"
-        rows="3"
-      ></textarea>
-
-    </div>
-
-
-
-    <!-- =====================================================
-         ORDER SUMMARY
-    ====================================================== -->
 
     <div
-      id="sum"
-      class="order-summary"
+      id="prebookBox"
+      style="display:none"
     ></div>
 
 
 
-    <!-- =====================================================
-         PLACE ORDER
-    ====================================================== -->
+    <!-- PAYMENT -->
+
+    <h3>
+      💳 Payment
+    </h3>
+
+
+    <div id="pay"></div>
+
+
+
+    <!-- NOTE -->
+
+    <textarea
+      id="note"
+      placeholder="Order note (optional)"
+      rows="3"
+    ></textarea>
+
+
+
+    <!-- SUMMARY -->
+
+    <div id="sum"></div>
+
 
     <button
       id="place"
@@ -750,10 +622,7 @@
     </button>
 
 
-    <div
-      id="result"
-      class="result"
-    ></div>
+    <div id="result"></div>
 
   </div>
 
@@ -761,46 +630,26 @@
 
 
 
-<!-- =========================================================
-     FOOTER
-========================================================= -->
-
 <footer>
 
-  <strong>
-    Chef Sifat’s Kitchen
-  </strong>
+  Chef Sifat’s Kitchen
 
-  <span>
-    • Kahalthuri, Shahedapur-3630, Kachua, Chandpur
-  </span>
+  • Kahalthuri, Shahedapur-3630,
+  Kachua, Chandpur
 
-  <span>
-    • © 2026
-  </span>
+  • © 2026
 
 </footer>
 
 
 
-<!-- =========================================================
-     SCRIPTS
-========================================================= -->
-
 <script
   src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
 ></script>
 
-
-<!-- IMPORTANT:
-     customer-auth.js loads FIRST.
-     app.js will NOT redefine customer authentication.
--->
-
 <script src="/customer-auth.js"></script>
 
 <script src="/app.js"></script>
-
 
 </body>
 </html>
