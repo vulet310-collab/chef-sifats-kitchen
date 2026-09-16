@@ -1,9 +1,19 @@
+/* =========================================================
+   CHEF SIFAT'S KITCHEN
+   FINAL APP.JS
+========================================================= */
+
 let C = null;
 let cart = JSON.parse(localStorage.cskCart || '[]');
 let cat = 'All';
+
 let map = null;
 let marker = null;
 let loc = null;
+
+/* =========================================================
+   HELPERS
+========================================================= */
 
 const $ = x => document.querySelector(x);
 
@@ -19,150 +29,275 @@ const esc = s =>
     "'": '&#039;'
   }[m]));
 
-/* =========================
+/* =========================================================
+   CUSTOMER AUTH HELPERS
+========================================================= */
+
+function customerToken() {
+  try {
+    if (typeof getCustomerToken === 'function') {
+      return getCustomerToken();
+    }
+  } catch (_) {}
+
+  return localStorage.getItem('csk_customer_token') || '';
+}
+
+function customerData() {
+  try {
+    if (typeof getCustomerData === 'function') {
+      return getCustomerData();
+    }
+  } catch (_) {}
+
+  try {
+    return JSON.parse(
+      localStorage.getItem('csk_customer_data') || 'null'
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+function customerLoggedIn() {
+  try {
+    if (typeof isCustomerLoggedIn === 'function') {
+      return isCustomerLoggedIn();
+    }
+  } catch (_) {}
+
+  return !!customerToken();
+}
+
+function requireCustomerLogin() {
+  if (customerLoggedIn()) {
+    return true;
+  }
+
+  alert(
+    'Please login or create a customer account before placing an order.'
+  );
+
+  if (typeof openCustomerAuth === 'function') {
+    openCustomerAuth('login');
+  }
+
+  return false;
+}
+
+/* =========================================================
    LOAD CONFIG
-========================= */
+========================================================= */
 
 (async function init() {
+
   try {
-    const r = await fetch('/api/config');
+
+    const r =
+      await fetch('/api/config');
 
     if (!r.ok) {
-      throw new Error('Could not load website configuration.');
+      throw new Error(
+        'Could not load website configuration.'
+      );
     }
 
     C = await r.json();
 
-    if (!C.menu) C.menu = [];
-    if (!C.settings) C.settings = {};
+    if (!C.menu) {
+      C.menu = [];
+    }
+
+    if (!C.settings) {
+      C.settings = {};
+    }
+
+    /*
+      Keep only valid menu items in cart.
+    */
 
     cart = cart.filter(x =>
-      C.menu.some(p => p.id === x.id)
+      C.menu.some(p =>
+        String(p.id) === String(x.id)
+      )
     );
 
     render();
     cartUI();
+
   } catch (e) {
+
     console.error(e);
 
     const grid = $('#grid');
 
     if (grid) {
+
       grid.innerHTML =
         '<p>Unable to load menu. Please refresh the page.</p>';
+
     }
+
   }
+
 })();
 
-/* =========================
+/* =========================================================
    MENU
-========================= */
+========================================================= */
 
 function render() {
+
   if (!C) return;
 
   const q =
-    ($('#search')?.value || '').trim().toLowerCase();
+    ($('#search')?.value || '')
+      .trim()
+      .toLowerCase();
 
-  const items = C.menu.filter(p => {
-    const categoryOK =
-      cat === 'All' || p.cat === cat;
+  const items =
+    C.menu.filter(p => {
 
-    const nameOK =
-      String(p.name || '')
-        .toLowerCase()
-        .includes(q);
+      const categoryOK =
+        cat === 'All' ||
+        p.cat === cat;
 
-    return categoryOK && nameOK;
-  });
+      const nameOK =
+        String(p.name || '')
+          .toLowerCase()
+          .includes(q);
 
-  $('#grid').innerHTML = items.length
-    ? items.map(p => {
-        const sizes = Array.isArray(p.sizes)
-          ? p.sizes
-          : [];
+      return categoryOK && nameOK;
 
-        const minQty = Number(p.minQty) || 1;
-        const maxQty = Number(p.maxQty) || 20;
+    });
 
-        /*
-          Pizza/Momo can never be pre-order.
-          Other categories use item's own prebook setting.
-        */
-        const showPrebook =
-          itemIsPrebook(p);
+  const grid = $('#grid');
 
-        return `
-          <article class="food">
+  if (!grid) return;
 
-            <div class="pic">
-              ${
-                p.image
-                  ? `<img
-                      src="${esc(p.image)}"
-                      alt="${esc(p.name)}"
-                      onerror="this.remove();this.parentElement.textContent='Food image'"
-                    >`
-                  : 'Food image'
-              }
-            </div>
+  grid.innerHTML =
+    items.length
 
-            <div class="foodbody">
+      ? items.map(p => {
 
-              <small>
-                ${esc(p.cat || '')}
-                ${showPrebook ? ' • PRE-BOOK' : ''}
-              </small>
+          const sizes =
+            Array.isArray(p.sizes)
+              ? p.sizes
+              : [];
 
-              <h3>${esc(p.name)}</h3>
+          const minQty =
+            Number(p.minQty) || 1;
 
-              ${
-                sizes.length
-                  ? `
-                    <select id="s-${esc(p.id)}">
-                      ${sizes.map((s, i) => `
-                        <option value="${i}">
-                          ${esc(s[0])} — ${money(s[1])}
-                        </option>
-                      `).join('')}
-                    </select>
-                  `
-                  : '<p>No price available</p>'
-              }
+          const maxQty =
+            Number(p.maxQty) || 20;
 
-              <div class="foodrow">
+          const showPrebook =
+            itemIsPrebook(p);
 
-                <input
-                  id="q-${esc(p.id)}"
-                  type="number"
-                  min="${minQty}"
-                  max="${maxQty}"
-                  value="${minQty}"
-                >
+          return `
 
-                <button
-                  class="btn"
-                  onclick="add('${esc(p.id)}')"
-                >
-                  Add
-                </button>
+            <article class="food">
+
+              <div class="pic">
+
+                ${
+                  p.image
+
+                    ? `
+                      <img
+                        src="${esc(p.image)}"
+                        alt="${esc(p.name)}"
+                        onerror="
+                          this.remove();
+                          this.parentElement.textContent='Food image'
+                        "
+                      >
+                    `
+
+                    : 'Food image'
+                }
 
               </div>
 
-            </div>
+              <div class="foodbody">
 
-          </article>
-        `;
-      }).join('')
-    : '<p>No food found.</p>';
+                <small>
+                  ${esc(p.cat || '')}
+                  ${
+                    showPrebook
+                      ? ' • PRE-BOOK'
+                      : ''
+                  }
+                </small>
+
+                <h3>
+                  ${esc(p.name)}
+                </h3>
+
+                ${
+                  sizes.length
+
+                    ? `
+                      <select
+                        id="s-${esc(p.id)}"
+                      >
+
+                        ${sizes.map((s, i) => `
+                          <option value="${i}">
+                            ${esc(s[0])} — ${money(s[1])}
+                          </option>
+                        `).join('')}
+
+                      </select>
+                    `
+
+                    : `
+                      <p>
+                        No price available
+                      </p>
+                    `
+                }
+
+                <div class="foodrow">
+
+                  <input
+                    id="q-${esc(p.id)}"
+                    type="number"
+                    min="${minQty}"
+                    max="${maxQty}"
+                    value="${minQty}"
+                  >
+
+                  <button
+                    class="btn"
+                    onclick="add('${esc(p.id)}')"
+                  >
+                    Add
+                  </button>
+
+                </div>
+
+              </div>
+
+            </article>
+
+          `;
+
+        }).join('')
+
+      : '<p>No food found.</p>';
+
 }
 
-/* =========================
+/* =========================================================
    ITEM PRE-ORDER RULE
-========================= */
+========================================================= */
 
 function itemIsPrebook(p) {
-  if (!p) return false;
+
+  if (!p) {
+    return false;
+  }
 
   const category =
     String(p.cat || '')
@@ -170,54 +305,75 @@ function itemIsPrebook(p) {
       .toLowerCase();
 
   /*
-    Pizza = NEVER pre-order
-    Momo  = NEVER pre-order
+    PIZZA = NEVER PRE-ORDER
+    MOMO  = NEVER PRE-ORDER
   */
+
   if (
     category === 'pizza' ||
     category === 'momo'
   ) {
+
     return false;
+
   }
 
   /*
-    If admin has explicitly set prebook,
-    use that value.
+    Admin setting has priority.
   */
-  if (typeof p.prebook === 'boolean') {
+
+  if (
+    typeof p.prebook === 'boolean'
+  ) {
+
     return p.prebook;
+
   }
 
   /*
-    Backward compatibility:
-    Continental/Kacchi were previously
-    treated as pre-order categories.
+    Backward compatibility.
   */
+
   return (
     category === 'continental' ||
     category === 'kacchi'
   );
+
 }
 
-/* =========================
+/* =========================================================
    CART
-========================= */
+========================================================= */
 
 function add(id) {
-  if (!C) return;
 
-  const p = C.menu.find(x => x.id === id);
+  if (!C) {
+    return;
+  }
+
+  const p =
+    C.menu.find(x =>
+      String(x.id) === String(id)
+    );
 
   if (!p) {
-    alert('Food item not found.');
+
+    alert(
+      'Food item not found.'
+    );
+
     return;
   }
 
   const sizeIndex =
-    Number($('#s-' + id)?.value || 0);
+    Number(
+      $('#s-' + id)?.value || 0
+    );
 
   const inputQty =
-    Number($('#q-' + id)?.value || 1);
+    Number(
+      $('#q-' + id)?.value || 1
+    );
 
   const minQty =
     Number(p.minQty) || 1;
@@ -225,70 +381,112 @@ function add(id) {
   const maxQty =
     Number(p.maxQty) || 20;
 
-  const qty = Math.max(
-    minQty,
-    Math.min(maxQty, inputQty)
-  );
+  const qty =
+    Math.max(
+      minQty,
+      Math.min(
+        maxQty,
+        inputQty
+      )
+    );
 
   cart.push({
+
     id: p.id,
+
     sizeIndex,
+
     qty
+
   });
 
   save();
+
   openCart();
+
 }
 
 function save() {
+
   localStorage.cskCart =
     JSON.stringify(cart);
 
   cartUI();
+
 }
 
 function cartUI() {
-  if (!C) return;
+
+  if (!C) {
+    return;
+  }
 
   let subtotal = 0;
   let count = 0;
 
-  cart = cart.filter(x =>
-    C.menu.some(p => p.id === x.id)
-  );
+  cart =
+    cart.filter(x =>
+      C.menu.some(p =>
+        String(p.id) === String(x.id)
+      )
+    );
 
   cart.forEach(x => {
-    count += Number(x.qty) || 0;
+
+    count +=
+      Number(x.qty) || 0;
+
   });
 
   if ($('#count')) {
-    $('#count').textContent = count;
+
+    $('#count').textContent =
+      count;
+
   }
 
   if ($('#cartItems')) {
+
     $('#cartItems').innerHTML =
+
       cart.map((x, i) => {
 
         const p =
-          C.menu.find(p => p.id === x.id);
+          C.menu.find(p =>
+            String(p.id) === String(x.id)
+          );
 
-        if (!p) return '';
+        if (!p) {
+          return '';
+        }
+
+        const sizes =
+          Array.isArray(p.sizes)
+            ? p.sizes
+            : [];
 
         const z =
-          p.sizes[x.sizeIndex] ||
-          p.sizes[0];
+          sizes[x.sizeIndex] ||
+          sizes[0];
 
-        if (!z) return '';
+        if (!z) {
+          return '';
+        }
 
         const lineTotal =
-          Number(z[1]) * Number(x.qty);
+          Number(z[1]) *
+          Number(x.qty);
 
-        subtotal += lineTotal;
+        subtotal +=
+          lineTotal;
 
         return `
+
           <div class="cartline">
 
-            <b>${esc(p.name)}</b>
+            <b>
+              ${esc(p.name)}
+            </b>
 
             <br>
 
@@ -303,195 +501,448 @@ function cartUI() {
             </button>
 
           </div>
+
         `;
+
       }).join('') ||
+
       '<p>Your cart is empty.</p>';
+
   }
 
   if ($('#subtotal')) {
+
     $('#subtotal').textContent =
       money(subtotal);
+
   }
+
 }
 
 function removeCart(index) {
+
   cart.splice(index, 1);
+
   save();
+
 }
 
 function openCart() {
-  $('#cart').classList.add('open');
-  $('#shade').classList.add('open');
+
+  $('#cart')?.classList.add('open');
+
+  $('#shade')?.classList.add('open');
+
 }
 
 function closeCart() {
-  $('#cart').classList.remove('open');
-  $('#shade').classList.remove('open');
+
+  $('#cart')?.classList.remove('open');
+
+  $('#shade')?.classList.remove('open');
+
 }
 
-/* =========================
+/* =========================================================
    CHECKOUT
-========================= */
+========================================================= */
 
 function checkout() {
+
   if (!cart.length) {
-    alert('Your cart is empty.');
+
+    alert(
+      'Your cart is empty.'
+    );
+
+    return;
+
+  }
+
+  /*
+    LOGIN REQUIRED
+  */
+
+  if (!requireCustomerLogin()) {
     return;
   }
 
   closeCart();
 
-  $('#modal').classList.add('open');
+  const modal =
+    $('#modal');
+
+  if (!modal) {
+
+    alert(
+      'Checkout interface could not be found.'
+    );
+
+    return;
+
+  }
+
+  modal.classList.add('open');
+
+  /*
+    Customer information.
+  */
+
+  fillCustomerFields();
+
+  /*
+    Create map.
+  */
 
   if (!map) {
 
     const b =
       C.settings.base || {
-        lat: 23.3022494,
-        lng: 90.9187528
+
+        lat:
+          23.3022494,
+
+        lng:
+          90.9187528
+
       };
 
-    map = L.map('map')
-      .setView([b.lat, b.lng], 14);
+    map =
+      L.map('map')
+        .setView(
+          [
+            Number(b.lat),
+            Number(b.lng)
+          ],
+          14
+        );
 
     L.tileLayer(
       'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       {
+
         attribution:
           '© OpenStreetMap contributors'
+
       }
     ).addTo(map);
 
-    marker = L.marker(
-      [b.lat, b.lng],
-      { draggable: true }
-    ).addTo(map);
+    marker =
+      L.marker(
+        [
+          Number(b.lat),
+          Number(b.lng)
+        ],
+        {
+          draggable: true
+        }
+      ).addTo(map);
 
     marker.on(
       'dragend',
       () => {
-        const p = marker.getLatLng();
-        point(p.lat, p.lng);
+
+        const p =
+          marker.getLatLng();
+
+        point(
+          p.lat,
+          p.lng
+        );
+
       }
     );
+
   }
 
-  setTimeout(() => {
-    map.invalidateSize();
-  }, 200);
+  /*
+    Replace manually typed normal delivery
+    time with automatic 30-minute slots.
+  */
+
+  setupDeliveryTimeUI();
+
+  /*
+    Reset to restaurant base.
+  */
 
   base();
+
+  /*
+    Payment + summary.
+  */
+
+  pay();
+
+  sum();
+
+  setTimeout(
+    () => {
+
+      if (map) {
+        map.invalidateSize();
+      }
+
+    },
+    250
+  );
+
 }
+
+/* =========================================================
+   CUSTOMER FIELD AUTO FILL
+========================================================= */
+
+function fillCustomerFields() {
+
+  const data =
+    customerData();
+
+  if (!data) {
+    return;
+  }
+
+  const name =
+    $('#name');
+
+  const phone =
+    $('#phone');
+
+  if (
+    name &&
+    !name.value.trim()
+  ) {
+
+    name.value =
+      data.name || '';
+
+  }
+
+  if (
+    phone &&
+    !phone.value.trim()
+  ) {
+
+    phone.value =
+      data.phone || '';
+
+  }
+
+}
+
+/* =========================================================
+   CLOSE CHECKOUT
+========================================================= */
 
 function closeCheckout() {
-  $('#modal').classList.remove('open');
+
+  $('#modal')?.classList.remove(
+    'open'
+  );
+
 }
 
-/* =========================
+/* =========================================================
    SHOP BASE
-========================= */
+========================================================= */
 
 function base() {
-  if (!C || !map || !marker) return;
+
+  if (
+    !C ||
+    !map ||
+    !marker
+  ) {
+    return;
+  }
 
   const b =
     C.settings.base || {
-      lat: 23.3022494,
-      lng: 90.9187528
+
+      lat:
+        23.3022494,
+
+      lng:
+        90.9187528
+
     };
 
+  const lat =
+    Number(b.lat);
+
+  const lng =
+    Number(b.lng);
+
   map.setView(
-    [Number(b.lat), Number(b.lng)],
+    [lat, lng],
     15
   );
 
-  marker.setLatLng([
-    Number(b.lat),
-    Number(b.lng)
-  ]);
+  marker.setLatLng(
+    [lat, lng]
+  );
 
   point(
-    Number(b.lat),
-    Number(b.lng)
+    lat,
+    lng
   );
+
 }
 
-/* =========================
+/* =========================================================
    GPS
-========================= */
+========================================================= */
 
 function gps() {
 
   if (!navigator.geolocation) {
+
     alert(
       'GPS is unavailable. Please drag the map pin instead.'
     );
+
     return;
+
   }
 
-  $('#status').textContent =
-    'Detecting your current location…';
+  const status =
+    $('#status');
+
+  if (status) {
+
+    status.textContent =
+      'Detecting your current location…';
+
+  }
 
   navigator.geolocation.getCurrentPosition(
+
     p => {
 
       const lat =
-        Number(p.coords.latitude);
+        Number(
+          p.coords.latitude
+        );
 
       const lng =
-        Number(p.coords.longitude);
+        Number(
+          p.coords.longitude
+        );
 
-      map.setView(
-        [lat, lng],
-        16
-      );
+      if (map) {
 
-      marker.setLatLng([
+        map.setView(
+          [lat, lng],
+          16
+        );
+
+      }
+
+      if (marker) {
+
+        marker.setLatLng(
+          [lat, lng]
+        );
+
+      }
+
+      point(
         lat,
         lng
-      ]);
+      );
 
-      point(lat, lng);
     },
 
     () => {
 
-      $('#status').textContent =
-        'GPS failed. Please allow location access or drag the pin manually.';
+      if (status) {
+
+        status.textContent =
+          'GPS failed. Please allow location access or drag the pin manually.';
+
+      }
+
+      alert(
+        'Could not detect your location. Please allow GPS permission or move the map pin manually.'
+      );
+
     },
 
     {
+
       enableHighAccuracy: true,
+
       timeout: 15000,
+
       maximumAge: 0
+
     }
+
   );
+
 }
 
-/* =========================
+/* =========================================================
    LOCATION CHECK
-========================= */
+========================================================= */
 
 async function point(lat, lng) {
 
   try {
 
-    $('#status').textContent =
-      'Checking delivery availability…';
+    const cleanLat =
+      Number(lat);
+
+    const cleanLng =
+      Number(lng);
+
+    if (
+      !Number.isFinite(cleanLat) ||
+      !Number.isFinite(cleanLng)
+    ) {
+
+      throw new Error(
+        'Invalid location.'
+      );
+
+    }
+
+    const status =
+      $('#status');
+
+    if (status) {
+
+      status.textContent =
+        'Checking delivery availability…';
+
+    }
 
     const response =
       await fetch(
         '/api/location/check',
         {
-          method: 'POST',
+
+          method:
+            'POST',
+
           headers: {
+
             'Content-Type':
               'application/json'
+
           },
-          body: JSON.stringify({
-            lat,
-            lng
-          })
+
+          body:
+            JSON.stringify({
+
+              lat:
+                cleanLat,
+
+              lng:
+                cleanLng
+
+            })
+
         }
       );
 
@@ -499,37 +950,54 @@ async function point(lat, lng) {
       await response.json();
 
     if (!response.ok) {
+
       throw new Error(
         r.error ||
         'Location check failed.'
       );
+
     }
 
     loc = r;
 
     if (r.allowed) {
 
-      $('#status').textContent =
-        r.message +
-        ' Distance: ' +
-        r.distanceKm +
-        ' km • Delivery: ' +
-        money(r.charge);
+      if (status) {
 
-      $('#status').style.borderColor =
-        '#475';
+        status.textContent =
+          (
+            r.message ||
+            'Delivery available.'
+          ) +
+          ' Distance: ' +
+          Number(
+            r.distanceKm || 0
+          ).toFixed(2) +
+          ' km • Delivery: ' +
+          money(r.charge);
+
+        status.style.borderColor =
+          '#475';
+
+      }
 
     } else {
 
-      $('#status').textContent =
-        r.message ||
-        'Delivery is unavailable at this location.';
+      if (status) {
 
-      $('#status').style.borderColor =
-        '#a44';
+        status.textContent =
+          r.message ||
+          'Delivery is unavailable at this location.';
+
+        status.style.borderColor =
+          '#a44';
+
+      }
+
     }
 
     pay();
+
     sum();
 
   } catch (e) {
@@ -538,37 +1006,60 @@ async function point(lat, lng) {
 
     loc = null;
 
-    $('#status').textContent =
-      'Unable to check this location. Please try again.';
+    if ($('#status')) {
+
+      $('#status').textContent =
+        'Unable to check this location. Please try again.';
+
+      $('#status').style.borderColor =
+        '#a44';
+
+    }
 
     if ($('#pay')) {
-      $('#pay').innerHTML = '';
+
+      $('#pay').innerHTML =
+        '';
+
     }
 
     if ($('#sum')) {
-      $('#sum').innerHTML = '';
+
+      $('#sum').innerHTML =
+        '';
+
     }
+
   }
+
 }
 
-/* =========================
-   PRE-BOOK CHECK
-========================= */
+/* =========================================================
+   PRE-ORDER CHECK
+========================================================= */
 
 function pre() {
-  if (!C) return false;
+
+  if (!C) {
+    return false;
+  }
 
   return cart.some(x => {
+
     const p =
-      C.menu.find(p => p.id === x.id);
+      C.menu.find(p =>
+        String(p.id) === String(x.id)
+      );
 
     return itemIsPrebook(p);
+
   });
+
 }
 
-/* =========================
-   PRE-BOOK SETTINGS
-========================= */
+/* =========================================================
+   PRE-ORDER SETTINGS
+========================================================= */
 
 function getPrebookSettings() {
 
@@ -581,20 +1072,28 @@ function getPrebookSettings() {
     {};
 
   return {
+
     enabled:
       p.enabled !== false
+
   };
+
 }
 
 function isPrebookAllowed() {
-  return getPrebookSettings().enabled;
+
+  return getPrebookSettings()
+    .enabled;
+
 }
 
-/* =========================
+/* =========================================================
    SHOP HOURS
-========================= */
+========================================================= */
 
-function getShopHours(date = new Date()) {
+function getShopHours(
+  date = new Date()
+) {
 
   const settings =
     C?.settings || {};
@@ -606,48 +1105,44 @@ function getShopHours(date = new Date()) {
     date.getDay();
 
   /*
-    0 = Sunday
-    1 = Monday
-    ...
-    5 = Friday
-    6 = Saturday
+    Friday
   */
 
   if (day === 5) {
 
-    return hours.friday || {
-      open: 15,
-      close: 21
-    };
+    return (
+      hours.friday || {
+
+        open: 15,
+
+        close: 21
+
+      }
+    );
+
   }
 
-  return hours.normal || {
-    open: 11,
-    close: 19
-  };
+  /*
+    Normal days
+  */
+
+  return (
+    hours.normal || {
+
+      open: 11,
+
+      close: 19
+
+    }
+  );
+
 }
 
-/* =========================
-   PRE-ORDER TIME WINDOW
-========================= */
+/* =========================================================
+   FINAL ORDER WINDOW
+========================================================= */
 
-/*
-  FINAL RULE:
-
-  Shop opening + 1 hour
-  ->
-  Shop closing - 1 hour
-
-  Normal:
-  11 AM - 7 PM
-  => 12 PM - 6 PM
-
-  Friday:
-  3 PM - 9 PM
-  => 4 PM - 8 PM
-*/
-
-function getPrebookWindow(date) {
+function getOrderWindow(date) {
 
   const hours =
     getShopHours(date);
@@ -659,17 +1154,24 @@ function getPrebookWindow(date) {
     Number(hours.close);
 
   return {
+
     start:
-      Math.round((open + 1) * 60),
+      Math.round(
+        (open + 1) * 60
+      ),
 
     end:
-      Math.round((close - 1) * 60)
+      Math.round(
+        (close - 1) * 60
+      )
+
   };
+
 }
 
-/* =========================
+/* =========================================================
    DATE HELPERS
-========================= */
+========================================================= */
 
 function dateKey(date) {
 
@@ -677,41 +1179,67 @@ function dateKey(date) {
     date.getFullYear();
 
   const m =
-    String(date.getMonth() + 1)
-      .padStart(2, '0');
+    String(
+      date.getMonth() + 1
+    ).padStart(2, '0');
 
   const d =
-    String(date.getDate())
-      .padStart(2, '0');
+    String(
+      date.getDate()
+    ).padStart(2, '0');
 
-  return `${y}-${m}-${d}`;
+  return (
+    y +
+    '-' +
+    m +
+    '-' +
+    d
+  );
+
 }
 
 function dateFromKey(key) {
 
   const parts =
-    String(key || '').split('-');
+    String(key || '')
+      .split('-');
 
-  if (parts.length !== 3) {
+  if (
+    parts.length !== 3
+  ) {
+
     return null;
+
   }
 
-  const y = Number(parts[0]);
-  const m = Number(parts[1]) - 1;
-  const d = Number(parts[2]);
+  const y =
+    Number(parts[0]);
+
+  const m =
+    Number(parts[1]) - 1;
+
+  const d =
+    Number(parts[2]);
 
   const date =
-    new Date(y, m, d);
+    new Date(
+      y,
+      m,
+      d
+    );
 
   if (
     date.getFullYear() !== y ||
     date.getMonth() !== m ||
     date.getDate() !== d
   ) {
+
     return null;
+
   }
 
   return date;
+
 }
 
 function formatDateLabel(date) {
@@ -720,7 +1248,10 @@ function formatDateLabel(date) {
     new Date();
 
   today.setHours(
-    0, 0, 0, 0
+    0,
+    0,
+    0,
+    0
   );
 
   const tomorrow =
@@ -734,7 +1265,10 @@ function formatDateLabel(date) {
     new Date(date);
 
   target.setHours(
-    0, 0, 0, 0
+    0,
+    0,
+    0,
+    0
   );
 
   if (
@@ -747,30 +1281,43 @@ function formatDateLabel(date) {
       target.toLocaleDateString(
         'en-GB',
         {
-          day: '2-digit',
-          month: 'short'
+          day:
+            '2-digit',
+          month:
+            'short'
         }
       )
     );
+
   }
 
   return target.toLocaleDateString(
     'en-GB',
     {
-      weekday: 'short',
-      day: '2-digit',
-      month: 'short'
+
+      weekday:
+        'short',
+
+      day:
+        '2-digit',
+
+      month:
+        'short'
+
     }
   );
+
 }
 
 function formatTime(minutes) {
 
   const hour =
-    Math.floor(minutes / 60);
+    Math.floor(
+      Number(minutes) / 60
+    );
 
   const minute =
-    minutes % 60;
+    Number(minutes) % 60;
 
   const suffix =
     hour >= 12
@@ -780,31 +1327,198 @@ function formatTime(minutes) {
   let displayHour =
     hour % 12;
 
-  if (displayHour === 0) {
+  if (
+    displayHour === 0
+  ) {
+
     displayHour = 12;
+
   }
 
   return (
     displayHour +
     ':' +
-    String(minute).padStart(2, '0') +
+    String(minute)
+      .padStart(2, '0') +
     ' ' +
     suffix
   );
+
 }
 
-/* =========================
-   BUILD PRE-ORDER SECTION
-========================= */
+/* =========================================================
+   BUILD NORMAL DELIVERY TIME
+========================================================= */
 
-function buildPrebookSection() {
+function buildTimeOptions(
+  date = new Date()
+) {
+
+  const window =
+    getOrderWindow(date);
+
+  const slots = [];
+
+  for (
+    let minutes =
+      window.start;
+
+    minutes <=
+      window.end;
+
+    minutes += 30
+  ) {
+
+    slots.push({
+
+      value:
+        formatTime(minutes),
+
+      label:
+        formatTime(minutes)
+
+    });
+
+  }
+
+  return slots;
+
+}
+
+/* =========================================================
+   NORMAL DELIVERY TIME UI
+========================================================= */
+
+function setupDeliveryTimeUI() {
+
+  const input =
+    $('#time');
+
+  if (!input) {
+    return;
+  }
 
   /*
-    VERY IMPORTANT:
-
-    No pre-order item =
-    No pre-order section.
+    If already converted, don't recreate.
   */
+
+  if (
+    input.tagName ===
+    'SELECT'
+  ) {
+
+    buildDeliveryTimeSlots();
+
+    return;
+
+  }
+
+  const select =
+    document.createElement(
+      'select'
+    );
+
+  select.id =
+    input.id || 'time';
+
+  select.name =
+    input.name || 'time';
+
+  select.className =
+    input.className || '';
+
+  select.style.cssText =
+    input.style.cssText || '';
+
+  select.required =
+    input.required;
+
+  input.replaceWith(
+    select
+  );
+
+  buildDeliveryTimeSlots();
+
+}
+
+function buildDeliveryTimeSlots() {
+
+  const select =
+    $('#time');
+
+  if (!select) {
+    return;
+  }
+
+  const today =
+    new Date();
+
+  const slots =
+    buildTimeOptions(
+      today
+    );
+
+  const window =
+    getOrderWindow(
+      today
+    );
+
+  select.innerHTML = `
+
+    <option value="">
+      Select delivery time
+    </option>
+
+    ${slots.map(s => `
+      <option value="${esc(s.value)}">
+        ${esc(s.label)}
+      </option>
+    `).join('')}
+
+  `;
+
+  /*
+    Shop is currently outside
+    customer ordering window.
+  */
+
+  if (!slots.length) {
+
+    select.innerHTML = `
+
+      <option value="">
+        No delivery slots available today
+      </option>
+
+    `;
+
+    select.disabled =
+      true;
+
+  } else {
+
+    select.disabled =
+      false;
+
+  }
+
+}
+
+/* =========================================================
+   PRE-ORDER WINDOW
+========================================================= */
+
+function getPrebookWindow(date) {
+
+  return getOrderWindow(date);
+
+}
+
+/* =========================================================
+   BUILD PRE-ORDER SECTION
+========================================================= */
+
+function buildPrebookSection() {
 
   if (!pre()) {
     return '';
@@ -813,6 +1527,7 @@ function buildPrebookSection() {
   if (!isPrebookAllowed()) {
 
     return `
+
       <div
         style="
           margin-top:12px;
@@ -821,12 +1536,19 @@ function buildPrebookSection() {
           border-radius:10px;
         "
       >
-        <b>Pre-order is currently unavailable.</b>
+
+        <b>
+          Pre-order is currently unavailable.
+        </b>
+
         <small>
           Please remove the pre-order item or try again later.
         </small>
+
       </div>
+
     `;
+
   }
 
   const options = [];
@@ -835,11 +1557,15 @@ function buildPrebookSection() {
     new Date();
 
   /*
-    Offer next 14 days.
-    Customer cannot type a date.
+    Next 14 days.
+    Customer selects date from dropdown.
   */
 
-  for (let i = 1; i <= 14; i++) {
+  for (
+    let i = 1;
+    i <= 14;
+    i++
+  ) {
 
     const d =
       new Date(today);
@@ -856,13 +1582,21 @@ function buildPrebookSection() {
     );
 
     options.push(`
+
       <option value="${dateKey(d)}">
-        ${esc(formatDateLabel(d))}
+
+        ${esc(
+          formatDateLabel(d)
+        )}
+
       </option>
+
     `);
+
   }
 
   return `
+
     <div
       id="prebookSection"
       style="
@@ -873,7 +1607,9 @@ function buildPrebookSection() {
       "
     >
 
-      <b>Pre-order</b>
+      <b>
+        Pre-order
+      </b>
 
       <small
         style="
@@ -898,11 +1634,13 @@ function buildPrebookSection() {
         id="prebookDate"
         style="width:100%;"
       >
+
         <option value="">
           Select date
         </option>
 
         ${options.join('')}
+
       </select>
 
       <label
@@ -921,9 +1659,11 @@ function buildPrebookSection() {
         style="width:100%;"
         disabled
       >
+
         <option value="">
           Select date first
         </option>
+
       </select>
 
       <input
@@ -944,12 +1684,14 @@ function buildPrebookSection() {
       </small>
 
     </div>
+
   `;
+
 }
 
-/* =========================
-   BUILD 30-MINUTE SLOTS
-========================= */
+/* =========================================================
+   BUILD PRE-ORDER TIMES
+========================================================= */
 
 function buildPrebookTimes() {
 
@@ -965,9 +1707,13 @@ function buildPrebookTimes() {
   const hint =
     $('#prebookHint');
 
-  if (!dateSelect ||
-      !timeSelect) {
+  if (
+    !dateSelect ||
+    !timeSelect
+  ) {
+
     return;
+
   }
 
   const key =
@@ -978,13 +1724,15 @@ function buildPrebookTimes() {
     timeSelect.innerHTML =
       '<option value="">Select date first</option>';
 
-    timeSelect.disabled = true;
+    timeSelect.disabled =
+      true;
 
     if (hidden) {
       hidden.value = '';
     }
 
     return;
+
   }
 
   const date =
@@ -995,9 +1743,11 @@ function buildPrebookTimes() {
     timeSelect.innerHTML =
       '<option value="">Invalid date</option>';
 
-    timeSelect.disabled = true;
+    timeSelect.disabled =
+      true;
 
     return;
+
   }
 
   const window =
@@ -1005,50 +1755,70 @@ function buildPrebookTimes() {
 
   const slots = [];
 
-  /*
-    EXACT 30-minute increments.
-  */
-
   for (
-    let minutes = window.start;
-    minutes <= window.end;
+    let minutes =
+      window.start;
+
+    minutes <=
+      window.end;
+
     minutes += 30
   ) {
 
     slots.push(`
+
       <option value="${minutes}">
+
         ${formatTime(minutes)}
+
       </option>
+
     `);
+
   }
 
   timeSelect.innerHTML = `
+
     <option value="">
       Select time
     </option>
 
     ${slots.join('')}
+
   `;
 
   timeSelect.disabled =
     slots.length === 0;
 
   if (hidden) {
-    hidden.value = '';
+
+    hidden.value =
+      '';
+
   }
 
   if (hint) {
 
     hint.textContent =
       slots.length
-        ? `Available: ${formatTime(window.start)} – ${formatTime(window.end)} • 30-minute slots`
+
+        ? (
+            'Available: ' +
+            formatTime(window.start) +
+            ' – ' +
+            formatTime(window.end) +
+            ' • 30-minute slots'
+          )
+
         : 'No available time slots for this date.';
+
   }
+
 }
 
-/* =========================
+/* =========================================================
    PRE-ORDER EVENTS
-========================= */
+========================================================= */
 
 function setupPrebookEvents() {
 
@@ -1061,10 +1831,29 @@ function setupPrebookEvents() {
   const hidden =
     $('#prebookSlot');
 
-  if (!dateSelect ||
-      !timeSelect) {
+  if (
+    !dateSelect ||
+    !timeSelect
+  ) {
+
     return;
+
   }
+
+  /*
+    Prevent duplicate listeners.
+  */
+
+  if (
+    dateSelect.dataset.bound === '1'
+  ) {
+
+    return;
+
+  }
+
+  dateSelect.dataset.bound =
+    '1';
 
   dateSelect.addEventListener(
     'change',
@@ -1073,8 +1862,12 @@ function setupPrebookEvents() {
       buildPrebookTimes();
 
       if (hidden) {
-        hidden.value = '';
+
+        hidden.value =
+          '';
+
       }
+
     }
   );
 
@@ -1086,7 +1879,9 @@ function setupPrebookEvents() {
         dateSelect.value;
 
       const minutes =
-        Number(timeSelect.value);
+        Number(
+          timeSelect.value
+        );
 
       if (
         !key ||
@@ -1098,6 +1893,7 @@ function setupPrebookEvents() {
         }
 
         return;
+
       }
 
       const date =
@@ -1108,68 +1904,78 @@ function setupPrebookEvents() {
       }
 
       date.setHours(
-        Math.floor(minutes / 60),
+        Math.floor(
+          minutes / 60
+        ),
         minutes % 60,
         0,
         0
       );
 
-      if (!isValidPrebookDateTime(date)) {
+      if (
+        !isValidPrebookDateTime(date)
+      ) {
 
         alert(
           'Please select a valid pre-order time.'
         );
 
-        timeSelect.value = '';
+        timeSelect.value =
+          '';
 
         if (hidden) {
           hidden.value = '';
         }
 
         return;
+
       }
 
       if (hidden) {
+
         hidden.value =
           date.toISOString();
+
       }
+
     }
   );
+
 }
 
-/* =========================
+/* =========================================================
    PRE-ORDER VALIDATION
-========================= */
+========================================================= */
 
 function isValidPrebookDateTime(date) {
 
   if (
     !(date instanceof Date) ||
-    Number.isNaN(date.getTime())
+    Number.isNaN(
+      date.getTime()
+    )
   ) {
-    return false;
-  }
 
-  /*
-    Must be in the future.
-  */
+    return false;
+
+  }
 
   if (
     date.getTime() <=
     Date.now()
   ) {
-    return false;
-  }
 
-  /*
-    Only 00 or 30 minutes.
-  */
+    return false;
+
+  }
 
   if (
     date.getMinutes() !== 0 &&
     date.getMinutes() !== 30
   ) {
+
     return false;
+
   }
 
   const window =
@@ -1183,6 +1989,7 @@ function isValidPrebookDateTime(date) {
     minutes >= window.start &&
     minutes <= window.end
   );
+
 }
 
 function validatePrebookTime() {
@@ -1190,18 +1997,29 @@ function validatePrebookTime() {
   if (!pre()) {
 
     return {
-      ok: true,
-      value: null
+
+      ok:
+        true,
+
+      value:
+        null
+
     };
+
   }
 
   if (!isPrebookAllowed()) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
         'Pre-booking is currently disabled.'
+
     };
+
   }
 
   const dateSelect =
@@ -1216,37 +2034,56 @@ function validatePrebookTime() {
   ) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
         'Please select a pre-order date and time.'
+
     };
+
   }
 
   const key =
     dateSelect.value;
 
   const selectedMinutes =
-    Number(timeSelect.value);
+    Number(
+      timeSelect.value
+    );
 
   if (!key) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
         'Please select a pre-order date.'
+
     };
+
   }
 
   if (
     !timeSelect.value ||
-    !Number.isFinite(selectedMinutes)
+    !Number.isFinite(
+      selectedMinutes
+    )
   ) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
         'Please select a pre-order time.'
+
     };
+
   }
 
   const date =
@@ -1255,46 +2092,64 @@ function validatePrebookTime() {
   if (!date) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
         'Invalid pre-order date.'
+
     };
+
   }
 
   date.setHours(
-    Math.floor(selectedMinutes / 60),
+    Math.floor(
+      selectedMinutes / 60
+    ),
     selectedMinutes % 60,
     0,
     0
   );
 
-  if (!isValidPrebookDateTime(date)) {
+  if (
+    !isValidPrebookDateTime(date)
+  ) {
 
     const window =
       getPrebookWindow(date);
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
-        'Selected time is outside the allowed pre-order window. ' +
-        'Available: ' +
+        'Selected time is outside the allowed pre-order window. Available: ' +
         formatTime(window.start) +
         ' – ' +
         formatTime(window.end) +
         '.'
+
     };
+
   }
 
   return {
-    ok: true,
+
+    ok:
+      true,
+
     value:
       date.toISOString()
+
   };
+
 }
 
-/* =========================
-   PAYMENT
-========================= */
+/* =========================================================
+   PAYMENT NUMBERS
+========================================================= */
 
 function getPaymentNumbers() {
 
@@ -1302,6 +2157,7 @@ function getPaymentNumbers() {
     C?.settings?.payment || {};
 
   return {
+
     bkash:
       payment.bkash ||
       'Not configured',
@@ -1309,15 +2165,23 @@ function getPaymentNumbers() {
     nagad:
       payment.nagad ||
       'Not configured'
+
   };
+
 }
+
+/* =========================================================
+   PAYMENT UI
+========================================================= */
 
 function pay() {
 
   const box =
     $('#pay');
 
-  if (!box) return;
+  if (!box) {
+    return;
+  }
 
   /*
     Location must be checked first.
@@ -1329,6 +2193,7 @@ function pay() {
       '<b>Select a delivery point inside the service area.</b>';
 
     return;
+
   }
 
   const hasPrebook =
@@ -1340,32 +2205,38 @@ function pay() {
   ) {
 
     box.innerHTML = `
-      <b>Pre-booking is currently unavailable.</b>
+
+      <b>
+        Pre-booking is currently unavailable.
+      </b>
+
       <p>
         Please remove the pre-book item or try again later.
       </p>
+
     `;
 
     return;
+
   }
 
   const payment =
     getPaymentNumbers();
 
   /*
-    =========================
+    =======================================================
     PRE-ORDER
-    =========================
-
-    Online only.
-    COD is NOT shown.
+    ONLINE PAYMENT ONLY
+    =======================================================
   */
 
   if (hasPrebook) {
 
     box.innerHTML = `
 
-      <b>Payment method</b>
+      <b>
+        Payment method
+      </b>
 
       <select
         id="paymentMethod"
@@ -1396,12 +2267,17 @@ function pay() {
 
       <div
         id="txWrap"
-        style="display:none;margin-top:10px;"
+        style="
+          display:none;
+          margin-top:10px;
+        "
       >
+
         <input
           id="tx"
           placeholder="Transaction ID / last 5 digits *"
         >
+
       </div>
 
       ${buildPrebookSection()}
@@ -1411,23 +2287,25 @@ function pay() {
   } else {
 
     /*
-      =========================
+      =====================================================
       NORMAL ORDER
-      =========================
+      =====================================================
 
-      COD available:
+      COD zone:
         COD
         bKash
         Nagad
 
-      COD unavailable:
+      Outside COD zone:
         bKash
         Nagad
     */
 
     box.innerHTML = `
 
-      <b>Payment method</b>
+      <b>
+        Payment method
+      </b>
 
       <select
         id="paymentMethod"
@@ -1468,16 +2346,22 @@ function pay() {
 
       <div
         id="txWrap"
-        style="display:none;margin-top:10px;"
+        style="
+          display:none;
+          margin-top:10px;
+        "
       >
+
         <input
           id="tx"
           placeholder="Transaction ID / last 5 digits *"
         >
+
       </div>
 
       ${
         loc.cod
+
           ? `
             <small
               style="
@@ -1488,6 +2372,7 @@ function pay() {
               Cash on Delivery is available at this location.
             </small>
           `
+
           : `
             <small
               style="
@@ -1502,32 +2387,39 @@ function pay() {
       }
 
     `;
+
   }
 
   setupPaymentEvents();
 
   if (hasPrebook) {
+
     setupPrebookEvents();
+
   }
 
   updatePaymentUI();
+
 }
 
-/* =========================
-   PAYMENT CHANGE
-========================= */
+/* =========================================================
+   PAYMENT EVENTS
+========================================================= */
 
 function setupPaymentEvents() {
 
   const select =
     $('#paymentMethod');
 
-  if (!select) return;
+  if (!select) {
+    return;
+  }
 
   select.addEventListener(
     'change',
     updatePaymentUI
   );
+
 }
 
 function updatePaymentUI() {
@@ -1544,7 +2436,9 @@ function updatePaymentUI() {
   const info =
     $('#paymentInfo');
 
-  if (!select) return;
+  if (!select) {
+    return;
+  }
 
   const method =
     select.value;
@@ -1556,17 +2450,13 @@ function updatePaymentUI() {
     method === 'bKash' ||
     method === 'Nagad';
 
-  /*
-    Online:
-    Show transaction field.
-  */
-
   if (txWrap) {
 
     txWrap.style.display =
       online
         ? 'block'
         : 'none';
+
   }
 
   if (tx) {
@@ -1575,75 +2465,142 @@ function updatePaymentUI() {
       online;
 
     if (!online) {
-      tx.value = '';
+
+      tx.value =
+        '';
+
     }
+
   }
 
-  if (!info) return;
+  if (!info) {
+    return;
+  }
 
   if (method === 'bKash') {
 
     info.innerHTML = `
+
       <div class="payment">
-        <b>bKash Personal — Send Money Only</b>
+
+        <b>
+          bKash Personal — Send Money Only
+        </b>
+
         <br>
+
         ${esc(payment.bkash)}
+
+        <br>
+
+        <small>
+          Send Money to this number and enter your transaction ID or last 5 digits below.
+        </small>
+
       </div>
+
     `;
 
-  } else if (method === 'Nagad') {
+  } else if (
+    method === 'Nagad'
+  ) {
 
     info.innerHTML = `
+
       <div class="payment">
-        <b>Nagad Personal — Send Money Only</b>
+
+        <b>
+          Nagad Personal — Send Money Only
+        </b>
+
         <br>
+
         ${esc(payment.nagad)}
+
+        <br>
+
+        <small>
+          Send Money to this number and enter your transaction ID or last 5 digits below.
+        </small>
+
       </div>
+
     `;
 
-  } else if (method === 'COD') {
+  } else if (
+    method === 'COD'
+  ) {
 
     info.innerHTML = `
+
       <div class="payment">
-        <b>Cash on Delivery</b>
+
+        <b>
+          Cash on Delivery
+        </b>
+
         <br>
+
         Transaction ID is not required.
+
       </div>
+
     `;
 
   } else {
 
-    info.innerHTML = '';
+    info.innerHTML =
+      '';
+
   }
+
 }
 
-/* =========================
+/* =========================================================
    ORDER SUMMARY
-========================= */
+========================================================= */
 
 function getSubtotal() {
 
-  let subtotal = 0;
+  let subtotal =
+    0;
+
+  if (!C) {
+    return 0;
+  }
 
   cart.forEach(x => {
 
     const p =
-      C.menu.find(p => p.id === x.id);
+      C.menu.find(p =>
+        String(p.id) === String(x.id)
+      );
 
-    if (!p) return;
+    if (!p) {
+      return;
+    }
+
+    const sizes =
+      Array.isArray(p.sizes)
+        ? p.sizes
+        : [];
 
     const z =
-      p.sizes[x.sizeIndex] ||
-      p.sizes[0];
+      sizes[x.sizeIndex] ||
+      sizes[0];
 
-    if (!z) return;
+    if (!z) {
+      return;
+    }
 
     subtotal +=
       Number(z[1]) *
       Number(x.qty);
+
   });
 
   return subtotal;
+
 }
 
 function sum() {
@@ -1653,15 +2610,22 @@ function sum() {
 
   const delivery =
     loc?.allowed
-      ? Number(loc.charge || 0)
+      ? Number(
+          loc.charge || 0
+        )
       : 0;
 
-  if (!$('#sum')) return;
+  if (!$('#sum')) {
+    return;
+  }
 
   $('#sum').innerHTML = `
+
     <p>
       Subtotal:
-      <b>${money(subtotal)}</b>
+      <b>
+        ${money(subtotal)}
+      </b>
     </p>
 
     <p>
@@ -1680,236 +2644,325 @@ function sum() {
       <b>
         ${
           loc?.allowed
-            ? money(subtotal + delivery)
+            ? money(
+                subtotal +
+                delivery
+              )
             : '—'
         }
       </b>
     </p>
+
   `;
+
 }
 
-/* =========================
-   NORMAL DELIVERY TIME
-========================= */
-
-function getCurrentHour() {
-
-  const now =
-    new Date();
-
-  return (
-    now.getHours() +
-    now.getMinutes() / 60
-  );
-}
-
-function shopIsOpen() {
-
-  const h =
-    getShopHours();
-
-  const open =
-    Number(h.open);
-
-  const close =
-    Number(h.close);
-
-  const current =
-    getCurrentHour();
-
-  return (
-    current >= open &&
-    current <= close
-  );
-}
-
-function formatHour(hour) {
-
-  const h =
-    Number(hour);
-
-  const hours =
-    Math.floor(h);
-
-  const minutes =
-    Math.round(
-      (h - hours) * 60
-    );
-
-  const suffix =
-    hours >= 12
-      ? 'PM'
-      : 'AM';
-
-  let display =
-    hours % 12;
-
-  if (display === 0) {
-    display = 12;
-  }
-
-  return (
-    display +
-    ':' +
-    String(minutes).padStart(2, '0') +
-    ' ' +
-    suffix
-  );
-}
-
-/* =========================
-   NORMAL DELIVERY TIME
-========================= */
+/* =========================================================
+   NORMAL DELIVERY TIME VALIDATION
+========================================================= */
 
 function validateDeliveryTime() {
 
   const input =
     $('#time')?.value.trim();
 
-  /*
-    Empty / ASAP is allowed.
-  */
-
-  if (
-    !input ||
-    input.toUpperCase() === 'ASAP'
-  ) {
+  if (!input) {
 
     return {
-      ok: true,
-      value: 'ASAP'
+
+      ok:
+        false,
+
+      message:
+        'Please select a delivery time.'
+
     };
+
   }
 
-  const value =
-    input.toUpperCase();
+  const today =
+    new Date();
 
-  let h = null;
-  let m = 0;
+  const window =
+    getOrderWindow(
+      today
+    );
 
   const match =
-    value.match(
-      /^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)?$/
+    input.match(
+      /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i
     );
 
   if (!match) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
-        'Please enter delivery time like 6:30 PM.'
+        'Please select a valid delivery time.'
+
     };
+
   }
 
-  h = Number(match[1]);
-  m = Number(match[2] || 0);
+  let hour =
+    Number(match[1]);
+
+  const minute =
+    Number(match[2]);
 
   const ap =
-    match[3];
+    String(
+      match[3]
+    ).toUpperCase();
 
-  if (ap === 'PM' && h < 12) {
-    h += 12;
-  }
+  if (
+    ap === 'PM' &&
+    hour < 12
+  ) {
 
-  if (ap === 'AM' && h === 12) {
-    h = 0;
+    hour += 12;
+
   }
 
   if (
-    h < 0 ||
-    h > 23 ||
-    m < 0 ||
-    m > 59
+    ap === 'AM' &&
+    hour === 12
+  ) {
+
+    hour = 0;
+
+  }
+
+  if (
+    minute !== 0 &&
+    minute !== 30
   ) {
 
     return {
-      ok: false,
-      message:
-        'Invalid delivery time.'
-    };
-  }
 
-  const hours =
-    getShopHours();
+      ok:
+        false,
+
+      message:
+        'Delivery time must be a 30-minute slot.'
+
+    };
+
+  }
 
   const requested =
-    h + m / 60;
+    hour * 60 +
+    minute;
 
   if (
-    requested < Number(hours.open) ||
-    requested > Number(hours.close)
+    requested <
+      window.start ||
+    requested >
+      window.end
   ) {
 
     return {
-      ok: false,
+
+      ok:
+        false,
+
       message:
-        'Selected delivery time is outside shop hours. ' +
-        'Today: ' +
-        formatHour(hours.open) +
+        'Selected delivery time is outside the available order window. Available today: ' +
+        formatTime(window.start) +
         ' – ' +
-        formatHour(hours.close)
+        formatTime(window.end) +
+        '.'
+
     };
+
   }
 
   return {
-    ok: true,
-    value: input
+
+    ok:
+      true,
+
+    value:
+      input
+
   };
+
 }
 
-/* =========================
+/* =========================================================
    PLACE ORDER
-========================= */
+========================================================= */
 
 async function place() {
 
   if (!C) {
+
     alert(
       'Website is still loading. Please try again.'
     );
+
     return;
+
   }
 
   if (!cart.length) {
-    alert('Your cart is empty.');
+
+    alert(
+      'Your cart is empty.'
+    );
+
     return;
+
   }
 
   /*
-    =========================
+    =======================================================
+    CUSTOMER LOGIN
+    =======================================================
+  */
+
+  if (!requireCustomerLogin()) {
+    return;
+  }
+
+  const token =
+    customerToken();
+
+  if (!token) {
+
+    alert(
+      'Your customer login session has expired. Please login again.'
+    );
+
+    if (
+      typeof openCustomerAuth ===
+      'function'
+    ) {
+
+      openCustomerAuth(
+        'login'
+      );
+
+    }
+
+    return;
+
+  }
+
+  /*
+    =======================================================
     LOCATION
-    =========================
+    =======================================================
   */
 
   if (!loc?.allowed) {
+
     alert(
       'Please select a delivery location inside the service area.'
     );
+
     return;
+
+  }
+
+  const position =
+    marker?.getLatLng();
+
+  if (!position) {
+
+    alert(
+      'Please select your delivery location.'
+    );
+
+    return;
+
+  }
+
+  const lat =
+    Number(position.lat);
+
+  const lng =
+    Number(position.lng);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng)
+  ) {
+
+    alert(
+      'Invalid delivery location.'
+    );
+
+    return;
+
   }
 
   /*
-    =========================
+    =======================================================
     CUSTOMER
-    =========================
+    =======================================================
   */
 
-  if (!$('#name').value.trim()) {
-    alert('Customer name is required.');
-    $('#name').focus();
+  const name =
+    $('#name')?.value.trim() || '';
+
+  const phone =
+    $('#phone')?.value.trim() || '';
+
+  if (!name) {
+
+    alert(
+      'Customer name is required.'
+    );
+
+    $('#name')?.focus();
+
     return;
+
   }
 
-  if (!$('#phone').value.trim()) {
-    alert('Phone number is required.');
-    $('#phone').focus();
+  if (!phone) {
+
+    alert(
+      'Phone number is required.'
+    );
+
+    $('#phone')?.focus();
+
     return;
+
   }
 
   /*
-    =========================
-    PRE-ORDER VALIDATION
-    =========================
+    Make sure phone matches logged-in account.
+  */
+
+  const data =
+    customerData();
+
+  if (
+    data?.phone &&
+    String(data.phone).trim() !==
+      String(phone).trim()
+  ) {
+
+    alert(
+      'The phone number must match your logged-in customer account.'
+    );
+
+    $('#phone')?.focus();
+
+    return;
+
+  }
+
+  /*
+    =======================================================
+    PRE-ORDER
+    =======================================================
   */
 
   const hasPrebook =
@@ -1925,12 +2978,13 @@ async function place() {
     );
 
     return;
+
   }
 
   /*
-    =========================
-    PAYMENT VALIDATION
-    =========================
+    =======================================================
+    PAYMENT
+    =======================================================
   */
 
   const paymentSelect =
@@ -1938,10 +2992,6 @@ async function place() {
 
   const paymentMethod =
     paymentSelect?.value || '';
-
-  /*
-    No payment selected.
-  */
 
   if (!paymentMethod) {
 
@@ -1952,11 +3002,11 @@ async function place() {
     paymentSelect?.focus();
 
     return;
+
   }
 
   /*
-    PRE-ORDER:
-    Online payment ONLY.
+    Pre-order = online payment only.
   */
 
   if (hasPrebook) {
@@ -1973,12 +3023,13 @@ async function place() {
       paymentSelect?.focus();
 
       return;
+
     }
+
   }
 
   /*
-    NORMAL ORDER:
-    COD only when location allows COD.
+    COD only inside COD zone.
   */
 
   if (
@@ -1992,12 +3043,13 @@ async function place() {
     );
 
     return;
+
   }
 
   /*
-    =========================
-    TRANSACTION ID
-    =========================
+    =======================================================
+    TRANSACTION
+    =======================================================
   */
 
   const online =
@@ -2007,11 +3059,10 @@ async function place() {
   const tx =
     $('#tx')?.value.trim() || '';
 
-  /*
-    Online = required.
-  */
-
-  if (online && !tx) {
+  if (
+    online &&
+    !tx
+  ) {
 
     alert(
       'Please enter your bKash/Nagad transaction ID or last 5 digits.'
@@ -2020,11 +3071,8 @@ async function place() {
     $('#tx')?.focus();
 
     return;
-  }
 
-  /*
-    COD = transaction ID ignored.
-  */
+  }
 
   const transactionId =
     online
@@ -2032,28 +3080,26 @@ async function place() {
       : '';
 
   /*
-    =========================
-    DELIVERY / PRE-ORDER TIME
-    =========================
+    =======================================================
+    DELIVERY TIME
+    =======================================================
   */
 
   let deliveryTime =
     'ASAP';
 
-  if (hasPrebook) {
+  let prebookDateTime =
+    null;
 
-    /*
-      Pre-order date/time.
-    */
+  if (hasPrebook) {
 
     deliveryTime =
       prebookValidation.value;
 
-  } else {
+    prebookDateTime =
+      prebookValidation.value;
 
-    /*
-      Normal order.
-    */
+  } else {
 
     const deliveryValidation =
       validateDeliveryTime();
@@ -2065,108 +3111,154 @@ async function place() {
       );
 
       return;
+
     }
 
     deliveryTime =
       deliveryValidation.value;
+
   }
 
   /*
-    =========================
-    LOCATION
-    =========================
-  */
-
-  const position =
-    marker?.getLatLng();
-
-  if (!position) {
-
-    alert(
-      'Please select your delivery location.'
-    );
-
-    return;
-  }
-
-  /*
-    =========================
+    =======================================================
     ADDRESS
-    =========================
+    =======================================================
   */
+
+  const house =
+    $('#house')?.value.trim() || '';
+
+  const road =
+    $('#road')?.value.trim() || '';
 
   const address =
     [
-      $('#house').value.trim(),
-      $('#road').value.trim()
+      house,
+      road
     ]
       .filter(Boolean)
       .join(', ');
 
+  const note =
+    $('#note')?.value.trim() || '';
+
   /*
-    =========================
+    =======================================================
+    MAP ADDRESS
+    =======================================================
+  */
+
+  const mapAddress =
+    $('#mapAddress')?.value.trim() ||
+    $('#address')?.value.trim() ||
+    '';
+
+  const finalAddress =
+    [
+      address,
+      mapAddress
+    ]
+      .filter(Boolean)
+      .join(
+        address && mapAddress
+          ? ', '
+          : ''
+      );
+
+  /*
+    =======================================================
     FINAL ORDER
-    =========================
+    =======================================================
   */
 
   const order = {
 
     name:
-      $('#name').value.trim(),
+      name,
 
     phone:
-      $('#phone').value.trim(),
+      phone,
 
-    address,
+    address:
+      finalAddress,
 
     lat:
-      Number(position.lat),
+      lat,
 
     lng:
-      Number(position.lng),
+      lng,
 
-    deliveryTime,
+    deliveryTime:
+      deliveryTime,
 
     prebook:
       hasPrebook,
 
     prebookDateTime:
-      hasPrebook
-        ? prebookValidation.value
-        : null,
+      prebookDateTime,
 
     note:
-      $('#note').value.trim(),
+      note,
 
-    transactionId,
+    transactionId:
+      transactionId,
 
-    paymentMethod,
+    paymentMethod:
+      paymentMethod,
 
     items:
       cart.map(x => ({
-        id: x.id,
+
+        id:
+          x.id,
+
         sizeIndex:
-          Number(x.sizeIndex || 0),
+          Number(
+            x.sizeIndex || 0
+          ),
+
         qty:
-          Number(x.qty || 1)
+          Number(
+            x.qty || 1
+          )
+
       }))
+
   };
 
   /*
-    =========================
-    SEND ORDER
-    =========================
+    =======================================================
+    PLACE ORDER BUTTON
+    =======================================================
   */
 
   const button =
     $('#place');
 
+  if (!button) {
+
+    alert(
+      'Place Order button was not found.'
+    );
+
+    return;
+
+  }
+
   const oldText =
     button.textContent;
 
-  button.disabled = true;
+  button.disabled =
+    true;
+
   button.textContent =
     'Placing order…';
+
+  /*
+    =======================================================
+    SEND TO BACKEND
+    =======================================================
+  */
 
   try {
 
@@ -2174,18 +3266,96 @@ async function place() {
       await fetch(
         '/api/orders',
         {
-          method: 'POST',
+
+          method:
+            'POST',
+
           headers: {
+
             'Content-Type':
-              'application/json'
+              'application/json',
+
+            'Authorization':
+              'Bearer ' +
+              token
+
           },
+
           body:
             JSON.stringify(order)
+
         }
       );
 
-    const result =
-      await response.json();
+    let result = {};
+
+    try {
+
+      result =
+        await response.json();
+
+    } catch (_) {
+
+      result = {};
+
+    }
+
+    /*
+      Login expired.
+    */
+
+    if (
+      response.status === 401 ||
+      response.status === 403
+    ) {
+
+      try {
+
+        if (
+          typeof clearCustomerSession ===
+          'function'
+        ) {
+
+          clearCustomerSession();
+
+        } else {
+
+          localStorage.removeItem(
+            'csk_customer_token'
+          );
+
+          localStorage.removeItem(
+            'csk_customer_data'
+          );
+
+        }
+
+      } catch (_) {}
+
+      alert(
+        'Your login session has expired. Please login again.'
+      );
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        oldText;
+
+      if (
+        typeof openCustomerAuth ===
+        'function'
+      ) {
+
+        openCustomerAuth(
+          'login'
+        );
+
+      }
+
+      return;
+
+    }
 
     if (
       !response.ok ||
@@ -2196,61 +3366,101 @@ async function place() {
         result.error ||
         'Unable to place order.'
       );
+
     }
 
     const o =
-      result.order;
+      result.order || {};
 
-    $('#result').innerHTML = `
-      <p
-        style="
-          border:1px solid #475;
-          padding:12px;
-          border-radius:10px
-        "
-      >
-        Order placed successfully.<br>
+    /*
+      SUCCESS MESSAGE
+    */
 
-        Order ID:
-        <b>${esc(o.id)}</b>
-        <br>
+    const resultBox =
+      $('#result');
 
-        Total:
-        <b>${money(o.total)}</b>
-        <br>
+    if (resultBox) {
 
-        Payment:
-        <b>${esc(o.paymentMethod)}</b>
+      resultBox.innerHTML = `
 
-        ${
-          hasPrebook
-            ? `
-              <br>
-              Pre-order:
-              <b>
-                ${esc(
-                  new Date(
-                    prebookValidation.value
-                  ).toLocaleString(
-                    'en-BD',
-                    {
-                      dateStyle: 'medium',
-                      timeStyle: 'short'
-                    }
-                  )
-                )}
-              </b>
-            `
-            : ''
-        }
-      </p>
-    `;
+        <p
+          style="
+            border:1px solid #475;
+            padding:12px;
+            border-radius:10px;
+          "
+        >
+
+          Order placed successfully!<br>
+
+          Order ID:
+          <b>
+            ${esc(o.id || 'Confirmed')}
+          </b>
+
+          <br>
+
+          Total:
+          <b>
+            ${money(o.total)}
+          </b>
+
+          <br>
+
+          Payment:
+          <b>
+            ${esc(
+              o.paymentMethod ||
+              paymentMethod
+            )}
+          </b>
+
+          ${
+            hasPrebook
+
+              ? `
+                <br>
+
+                Pre-order:
+                <b>
+                  ${esc(
+                    new Date(
+                      prebookValidation.value
+                    ).toLocaleString(
+                      'en-BD',
+                      {
+                        dateStyle:
+                          'medium',
+                        timeStyle:
+                          'short'
+                      }
+                    )
+                  )}
+                </b>
+              `
+
+              : ''
+          }
+
+        </p>
+
+      `;
+
+    }
+
+    /*
+      Clear cart.
+    */
 
     cart = [];
 
     save();
 
-    button.disabled = true;
+    button.disabled =
+      true;
+
+    button.textContent =
+      'Order Placed';
 
   } catch (e) {
 
@@ -2261,15 +3471,66 @@ async function place() {
       'Unable to place order. Please try again.'
     );
 
-    button.disabled = false;
+    button.disabled =
+      false;
+
     button.textContent =
       oldText;
+
   }
+
 }
 
-/* =========================
+/* =========================================================
+   BACKWARD COMPATIBILITY
+========================================================= */
+
+/*
+  Some old HTML versions may call placeOrder()
+  instead of place().
+*/
+
+async function placeOrder(e) {
+
+  if (e) {
+    e.preventDefault();
+  }
+
+  return place();
+
+}
+
+/*
+  Some old HTML versions may call gpsLocation().
+*/
+
+function gpsLocation() {
+  return gps();
+}
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+document.addEventListener(
+  'input',
+  e => {
+
+    if (
+      e.target &&
+      e.target.id === 'search'
+    ) {
+
+      render();
+
+    }
+
+  }
+);
+
+/* =========================================================
    KEYBOARD SUPPORT
-========================= */
+========================================================= */
 
 document.addEventListener(
   'keydown',
@@ -2277,16 +3538,111 @@ document.addEventListener(
 
     if (
       e.key === 'Escape' &&
-      $('#modal')?.classList.contains('open')
+      $('#modal')?.classList.contains(
+        'open'
+      )
     ) {
+
       closeCheckout();
+
     }
 
     if (
       e.key === 'Escape' &&
-      $('#cart')?.classList.contains('open')
+      $('#cart')?.classList.contains(
+        'open'
+      )
     ) {
+
       closeCart();
+
     }
+
   }
 );
+
+/* =========================================================
+   CHECKOUT FORM SAFETY
+========================================================= */
+
+document.addEventListener(
+  'submit',
+  e => {
+
+    const form =
+      e.target;
+
+    if (
+      form &&
+      (
+        form.id === 'checkoutForm' ||
+        form.id === 'checkout'
+      )
+    ) {
+
+      e.preventDefault();
+
+      place(e);
+
+    }
+
+  }
+);
+
+/* =========================================================
+   AUTO UPDATE DELIVERY SLOTS
+========================================================= */
+
+setInterval(
+  () => {
+
+    if (
+      $('#modal')?.classList.contains(
+        'open'
+      )
+    ) {
+
+      /*
+        Rebuild normal delivery slots
+        from current admin-configured hours.
+      */
+
+      if (
+        $('#time') &&
+        $('#time').tagName === 'SELECT'
+      ) {
+
+        const current =
+          $('#time').value;
+
+        buildDeliveryTimeSlots();
+
+        /*
+          Keep current selection if
+          it is still available.
+        */
+
+        if (
+          current &&
+          [...$('#time').options]
+            .some(
+              o => o.value === current
+            )
+        ) {
+
+          $('#time').value =
+            current;
+
+        }
+
+      }
+
+    }
+
+  },
+  60000
+);
+
+/* =========================================================
+   END OF APP.JS
+========================================================= */
