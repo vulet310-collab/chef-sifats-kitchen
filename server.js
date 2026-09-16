@@ -1,8 +1,9 @@
 'use strict';
+
 /*
 =========================================================
  CHEF SIFAT'S KITCHEN
- Full Server
+ FINAL SERVER.JS
 =========================================================
 
 Includes:
@@ -14,14 +15,19 @@ Includes:
 - Customer forgot password / reset password
 - Customer order history
 - Login-required ordering
+- Public menu API
 - Delivery location validation
 - COD radius validation
 - Delivery charge calculation
 - bKash / Nagad payment validation
+- 30-minute delivery time slots
 - Pre-booking validation
+- Shop-hours based time validation
+- Size-specific server-side pricing
 - Menu management
 - Image upload
 - Reviews
+- Customer management
 - Admin settings
 =========================================================
 */
@@ -105,7 +111,12 @@ function read(file, fallback) {
 
     return JSON.parse(raw);
   } catch (error) {
-    console.error('READ ERROR:', file, error.message);
+    console.error(
+      'READ ERROR:',
+      file,
+      error.message
+    );
+
     return fallback;
   }
 }
@@ -156,6 +167,14 @@ function defaultSettings() {
 
     prebook: {
       enabled: true,
+
+      /*
+        Kept for compatibility with
+        older admin settings.
+
+        These values are NOT used
+        for time validation anymore.
+      */
       minHours: 5,
       maxHours: 12
     }
@@ -168,7 +187,10 @@ function defaultSettings() {
 
 function getSettings() {
   const defaults = defaultSettings();
-  const saved = read(SETTINGS_FILE, {});
+  const saved = read(
+    SETTINGS_FILE,
+    {}
+  );
 
   return {
     ...defaults,
@@ -190,12 +212,22 @@ function getSettings() {
 
       normal: {
         ...defaults.hours.normal,
-        ...((saved.hours || {}).normal || {})
+        ...(
+          saved.hours &&
+          saved.hours.normal
+            ? saved.hours.normal
+            : {}
+        )
       },
 
       friday: {
         ...defaults.hours.friday,
-        ...((saved.hours || {}).friday || {})
+        ...(
+          saved.hours &&
+          saved.hours.friday
+            ? saved.hours.friday
+            : {}
+        )
       }
     },
 
@@ -210,7 +242,9 @@ function getSettings() {
    ENVIRONMENT
 ======================================================= */
 
-const PORT = process.env.PORT || 10000;
+const PORT =
+  process.env.PORT ||
+  10000;
 
 const SECRET =
   process.env.JWT_SECRET ||
@@ -255,44 +289,56 @@ app.use(
    RATE LIMITERS
 ======================================================= */
 
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
+const generalLimiter =
+  rateLimit({
+    windowMs:
+      15 * 60 * 1000,
 
-  standardHeaders: true,
-  legacyHeaders: false,
+    max: 300,
 
-  message: {
-    ok: false,
-    message: 'Too many requests. Please try again later.'
-  }
-});
+    standardHeaders: true,
+    legacyHeaders: false,
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 30,
+    message: {
+      ok: false,
+      message:
+        'Too many requests. Please try again later.'
+    }
+  });
 
-  standardHeaders: true,
-  legacyHeaders: false,
+const loginLimiter =
+  rateLimit({
+    windowMs:
+      15 * 60 * 1000,
 
-  message: {
-    ok: false,
-    message: 'Too many login attempts. Please try again later.'
-  }
-});
+    max: 30,
 
-const passwordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
 
-  standardHeaders: true,
-  legacyHeaders: false,
+    message: {
+      ok: false,
+      message:
+        'Too many login attempts. Please try again later.'
+    }
+  });
 
-  message: {
-    ok: false,
-    message: 'Too many password reset attempts. Please try again later.'
-  }
-});
+const passwordLimiter =
+  rateLimit({
+    windowMs:
+      15 * 60 * 1000,
+
+    max: 10,
+
+    standardHeaders: true,
+    legacyHeaders: false,
+
+    message: {
+      ok: false,
+      message:
+        'Too many password reset attempts. Please try again later.'
+    }
+  });
 
 app.use(generalLimiter);
 
@@ -313,19 +359,28 @@ app.use(
    BASIC HELPERS
 ======================================================= */
 
-function cleanString(value, max = 500) {
-  return String(value || '')
+function cleanString(
+  value,
+  max = 500
+) {
+  return String(
+    value || ''
+  )
     .trim()
     .slice(0, max);
 }
 
-function makeId(prefix = 'id') {
+function makeId(
+  prefix = 'id'
+) {
   return (
     prefix +
     '_' +
     Date.now().toString(36) +
     '_' +
-    crypto.randomBytes(5).toString('hex')
+    crypto
+      .randomBytes(5)
+      .toString('hex')
   );
 }
 
@@ -334,19 +389,35 @@ function makeId(prefix = 'id') {
 ======================================================= */
 
 function normalizePhone(phone) {
-  let value = cleanString(phone, 30)
-    .replace(/[\s-]/g, '');
+  let value =
+    cleanString(
+      phone,
+      30
+    ).replace(
+      /[\s-]/g,
+      ''
+    );
 
-  if (value.startsWith('+880')) {
-    value = '0' + value.slice(4);
-  } else if (value.startsWith('880')) {
-    value = '0' + value.slice(3);
+  if (
+    value.startsWith('+880')
+  ) {
+    value =
+      '0' +
+      value.slice(4);
+  } else if (
+    value.startsWith('880')
+  ) {
+    value =
+      '0' +
+      value.slice(3);
   }
 
   return value;
 }
 
-function validBangladeshPhone(phone) {
+function validBangladeshPhone(
+  phone
+) {
   return /^01\d{9}$/.test(
     normalizePhone(phone)
   );
@@ -357,7 +428,10 @@ function validBangladeshPhone(phone) {
 ======================================================= */
 
 function normalizeEmail(email) {
-  return cleanString(email, 200).toLowerCase();
+  return cleanString(
+    email,
+    200
+  ).toLowerCase();
 }
 
 function validEmail(email) {
@@ -370,16 +444,22 @@ function validEmail(email) {
    PASSWORD HELPERS
 ======================================================= */
 
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex');
+function hashPassword(
+  password
+) {
+  const salt =
+    crypto
+      .randomBytes(16)
+      .toString('hex');
 
-  const hash = crypto
-    .scryptSync(
-      String(password),
-      salt,
-      64
-    )
-    .toString('hex');
+  const hash =
+    crypto
+      .scryptSync(
+        String(password),
+        salt,
+        64
+      )
+      .toString('hex');
 
   return {
     salt,
@@ -387,19 +467,30 @@ function hashPassword(password) {
   };
 }
 
-function verifyPassword(password, storedHash, salt) {
+function verifyPassword(
+  password,
+  storedHash,
+  salt
+) {
   try {
-    const hash = crypto
-      .scryptSync(
-        String(password),
-        String(salt),
-        64
-      )
-      .toString('hex');
+    const hash =
+      crypto
+        .scryptSync(
+          String(password),
+          String(salt),
+          64
+        )
+        .toString('hex');
 
     return crypto.timingSafeEqual(
-      Buffer.from(hash, 'hex'),
-      Buffer.from(storedHash, 'hex')
+      Buffer.from(
+        hash,
+        'hex'
+      ),
+      Buffer.from(
+        storedHash,
+        'hex'
+      )
     );
   } catch (error) {
     return false;
@@ -410,13 +501,24 @@ function verifyPassword(password, storedHash, salt) {
    CUSTOMER SAFE DATA
 ======================================================= */
 
-function customerSafeData(customer) {
+function customerSafeData(
+  customer
+) {
   return {
-    id: customer.id,
-    name: customer.name,
-    phone: customer.phone,
-    email: customer.email,
-    createdAt: customer.createdAt
+    id:
+      customer.id,
+
+    name:
+      customer.name,
+
+    phone:
+      customer.phone,
+
+    email:
+      customer.email,
+
+    createdAt:
+      customer.createdAt
   };
 }
 
@@ -424,15 +526,23 @@ function customerSafeData(customer) {
    CUSTOMER JWT
 ======================================================= */
 
-function createCustomerToken(customer) {
+function createCustomerToken(
+  customer
+) {
   return jwt.sign(
     {
-      id: customer.id,
-      role: 'customer'
+      id:
+        customer.id,
+
+      role:
+        'customer'
     },
+
     SECRET,
+
     {
-      expiresIn: '30d'
+      expiresIn:
+        '30d'
     }
   );
 }
@@ -441,15 +551,21 @@ function createCustomerToken(customer) {
    ADMIN JWT
 ======================================================= */
 
-function createAdminToken(username) {
+function createAdminToken(
+  username
+) {
   return jwt.sign(
     {
       username,
-      role: 'admin'
+      role:
+        'admin'
     },
+
     SECRET,
+
     {
-      expiresIn: '8h'
+      expiresIn:
+        '8h'
     }
   );
 }
@@ -458,23 +574,36 @@ function createAdminToken(username) {
    ADMIN AUTH
 ======================================================= */
 
-function auth(req, res, next) {
+function auth(
+  req,
+  res,
+  next
+) {
   try {
-    const header = req.headers.authorization || '';
+    const header =
+      req.headers.authorization ||
+      '';
 
-    if (!header.startsWith('Bearer ')) {
+    if (
+      !header.startsWith(
+        'Bearer '
+      )
+    ) {
       return res.status(401).json({
         ok: false,
-        message: 'Admin authentication required.'
+        message:
+          'Admin authentication required.'
       });
     }
 
-    const token = header.slice(7);
+    const token =
+      header.slice(7);
 
-    const payload = jwt.verify(
-      token,
-      SECRET
-    );
+    const payload =
+      jwt.verify(
+        token,
+        SECRET
+      );
 
     if (
       !payload ||
@@ -482,17 +611,21 @@ function auth(req, res, next) {
     ) {
       return res.status(403).json({
         ok: false,
-        message: 'Admin access required.'
+        message:
+          'Admin access required.'
       });
     }
 
-    req.admin = payload;
+    req.admin =
+      payload;
 
     next();
+
   } catch (error) {
     return res.status(401).json({
       ok: false,
-      message: 'Invalid or expired admin token.'
+      message:
+        'Invalid or expired admin token.'
     });
   }
 }
@@ -501,24 +634,36 @@ function auth(req, res, next) {
    CUSTOMER AUTH
 ======================================================= */
 
-function customerAuth(req, res, next) {
+function customerAuth(
+  req,
+  res,
+  next
+) {
   try {
     const header =
-      req.headers.authorization || '';
+      req.headers.authorization ||
+      '';
 
-    if (!header.startsWith('Bearer ')) {
+    if (
+      !header.startsWith(
+        'Bearer '
+      )
+    ) {
       return res.status(401).json({
         ok: false,
-        message: 'Please login before placing an order.'
+        message:
+          'Please login before placing an order.'
       });
     }
 
-    const token = header.slice(7);
+    const token =
+      header.slice(7);
 
-    const payload = jwt.verify(
-      token,
-      SECRET
-    );
+    const payload =
+      jwt.verify(
+        token,
+        SECRET
+      );
 
     if (
       !payload ||
@@ -527,32 +672,42 @@ function customerAuth(req, res, next) {
     ) {
       return res.status(403).json({
         ok: false,
-        message: 'Customer login required.'
+        message:
+          'Customer login required.'
       });
     }
 
     const customers =
-      read(CUSTOMERS_FILE, []);
+      read(
+        CUSTOMERS_FILE,
+        []
+      );
 
     const customer =
       customers.find(
-        item => item.id === payload.id
+        item =>
+          item.id ===
+          payload.id
       );
 
     if (!customer) {
       return res.status(401).json({
         ok: false,
-        message: 'Customer account not found.'
+        message:
+          'Customer account not found.'
       });
     }
 
-    req.customer = customer;
+    req.customer =
+      customer;
 
     next();
+
   } catch (error) {
     return res.status(401).json({
       ok: false,
-      message: 'Customer login expired. Please login again.'
+      message:
+        'Customer login expired. Please login again.'
     });
   }
 }
@@ -603,7 +758,10 @@ function distanceKm(
    LOCATION VALIDATION
 ======================================================= */
 
-function validateCoordinates(lat, lng) {
+function validateCoordinates(
+  lat,
+  lng
+) {
   return (
     Number.isFinite(lat) &&
     Number.isFinite(lng) &&
@@ -618,40 +776,55 @@ function validateCoordinates(lat, lng) {
    PAYMENT HELPERS
 ======================================================= */
 
-function normalizePayment(value) {
-  return cleanString(value, 200);
+function normalizePayment(
+  value
+) {
+  return cleanString(
+    value,
+    200
+  );
 }
 
-function paymentIsCOD(payment) {
+function paymentIsCOD(
+  payment
+) {
   return /^cash on delivery/i.test(
     normalizePayment(payment)
   );
 }
 
-function paymentIsBkash(payment) {
+function paymentIsBkash(
+  payment
+) {
   return /^bKash/i.test(
     normalizePayment(payment)
   );
 }
 
-function paymentIsNagad(payment) {
+function paymentIsNagad(
+  payment
+) {
   return /^Nagad/i.test(
     normalizePayment(payment)
   );
 }
 
-function validTransactionId(value) {
-  const tx = cleanString(value, 50);
+function validTransactionId(
+  value
+) {
+  const tx =
+    cleanString(
+      value,
+      50
+    );
 
   if (!tx) {
     return false;
   }
 
-  /*
-    Supports transaction ID or
-    last 5 digits.
-  */
-  return /^\d{5,50}$/.test(tx);
+  return /^\d{5,50}$/.test(
+    tx
+  );
 }
 
 /* =======================================================
@@ -659,81 +832,107 @@ function validTransactionId(value) {
 ======================================================= */
 
 function getMenu() {
-  const menu = read(
-    MENU_FILE,
-    []
-  );
+  const menu =
+    read(
+      MENU_FILE,
+      []
+    );
 
-  if (!Array.isArray(menu)) {
+  if (
+    !Array.isArray(menu)
+  ) {
     return [];
   }
 
-  return menu.map(normalizeProduct);
+  return menu.map(
+    normalizeProduct
+  );
 }
-function normalizeProduct(product) {
+
+/* =======================================================
+   NORMALIZE PRODUCT
+======================================================= */
+
+function normalizeProduct(
+  product
+) {
+  product =
+    product &&
+    typeof product === 'object'
+      ? product
+      : {};
 
   const rawSizes =
-    Array.isArray(product.sizes)
+    Array.isArray(
+      product.sizes
+    )
       ? product.sizes
       : [];
 
-
   const sizes =
     rawSizes
-      .map(size => {
+      .map(
+        size => {
 
-        if (Array.isArray(size)) {
+          if (
+            Array.isArray(size)
+          ) {
+            return [
+              cleanString(
+                size[0],
+                100
+              ),
+
+              Number(
+                size[1]
+              ) || 0
+            ];
+          }
+
+          if (
+            size &&
+            typeof size === 'object'
+          ) {
+            return [
+              cleanString(
+                size.name ||
+                size.label ||
+                size.size ||
+                '',
+                100
+              ),
+
+              Number(
+                size.price
+              ) || 0
+            ];
+          }
 
           return [
-            cleanString(size[0], 100),
-            Number(size[1]) || 0
+            '',
+            0
           ];
-
         }
-
-        if (
-          size &&
-          typeof size === 'object'
-        ) {
-
-          return [
-            cleanString(
-              size.name ||
-              size.label ||
-              size.size ||
-              '',
-              100
-            ),
-
-            Number(
-              size.price
-            ) || 0
-          ];
-
-        }
-
-        return ['', 0];
-
-      })
+      )
       .filter(
         size =>
           size[0] &&
           size[1] > 0
       );
 
-
   const firstPrice =
     sizes.length
-      ? Number(sizes[0][1])
-      : Number(product.price) || 0;
-
+      ? Number(
+          sizes[0][1]
+        )
+      : Number(
+          product.price
+        ) || 0;
 
   const item = {
-
     id:
       product.id ||
       makeId('item'),
-
 
     name:
       cleanString(
@@ -741,20 +940,16 @@ function normalizeProduct(product) {
         200
       ),
 
-
     cat:
       cleanString(
         product.cat,
         50
       ).toLowerCase(),
 
-
     price:
       firstPrice,
 
-
     sizes,
-
 
     image:
       cleanString(
@@ -762,49 +957,56 @@ function normalizeProduct(product) {
         500
       ),
 
-
     description:
       cleanString(
         product.description,
         1000
       ),
 
-
     choice:
       cleanString(
         product.choice ||
-        (sizes[0] ? sizes[0][0] : ''),
+        (
+          sizes[0]
+            ? sizes[0][0]
+            : ''
+        ),
         200
       ),
 
-
     options:
-      Array.isArray(product.options)
+      Array.isArray(
+        product.options
+      )
         ? product.options
         : [],
 
-
     minQty:
-      Number(product.minQty) > 0
-        ? Number(product.minQty)
+      Number(
+        product.minQty
+      ) > 0
+        ? Number(
+            product.minQty
+          )
         : 1,
 
-
     maxQty:
-      Number(product.maxQty) > 0
-        ? Number(product.maxQty)
+      Number(
+        product.maxQty
+      ) > 0
+        ? Number(
+            product.maxQty
+          )
         : 100,
 
-
     prebook:
-      Boolean(product.prebook),
-
+      Boolean(
+        product.prebook
+      ),
 
     active:
       product.active !== false
-
   };
-
 
   /*
     PIZZA IS ALWAYS NON-PREBOOK.
@@ -813,17 +1015,15 @@ function normalizeProduct(product) {
   if (
     item.cat === 'pizza'
   ) {
-
     item.prebook =
       false;
   }
-
 
   return item;
 }
 
 /* =======================================================
-   PREBOOK CATEGORY
+   PREBOOK CHECK
 ======================================================= */
 
 function isPrebookCategory(
@@ -836,22 +1036,137 @@ function isPrebookCategory(
 }
 
 /* =======================================================
+   BANGLADESH TIMEZONE HELPERS
+======================================================= */
+
+const BD_TIMEZONE =
+  'Asia/Dhaka';
+
+/*
+  Get Bangladesh local
+  date/time information from
+  any JavaScript Date.
+*/
+
+function getBangladeshParts(
+  date
+) {
+  const formatter =
+    new Intl.DateTimeFormat(
+      'en-US',
+      {
+        timeZone:
+          BD_TIMEZONE,
+
+        year:
+          'numeric',
+
+        month:
+          '2-digit',
+
+        day:
+          '2-digit',
+
+        hour:
+          '2-digit',
+
+        minute:
+          '2-digit',
+
+        second:
+          '2-digit',
+
+        hourCycle:
+          'h23',
+
+        weekday:
+          'long'
+      }
+    );
+
+  const parts =
+    formatter.formatToParts(
+      date
+    );
+
+  const result = {};
+
+  for (
+    const part of parts
+  ) {
+    if (
+      part.type !== 'literal'
+    ) {
+      result[part.type] =
+        part.value;
+    }
+  }
+
+  return {
+    year:
+      Number(
+        result.year
+      ),
+
+    month:
+      Number(
+        result.month
+      ),
+
+    day:
+      Number(
+        result.day
+      ),
+
+    hour:
+      Number(
+        result.hour
+      ),
+
+    minute:
+      Number(
+        result.minute
+      ),
+
+    second:
+      Number(
+        result.second
+      ),
+
+    weekday:
+      result.weekday
+  };
+}
+
+/* =======================================================
    SHOP HOURS
 ======================================================= */
 
-function getShopHoursForDate(date) {
+function getShopHoursForDate(
+  date
+) {
   const settings =
     getSettings();
 
-  const day =
-    date.getDay();
+  const parts =
+    getBangladeshParts(
+      date
+    );
 
-  if (day === 5) {
+  /*
+    Friday = special hours.
+  */
+
+  if (
+    parts.weekday ===
+    'Friday'
+  ) {
     return {
       open:
         Number(
           settings.hours.friday.open
         ),
+
       close:
         Number(
           settings.hours.friday.close
@@ -864,6 +1179,7 @@ function getShopHoursForDate(date) {
       Number(
         settings.hours.normal.open
       ),
+
     close:
       Number(
         settings.hours.normal.close
@@ -871,16 +1187,251 @@ function getShopHoursForDate(date) {
   };
 }
 
-function isWithinShopHours(date) {
-  const hours =
-    getShopHoursForDate(date);
+/* =======================================================
+   ORDER WINDOW
+======================================================= */
 
-  const hour =
-    date.getHours();
+/*
+  FINAL RULE:
+
+  Normal:
+  Shop 11 AM - 7 PM
+  Order slots 12 PM - 6 PM
+
+  Friday:
+  Shop 3 PM - 9 PM
+  Order slots 4 PM - 8 PM
+
+  General formula:
+  opening + 1 hour
+  closing - 1 hour
+*/
+
+function getOrderWindowForDate(
+  date
+) {
+  const hours =
+    getShopHoursForDate(
+      date
+    );
+
+  return {
+    startMinutes:
+      hours.open * 60 + 60,
+
+    endMinutes:
+      hours.close * 60 - 60
+  };
+}
+
+/* =======================================================
+   VALIDATE ORDER SLOT
+======================================================= */
+
+function validateDeliverySlot(
+  deliveryTime,
+  options = {}
+) {
+  const {
+    requireFuture = true,
+    allowPastDate = false
+  } = options;
+
+  if (
+    !deliveryTime
+  ) {
+    return {
+      ok: false,
+      message:
+        'Please select a delivery time.'
+    };
+  }
+
+  const date =
+    new Date(
+      deliveryTime
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return {
+      ok: false,
+      message:
+        'Invalid delivery date/time.'
+    };
+  }
+
+  const parts =
+    getBangladeshParts(
+      date
+    );
+
+  const window =
+    getOrderWindowForDate(
+      date
+    );
+
+  const selectedMinutes =
+    parts.hour * 60 +
+    parts.minute;
+
+  /*
+    Selected time must be
+    inside opening+1h /
+    closing-1h.
+  */
+
+  if (
+    selectedMinutes <
+      window.startMinutes ||
+    selectedMinutes >
+      window.endMinutes
+  ) {
+    const start =
+      formatMinutes12(
+        window.startMinutes
+      );
+
+    const end =
+      formatMinutes12(
+        window.endMinutes
+      );
+
+    return {
+      ok: false,
+
+      message:
+        `Delivery time must be between ${start} and ${end}.`
+    };
+  }
+
+  /*
+    Must be a 30-minute slot.
+  */
+
+  if (
+    parts.minute !== 0 &&
+    parts.minute !== 30
+  ) {
+    return {
+      ok: false,
+      message:
+        'Delivery time must be selected in 30-minute slots.'
+    };
+  }
+
+  /*
+    Make sure seconds/milliseconds
+    are not being used to bypass
+    the slot rule.
+  */
+
+  if (
+    parts.second !== 0
+  ) {
+    return {
+      ok: false,
+      message:
+        'Please select a valid 30-minute delivery slot.'
+    };
+  }
+
+  /*
+    Compare with current time.
+  */
+
+  if (
+    requireFuture
+  ) {
+    const now =
+      new Date();
+
+    if (
+      date.getTime() <=
+      now.getTime()
+    ) {
+      return {
+        ok: false,
+        message:
+          'Please select a future delivery time.'
+      };
+    }
+  }
+
+  /*
+    If past dates are not allowed,
+    compare Bangladesh calendar dates.
+  */
+
+  if (
+    !allowPastDate
+  ) {
+    const nowParts =
+      getBangladeshParts(
+        new Date()
+      );
+
+    const selectedDateNumber =
+      Number(
+        `${String(parts.year).padStart(4, '0')}${String(parts.month).padStart(2, '0')}${String(parts.day).padStart(2, '0')}`
+      );
+
+    const todayDateNumber =
+      Number(
+        `${String(nowParts.year).padStart(4, '0')}${String(nowParts.month).padStart(2, '0')}${String(nowParts.day).padStart(2, '0')}`
+      );
+
+    if (
+      selectedDateNumber <
+      todayDateNumber
+    ) {
+      return {
+        ok: false,
+        message:
+          'Delivery date cannot be in the past.'
+      };
+    }
+  }
+
+  return {
+    ok: true
+  };
+}
+
+/* =======================================================
+   FORMAT MINUTES
+======================================================= */
+
+function formatMinutes12(
+  minutes
+) {
+  let hour =
+    Math.floor(
+      minutes / 60
+    );
+
+  const minute =
+    minutes % 60;
+
+  const suffix =
+    hour >= 12
+      ? 'PM'
+      : 'AM';
+
+  hour =
+    hour % 12;
+
+  if (
+    hour === 0
+  ) {
+    hour = 12;
+  }
 
   return (
-    hour >= hours.open &&
-    hour < hours.close
+    `${hour}:${String(minute).padStart(2, '0')} ${suffix}`
   );
 }
 
@@ -904,68 +1455,16 @@ function validatePrebookRequest(
     };
   }
 
-  const date =
-    new Date(deliveryTime);
+  return validateDeliverySlot(
+    deliveryTime,
+    {
+      requireFuture:
+        true,
 
-  if (
-    Number.isNaN(date.getTime())
-  ) {
-    return {
-      ok: false,
-      message:
-        'Invalid pre-booking date/time.'
-    };
-  }
-
-  const now =
-    new Date();
-
-  const min =
-    new Date(
-      now.getTime() +
-      Number(
-        settings.prebook.minHours
-      ) *
-      60 *
-      60 *
-      1000
-    );
-
-  const max =
-    new Date(
-      now.getTime() +
-      Number(
-        settings.prebook.maxHours
-      ) *
-      60 *
-      60 *
-      1000
-    );
-
-  if (
-    date < min ||
-    date > max
-  ) {
-    return {
-      ok: false,
-      message:
-        `Pre-booking must be between ${settings.prebook.minHours} and ${settings.prebook.maxHours} hours in advance.`
-    };
-  }
-
-  if (
-    !isWithinShopHours(date)
-  ) {
-    return {
-      ok: false,
-      message:
-        'Selected delivery time is outside shop hours.'
-    };
-  }
-
-  return {
-    ok: true
-  };
+      allowPastDate:
+        false
+    }
+  );
 }
 
 /* =======================================================
@@ -976,14 +1475,23 @@ function validateDeliveryTime(
   deliveryTime,
   hasPrebook
 ) {
-  if (!hasPrebook) {
-    return {
-      ok: true
-    };
+  if (
+    hasPrebook
+  ) {
+    return validatePrebookRequest(
+      deliveryTime
+    );
   }
 
-  return validatePrebookRequest(
-    deliveryTime
+  return validateDeliverySlot(
+    deliveryTime,
+    {
+      requireFuture:
+        true,
+
+      allowPastDate:
+        false
+    }
   );
 }
 
@@ -1012,67 +1520,77 @@ async function sendPasswordResetEmail(
     await fetch(
       'https://api.resend.com/emails',
       {
-        method: 'POST',
+        method:
+          'POST',
 
         headers: {
-          'Authorization':
+          Authorization:
             `Bearer ${apiKey}`,
 
           'Content-Type':
             'application/json'
         },
 
-        body: JSON.stringify({
-          from:
-            `Chef Sifat's Kitchen <${fromEmail}>`,
+        body:
+          JSON.stringify({
+            from:
+              `Chef Sifat's Kitchen <${fromEmail}>`,
 
-          to: [email],
+            to: [
+              email
+            ],
 
-          subject:
-            'Chef Sifat’s Kitchen — Password Reset Code',
+            subject:
+              'Chef Sifat’s Kitchen — Password Reset Code',
 
-          html: `
-            <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
-              <h2>Chef Sifat’s Kitchen</h2>
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto">
 
-              <p>
-                You requested a password reset for your customer account.
-              </p>
+                <h2>Chef Sifat’s Kitchen</h2>
 
-              <p>Your verification code is:</p>
+                <p>
+                  You requested a password reset for your customer account.
+                </p>
 
-              <div style="
-                font-size:32px;
-                font-weight:bold;
-                letter-spacing:8px;
-                padding:18px;
-                background:#f5f5f5;
-                text-align:center;
-                margin:20px 0;
-              ">
-                ${code}
+                <p>
+                  Your verification code is:
+                </p>
+
+                <div style="
+                  font-size:32px;
+                  font-weight:bold;
+                  letter-spacing:8px;
+                  padding:18px;
+                  background:#f5f5f5;
+                  text-align:center;
+                  margin:20px 0;
+                ">
+                  ${code}
+                </div>
+
+                <p>
+                  This code will expire in 15 minutes.
+                </p>
+
+                <p>
+                  If you did not request this, you can safely ignore this email.
+                </p>
+
+                <hr>
+
+                <small>
+                  Chef Sifat’s Kitchen
+                </small>
+
               </div>
-
-              <p>
-                This code will expire in 15 minutes.
-              </p>
-
-              <p>
-                If you did not request this, you can safely ignore this email.
-              </p>
-
-              <hr>
-
-              <small>
-                Chef Sifat’s Kitchen
-              </small>
-            </div>
-          `
-        })
+            `
+          })
       }
     );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     const text =
       await response.text();
 
@@ -1085,7 +1603,7 @@ async function sendPasswordResetEmail(
 }
 
 /* =======================================================
-   CONFIG
+   PUBLIC CONFIG
 ======================================================= */
 
 app.get(
@@ -1094,8 +1612,21 @@ app.get(
     const settings =
       getSettings();
 
+    const menu =
+      getMenu()
+        .filter(
+          item =>
+            item.active !== false
+        );
+
     res.json({
       ok: true,
+
+      /*
+        Include menu directly
+        for compatibility.
+      */
+      menu,
 
       delivery: {
         baseLat:
@@ -1141,6 +1672,41 @@ app.get(
 );
 
 /* =======================================================
+   PUBLIC MENU
+======================================================= */
+
+app.get(
+  '/api/menu',
+  (req, res) => {
+    try {
+      const menu =
+        getMenu()
+          .filter(
+            item =>
+              item.active !== false
+          );
+
+      res.json({
+        ok: true,
+        menu
+      });
+
+    } catch (error) {
+      console.error(
+        'PUBLIC MENU ERROR:',
+        error
+      );
+
+      res.status(500).json({
+        ok: false,
+        message:
+          'Unable to load menu.'
+      });
+    }
+  }
+);
+
+/* =======================================================
    LOCATION CHECK
 ======================================================= */
 
@@ -1149,10 +1715,14 @@ app.post(
   (req, res) => {
     try {
       const lat =
-        Number(req.body.lat);
+        Number(
+          req.body.lat
+        );
 
       const lng =
-        Number(req.body.lng);
+        Number(
+          req.body.lng
+        );
 
       if (
         !validateCoordinates(
@@ -1175,9 +1745,11 @@ app.post(
           Number(
             settings.delivery.baseLat
           ),
+
           Number(
             settings.delivery.baseLng
           ),
+
           lat,
           lng
         );
@@ -1193,38 +1765,55 @@ app.post(
         );
 
       if (
-        distance > maxRadius
+        distance >
+        maxRadius
       ) {
         return res.json({
           ok: true,
-          available: false,
-          codAvailable: false,
+
+          available:
+            false,
+
+          codAvailable:
+            false,
+
           distanceKm:
             Number(
               distance.toFixed(2)
             ),
-          deliveryCharge: null,
+
+          deliveryCharge:
+            null,
+
+          paymentRequired:
+            'Order unavailable',
+
           message:
-            'Sorry. Your delivery location is outside our 4 km delivery area.'
+            `Sorry. Your delivery location is outside our ${maxRadius} km delivery area.`
         });
       }
 
       const codAvailable =
-        distance <= codRadius;
+        distance <=
+        codRadius;
 
       const deliveryCharge =
         codAvailable
           ? Number(
               settings.delivery.codCharge
             )
-          : Math.ceil(distance) *
+          : Math.ceil(
+              distance
+            ) *
             Number(
               settings.delivery.ratePerKm
             );
 
       res.json({
         ok: true,
-        available: true,
+
+        available:
+          true,
 
         codAvailable,
 
@@ -1238,8 +1827,14 @@ app.post(
         paymentRequired:
           codAvailable
             ? 'COD or Online Payment'
-            : 'Online Payment Only'
+            : 'Online Payment Only',
+
+        message:
+          codAvailable
+            ? 'Cash on Delivery is available.'
+            : 'Cash on Delivery is unavailable. Online payment is required.'
       });
+
     } catch (error) {
       console.error(
         'LOCATION CHECK ERROR:',
@@ -1282,7 +1877,8 @@ app.post(
 
       const password =
         String(
-          req.body.password || ''
+          req.body.password ||
+          ''
         );
 
       const confirmPassword =
@@ -1313,7 +1909,9 @@ app.post(
       }
 
       if (
-        !validEmail(email)
+        !validEmail(
+          email
+        )
       ) {
         return res.status(400).json({
           ok: false,
@@ -1357,7 +1955,9 @@ app.post(
             ) === phone
         );
 
-      if (existingPhone) {
+      if (
+        existingPhone
+      ) {
         return res.status(409).json({
           ok: false,
           message:
@@ -1373,7 +1973,9 @@ app.post(
             ) === email
         );
 
-      if (existingEmail) {
+      if (
+        existingEmail
+      ) {
         return res.status(409).json({
           ok: false,
           message:
@@ -1382,11 +1984,15 @@ app.post(
       }
 
       const passwordData =
-        hashPassword(password);
+        hashPassword(
+          password
+        );
 
       const customer = {
         id:
-          makeId('customer'),
+          makeId(
+            'customer'
+          ),
 
         name,
 
@@ -1406,12 +2012,16 @@ app.post(
         updatedAt:
           new Date().toISOString(),
 
-        resetCodeHash: null,
+        resetCodeHash:
+          null,
 
-        resetCodeExpiresAt: null
+        resetCodeExpiresAt:
+          null
       };
 
-      customers.push(customer);
+      customers.push(
+        customer
+      );
 
       write(
         CUSTOMERS_FILE,
@@ -1436,6 +2046,7 @@ app.post(
             customer
           )
       });
+
     } catch (error) {
       console.error(
         'CUSTOMER REGISTER ERROR:',
@@ -1471,10 +2082,13 @@ app.post(
 
       const password =
         String(
-          req.body.password || ''
+          req.body.password ||
+          ''
         );
 
-      if (!identifier) {
+      if (
+        !identifier
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -1482,7 +2096,9 @@ app.post(
         });
       }
 
-      if (!password) {
+      if (
+        !password
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -1499,9 +2115,15 @@ app.post(
       const normalizedIdentifier =
         identifier.toLowerCase();
 
+      const inputPhone =
+        normalizePhone(
+          identifier
+        );
+
       const customer =
         customers.find(
           item => {
+
             const email =
               normalizeEmail(
                 item.email
@@ -1510,11 +2132,6 @@ app.post(
             const phone =
               normalizePhone(
                 item.phone
-              );
-
-            const inputPhone =
-              normalizePhone(
-                identifier
               );
 
             return (
@@ -1526,7 +2143,9 @@ app.post(
           }
         );
 
-      if (!customer) {
+      if (
+        !customer
+      ) {
         return res.status(401).json({
           ok: false,
           message:
@@ -1541,7 +2160,9 @@ app.post(
           customer.passwordSalt
         );
 
-      if (!valid) {
+      if (
+        !valid
+      ) {
         return res.status(401).json({
           ok: false,
           message:
@@ -1567,6 +2188,7 @@ app.post(
             customer
           )
       });
+
     } catch (error) {
       console.error(
         'CUSTOMER LOGIN ERROR:',
@@ -1625,8 +2247,12 @@ app.get(
           )
           .sort(
             (a, b) =>
-              new Date(b.createdAt) -
-              new Date(a.createdAt)
+              new Date(
+                b.createdAt
+              ) -
+              new Date(
+                a.createdAt
+              )
           );
 
       res.json({
@@ -1634,6 +2260,7 @@ app.get(
         orders:
           customerOrders
       });
+
     } catch (error) {
       console.error(
         'CUSTOMER ORDERS ERROR:',
@@ -1657,6 +2284,7 @@ app.post(
   '/api/customer/forgot-password',
   passwordLimiter,
   async (req, res) => {
+
     const genericMessage =
       'If an account exists with this email, a password reset code has been sent.';
 
@@ -1667,7 +2295,9 @@ app.post(
         );
 
       if (
-        !validEmail(email)
+        !validEmail(
+          email
+        )
       ) {
         return res.json({
           ok: true,
@@ -1690,11 +2320,9 @@ app.post(
             ) === email
         );
 
-      /*
-        Do not reveal whether
-        an account exists.
-      */
-      if (!customer) {
+      if (
+        !customer
+      ) {
         return res.json({
           ok: true,
           message:
@@ -1712,7 +2340,9 @@ app.post(
 
       const codeHash =
         crypto
-          .createHash('sha256')
+          .createHash(
+            'sha256'
+          )
           .update(code)
           .digest('hex');
 
@@ -1738,13 +2368,14 @@ app.post(
           email,
           code
         );
+
       } catch (mailError) {
-        /*
-          Remove reset code if
-          email could not be sent.
-        */
-        customer.resetCodeHash = null;
-        customer.resetCodeExpiresAt = null;
+
+        customer.resetCodeHash =
+          null;
+
+        customer.resetCodeExpiresAt =
+          null;
 
         write(
           CUSTOMERS_FILE,
@@ -1768,6 +2399,7 @@ app.post(
         message:
           genericMessage
       });
+
     } catch (error) {
       console.error(
         'FORGOT PASSWORD ERROR:',
@@ -1811,7 +2443,9 @@ app.post(
         );
 
       if (
-        !validEmail(email)
+        !validEmail(
+          email
+        )
       ) {
         return res.status(400).json({
           ok: false,
@@ -1821,7 +2455,9 @@ app.post(
       }
 
       if (
-        !/^\d{6}$/.test(code)
+        !/^\d{6}$/.test(
+          code
+        )
       ) {
         return res.status(400).json({
           ok: false,
@@ -1854,7 +2490,9 @@ app.post(
             ) === email
         );
 
-      if (!customer) {
+      if (
+        !customer
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -1879,11 +2517,17 @@ app.post(
         ).getTime();
 
       if (
-        !Number.isFinite(expires) ||
-        Date.now() > expires
+        !Number.isFinite(
+          expires
+        ) ||
+        Date.now() >
+          expires
       ) {
-        customer.resetCodeHash = null;
-        customer.resetCodeExpiresAt = null;
+        customer.resetCodeHash =
+          null;
+
+        customer.resetCodeExpiresAt =
+          null;
 
         write(
           CUSTOMERS_FILE,
@@ -1899,7 +2543,9 @@ app.post(
 
       const incomingHash =
         crypto
-          .createHash('sha256')
+          .createHash(
+            'sha256'
+          )
           .update(code)
           .digest('hex');
 
@@ -1944,6 +2590,7 @@ app.post(
         message:
           'Password reset successful. Please login with your new password.'
       });
+
     } catch (error) {
       console.error(
         'RESET PASSWORD ERROR:',
@@ -2020,10 +2667,14 @@ app.post(
         );
 
       const lat =
-        Number(body.lat);
+        Number(
+          body.lat
+        );
 
       const lng =
-        Number(body.lng);
+        Number(
+          body.lng
+        );
 
       const deliveryTime =
         body.deliveryTime ||
@@ -2031,7 +2682,9 @@ app.post(
         '';
 
       const requestedItems =
-        Array.isArray(body.items)
+        Array.isArray(
+          body.items
+        )
           ? body.items
           : [];
 
@@ -2102,15 +2755,6 @@ app.post(
          CUSTOMER IDENTITY
       ================================================= */
 
-      /*
-        The logged-in account is the
-        actual customer.
-
-        We keep checkout name/phone,
-        but prevent changing the account
-        phone to another number.
-      */
-
       const customerPhone =
         normalizePhone(
           req.customer.phone
@@ -2138,12 +2782,14 @@ app.post(
 
       let subtotal = 0;
 
-      let hasPrebook = false;
+      let hasPrebook =
+        false;
 
       for (
         const requested
         of requestedItems
       ) {
+
         const productId =
           String(
             requested.id ||
@@ -2154,7 +2800,9 @@ app.post(
         const product =
           menu.find(
             item =>
-              String(item.id) ===
+              String(
+                item.id
+              ) ===
               productId
           );
 
@@ -2175,7 +2823,9 @@ app.post(
           );
 
         if (
-          !Number.isInteger(qty) ||
+          !Number.isInteger(
+            qty
+          ) ||
           qty < 1
         ) {
           return res.status(400).json({
@@ -2186,10 +2836,14 @@ app.post(
         }
 
         const minQty =
-          Number(product.minQty) || 1;
+          Number(
+            product.minQty
+          ) || 1;
 
         const maxQty =
-          Number(product.maxQty) || 100;
+          Number(
+            product.maxQty
+          ) || 100;
 
         if (
           qty < minQty ||
@@ -2202,17 +2856,112 @@ app.post(
           });
         }
 
+        /* ===============================================
+           SIZE VALIDATION
+        =============================================== */
+
+        let sizeIndex =
+          Number.isInteger(
+            Number(
+              requested.sizeIndex
+            )
+          )
+            ? Number(
+                requested.sizeIndex
+              )
+            : -1;
+
+        let selectedSize =
+          null;
+
+        let unitPrice =
+          Number(
+            product.price
+          );
+
         /*
-          Use SERVER price.
-          Never trust price sent
-          from browser.
+          If product has sizes,
+          browser MUST select a valid size.
         */
 
-        const unitPrice =
-          Number(product.price);
+        if (
+          Array.isArray(
+            product.sizes
+          ) &&
+          product.sizes.length
+        ) {
+
+          if (
+            sizeIndex < 0 ||
+            sizeIndex >=
+              product.sizes.length
+          ) {
+
+            /*
+              Backward compatibility:
+              try matching choice.
+            */
+
+            const requestedChoice =
+              cleanString(
+                requested.choice,
+                200
+              );
+
+            const choiceIndex =
+              product.sizes.findIndex(
+                size =>
+                  size[0] ===
+                  requestedChoice
+              );
+
+            if (
+              choiceIndex >= 0
+            ) {
+              sizeIndex =
+                choiceIndex;
+            }
+          }
+
+          if (
+            sizeIndex < 0 ||
+            sizeIndex >=
+              product.sizes.length
+          ) {
+            return res.status(400).json({
+              ok: false,
+              message:
+                `Please select a valid size for ${product.name}.`
+            });
+          }
+
+          selectedSize =
+            product.sizes[
+              sizeIndex
+            ];
+
+          unitPrice =
+            Number(
+              selectedSize[1]
+            );
+        }
+
+        if (
+          !Number.isFinite(
+            unitPrice
+          ) ||
+          unitPrice <= 0
+        ) {
+          return res.status(400).json({
+            ok: false,
+            message:
+              `Invalid price for ${product.name}.`
+          });
+        }
 
         const lineTotal =
-          unitPrice * qty;
+          unitPrice *
+          qty;
 
         const itemPrebook =
           isPrebookCategory(
@@ -2222,7 +2971,8 @@ app.post(
         if (
           itemPrebook
         ) {
-          hasPrebook = true;
+          hasPrebook =
+            true;
         }
 
         cleanItems.push({
@@ -2236,11 +2986,18 @@ app.post(
             product.cat,
 
           choice:
-            cleanString(
-              requested.choice ||
-              product.choice,
-              200
-            ),
+            selectedSize
+              ? selectedSize[0]
+              : cleanString(
+                  requested.choice ||
+                  product.choice,
+                  200
+                ),
+
+          sizeIndex:
+            selectedSize
+              ? sizeIndex
+              : null,
 
           qty,
 
@@ -2254,7 +3011,8 @@ app.post(
             itemPrebook,
 
           image:
-            product.image || ''
+            product.image ||
+            ''
         });
 
         subtotal +=
@@ -2273,9 +3031,11 @@ app.post(
           Number(
             settings.delivery.baseLat
           ),
+
           Number(
             settings.delivery.baseLng
           ),
+
           lat,
           lng
         );
@@ -2296,6 +3056,7 @@ app.post(
       ) {
         return res.status(400).json({
           ok: false,
+
           code:
             'OUTSIDE_DELIVERY_AREA',
 
@@ -2305,7 +3066,8 @@ app.post(
       }
 
       const codAvailable =
-        distance <= codRadius;
+        distance <=
+        codRadius;
 
       const deliveryCharge =
         codAvailable
@@ -2323,7 +3085,9 @@ app.post(
          PAYMENT
       ================================================= */
 
-      if (!payment) {
+      if (
+        !payment
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -2332,13 +3096,14 @@ app.post(
       }
 
       /*
-        Pre-booking:
+        PRE-BOOK:
         Full online payment only.
       */
 
       if (
         hasPrebook
       ) {
+
         if (
           paymentIsCOD(
             payment
@@ -2380,7 +3145,7 @@ app.post(
       }
 
       /*
-        Outside COD radius:
+        OUTSIDE COD:
         Online payment required.
       */
 
@@ -2388,6 +3153,7 @@ app.post(
         !hasPrebook &&
         !codAvailable
       ) {
+
         if (
           paymentIsCOD(
             payment
@@ -2438,6 +3204,7 @@ app.post(
           payment
         )
       ) {
+
         if (
           !codAvailable
         ) {
@@ -2460,8 +3227,8 @@ app.post(
       }
 
       /*
-        Any online payment must have
-        transaction ID.
+        Online payment always
+        requires transaction ID.
       */
 
       const isOnlinePayment =
@@ -2489,32 +3256,46 @@ app.post(
          DELIVERY TIME
       ================================================= */
 
+      /*
+        FINAL RULE:
+        Every order must have
+        a selected 30-minute slot.
+
+        Normal:
+        opening + 1 hour
+        through closing - 1 hour.
+
+        Pre-book:
+        same time window,
+        on a future date.
+      */
+
       if (
-        hasPrebook
+        !deliveryTime
       ) {
-        if (!deliveryTime) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              'Please select a pre-booking delivery time.'
-          });
-        }
+        return res.status(400).json({
+          ok: false,
+          message:
+            hasPrebook
+              ? 'Please select a pre-booking delivery time.'
+              : 'Please select a delivery time.'
+        });
+      }
 
-        const timeValidation =
-          validateDeliveryTime(
-            deliveryTime,
-            true
-          );
+      const timeValidation =
+        validateDeliveryTime(
+          deliveryTime,
+          hasPrebook
+        );
 
-        if (
-          !timeValidation.ok
-        ) {
-          return res.status(400).json({
-            ok: false,
-            message:
-              timeValidation.message
-          });
-        }
+      if (
+        !timeValidation.ok
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            timeValidation.message
+        });
       }
 
       /* =================================================
@@ -2537,7 +3318,9 @@ app.post(
 
       const order = {
         id:
-          makeId('order'),
+          makeId(
+            'order'
+          ),
 
         createdAt:
           new Date().toISOString(),
@@ -2603,18 +3386,29 @@ app.post(
             : transactionId,
 
         deliveryTime:
-          hasPrebook
-            ? new Date(
-                deliveryTime
-              ).toISOString()
-            : '',
+          new Date(
+            deliveryTime
+          ).toISOString(),
 
         prebook:
           hasPrebook,
 
+        /*
+          Keep settings snapshot
+          for historical records.
+        */
+
         prebookSettings:
           hasPrebook
-            ? settings.prebook
+            ? {
+                ...settings.prebook,
+
+                /*
+                  New rule snapshot.
+                */
+                timeRule:
+                  'Opening + 1 hour to closing - 1 hour, 30-minute slots'
+              }
             : null,
 
         items:
@@ -2640,6 +3434,7 @@ app.post(
 
         order
       });
+
     } catch (error) {
       console.error(
         'CREATE ORDER ERROR:',
@@ -2662,6 +3457,7 @@ app.post(
 app.get(
   '/api/reviews',
   (req, res) => {
+
     const reviews =
       read(
         REVIEWS_FILE,
@@ -2669,7 +3465,9 @@ app.get(
       );
 
     const approved =
-      Array.isArray(reviews)
+      Array.isArray(
+        reviews
+      )
         ? reviews.filter(
             item =>
               item.approved !== false
@@ -2692,6 +3490,7 @@ app.post(
   '/api/reviews',
   customerAuth,
   (req, res) => {
+
     try {
       const rating =
         Number(
@@ -2718,7 +3517,9 @@ app.post(
         });
       }
 
-      if (!comment) {
+      if (
+        !comment
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -2734,7 +3535,9 @@ app.post(
 
       const review = {
         id:
-          makeId('review'),
+          makeId(
+            'review'
+          ),
 
         customerId:
           req.customer.id,
@@ -2767,6 +3570,7 @@ app.post(
         message:
           'Review submitted for approval.'
       });
+
     } catch (error) {
       console.error(
         'REVIEW ERROR:',
@@ -2790,6 +3594,7 @@ app.post(
   '/api/admin/login',
   loginLimiter,
   (req, res) => {
+
     const username =
       cleanString(
         req.body.username,
@@ -2798,15 +3603,16 @@ app.post(
 
     const password =
       String(
-        req.body.password || ''
+        req.body.password ||
+        ''
       );
 
     if (
       username !==
-      ADMIN_USERNAME ||
+        ADMIN_USERNAME ||
       !ADMIN_PASSWORD ||
       password !==
-      ADMIN_PASSWORD
+        ADMIN_PASSWORD
     ) {
       return res.status(401).json({
         ok: false,
@@ -2822,11 +3628,13 @@ app.post(
 
     res.json({
       ok: true,
+
       token,
 
       user: {
         username,
-        role: 'admin'
+        role:
+          'admin'
       }
     });
   }
@@ -2840,6 +3648,7 @@ app.get(
   '/api/admin/dashboard',
   auth,
   (req, res) => {
+
     const orders =
       read(
         ORDERS_FILE,
@@ -2896,6 +3705,7 @@ app.get(
   '/api/admin/orders',
   auth,
   (req, res) => {
+
     const orders =
       read(
         ORDERS_FILE,
@@ -2904,8 +3714,12 @@ app.get(
 
     orders.sort(
       (a, b) =>
-        new Date(b.createdAt) -
-        new Date(a.createdAt)
+        new Date(
+          b.createdAt
+        ) -
+        new Date(
+          a.createdAt
+        )
     );
 
     res.json({
@@ -2923,6 +3737,7 @@ app.patch(
   '/api/admin/orders/:id',
   auth,
   (req, res) => {
+
     const orders =
       read(
         ORDERS_FILE,
@@ -2936,7 +3751,9 @@ app.patch(
           req.params.id
       );
 
-    if (index === -1) {
+    if (
+      index === -1
+    ) {
       return res.status(404).json({
         ok: false,
         message:
@@ -2998,6 +3815,7 @@ app.get(
   '/api/admin/reviews',
   auth,
   (req, res) => {
+
     const reviews =
       read(
         REVIEWS_FILE,
@@ -3006,8 +3824,12 @@ app.get(
 
     reviews.sort(
       (a, b) =>
-        new Date(b.createdAt) -
-        new Date(a.createdAt)
+        new Date(
+          b.createdAt
+        ) -
+        new Date(
+          a.createdAt
+        )
     );
 
     res.json({
@@ -3025,6 +3847,7 @@ app.patch(
   '/api/admin/reviews/:id',
   auth,
   (req, res) => {
+
     const reviews =
       read(
         REVIEWS_FILE,
@@ -3038,7 +3861,9 @@ app.patch(
           req.params.id
       );
 
-    if (index === -1) {
+    if (
+      index === -1
+    ) {
       return res.status(404).json({
         ok: false,
         message:
@@ -3077,8 +3902,10 @@ app.get(
   '/api/admin/settings',
   auth,
   (req, res) => {
+
     res.json({
       ok: true,
+
       settings:
         getSettings()
     });
@@ -3093,6 +3920,7 @@ app.put(
   '/api/admin/settings',
   auth,
   (req, res) => {
+
     try {
       const current =
         getSettings();
@@ -3105,20 +3933,24 @@ app.put(
 
         delivery: {
           ...current.delivery,
+
           ...(incoming.delivery || {})
         },
 
         payment: {
           ...current.payment,
+
           ...(incoming.payment || {})
         },
 
         hours: {
           ...current.hours,
+
           ...(incoming.hours || {}),
 
           normal: {
             ...current.hours.normal,
+
             ...(
               incoming.hours &&
               incoming.hours.normal
@@ -3129,6 +3961,7 @@ app.put(
 
           friday: {
             ...current.hours.friday,
+
             ...(
               incoming.hours &&
               incoming.hours.friday
@@ -3140,9 +3973,144 @@ app.put(
 
         prebook: {
           ...current.prebook,
+
           ...(incoming.prebook || {})
         }
       };
+
+      /*
+        Sanitize important numeric
+        settings.
+      */
+
+      next.delivery.baseLat =
+        Number(
+          next.delivery.baseLat
+        );
+
+      next.delivery.baseLng =
+        Number(
+          next.delivery.baseLng
+        );
+
+      next.delivery.codRadiusKm =
+        Number(
+          next.delivery.codRadiusKm
+        );
+
+      next.delivery.maxRadiusKm =
+        Number(
+          next.delivery.maxRadiusKm
+        );
+
+      next.delivery.ratePerKm =
+        Number(
+          next.delivery.ratePerKm
+        );
+
+      next.delivery.codCharge =
+        Number(
+          next.delivery.codCharge
+        );
+
+      next.hours.normal.open =
+        Number(
+          next.hours.normal.open
+        );
+
+      next.hours.normal.close =
+        Number(
+          next.hours.normal.close
+        );
+
+      next.hours.friday.open =
+        Number(
+          next.hours.friday.open
+        );
+
+      next.hours.friday.close =
+        Number(
+          next.hours.friday.close
+        );
+
+      if (
+        !validateCoordinates(
+          next.delivery.baseLat,
+          next.delivery.baseLng
+        )
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Invalid delivery base coordinates.'
+        });
+      }
+
+      if (
+        next.delivery.codRadiusKm <
+        0 ||
+        next.delivery.maxRadiusKm <=
+        0 ||
+        next.delivery.codRadiusKm >
+        next.delivery.maxRadiusKm
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Invalid delivery radius settings.'
+        });
+      }
+
+      if (
+        next.delivery.ratePerKm <
+        0 ||
+        next.delivery.codCharge <
+        0
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Delivery charges cannot be negative.'
+        });
+      }
+
+      if (
+        next.hours.normal.open <
+        0 ||
+        next.hours.normal.open >
+        23 ||
+        next.hours.normal.close <
+        1 ||
+        next.hours.normal.close >
+        24 ||
+        next.hours.normal.open >=
+        next.hours.normal.close
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Invalid normal shop hours.'
+        });
+      }
+
+      if (
+        next.hours.friday.open <
+        0 ||
+        next.hours.friday.open >
+        23 ||
+        next.hours.friday.close <
+        1 ||
+        next.hours.friday.close >
+        24 ||
+        next.hours.friday.open >=
+        next.hours.friday.close
+      ) {
+        return res.status(400).json({
+          ok: false,
+          message:
+            'Invalid Friday shop hours.'
+        });
+      }
 
       write(
         SETTINGS_FILE,
@@ -3154,6 +4122,7 @@ app.put(
         settings:
           next
       });
+
     } catch (error) {
       console.error(
         'SETTINGS UPDATE ERROR:',
@@ -3177,8 +4146,10 @@ app.get(
   '/api/admin/menu',
   auth,
   (req, res) => {
+
     res.json({
       ok: true,
+
       menu:
         getMenu()
     });
@@ -3193,6 +4164,7 @@ app.put(
   '/api/admin/menu',
   auth,
   (req, res) => {
+
     try {
       if (
         !Array.isArray(
@@ -3220,6 +4192,7 @@ app.put(
         ok: true,
         menu
       });
+
     } catch (error) {
       console.error(
         'MENU UPDATE ERROR:',
@@ -3243,6 +4216,7 @@ app.post(
   '/api/admin/menu',
   auth,
   (req, res) => {
+
     try {
       const menu =
         getMenu();
@@ -3250,12 +4224,17 @@ app.post(
       const product =
         normalizeProduct({
           ...req.body,
+
           id:
             req.body.id ||
-            makeId('item')
+            makeId(
+              'item'
+            )
         });
 
-      if (!product.name) {
+      if (
+        !product.name
+      ) {
         return res.status(400).json({
           ok: false,
           message:
@@ -3286,6 +4265,7 @@ app.post(
         ok: true,
         product
       });
+
     } catch (error) {
       console.error(
         'MENU CREATE ERROR:',
@@ -3309,17 +4289,24 @@ app.delete(
   '/api/admin/menu/:id',
   auth,
   (req, res) => {
+
     const menu =
       getMenu();
 
     const index =
       menu.findIndex(
         item =>
-          String(item.id) ===
-          String(req.params.id)
+          String(
+            item.id
+          ) ===
+          String(
+            req.params.id
+          )
       );
 
-    if (index === -1) {
+    if (
+      index === -1
+    ) {
       return res.status(404).json({
         ok: false,
         message:
@@ -3351,6 +4338,7 @@ app.delete(
 
 const storage =
   multer.diskStorage({
+
     destination:
       (req, file, cb) => {
         cb(
@@ -3361,6 +4349,7 @@ const storage =
 
     filename:
       (req, file, cb) => {
+
         const ext =
           path.extname(
             file.originalname
@@ -3373,12 +4362,15 @@ const storage =
             '.png',
             '.webp',
             '.gif'
-          ].includes(ext)
+          ].includes(
+            ext
+          )
             ? ext
             : '.jpg';
 
         cb(
           null,
+
           `food-${Date.now()}-${crypto.randomBytes(4).toString('hex')}${safeExt}`
         );
       }
@@ -3386,6 +4378,7 @@ const storage =
 
 const upload =
   multer({
+
     storage,
 
     limits: {
@@ -3395,6 +4388,7 @@ const upload =
 
     fileFilter:
       (req, file, cb) => {
+
         const allowed = [
           'image/jpeg',
           'image/png',
@@ -3426,7 +4420,10 @@ app.post(
   auth,
   upload.single('image'),
   (req, res) => {
-    if (!req.file) {
+
+    if (
+      !req.file
+    ) {
       return res.status(400).json({
         ok: false,
         message:
@@ -3454,6 +4451,7 @@ app.get(
   '/api/admin/customers',
   auth,
   (req, res) => {
+
     const customers =
       read(
         CUSTOMERS_FILE,
@@ -3475,13 +4473,14 @@ app.get(
 );
 
 /* =======================================================
-   ADMIN CUSTOMER COUNT / DETAILS
+   ADMIN CUSTOMER DETAILS
 ======================================================= */
 
 app.get(
   '/api/admin/customers/:id',
   auth,
   (req, res) => {
+
     const customers =
       read(
         CUSTOMERS_FILE,
@@ -3495,7 +4494,9 @@ app.get(
           req.params.id
       );
 
-    if (!customer) {
+    if (
+      !customer
+    ) {
       return res.status(404).json({
         ok: false,
         message:
@@ -3515,6 +4516,16 @@ app.get(
           order.customerId ===
           customer.id
       );
+
+    customerOrders.sort(
+      (a, b) =>
+        new Date(
+          b.createdAt
+        ) -
+        new Date(
+          a.createdAt
+        )
+    );
 
     res.json({
       ok: true,
@@ -3537,6 +4548,7 @@ app.get(
 app.get(
   '/admin',
   (req, res) => {
+
     res.sendFile(
       path.join(
         PUBLIC,
@@ -3553,12 +4565,18 @@ app.get(
 app.get(
   '/api/health',
   (req, res) => {
+
     res.json({
       ok: true,
+
       service:
         "Chef Sifat's Kitchen",
+
       time:
-        new Date().toISOString()
+        new Date().toISOString(),
+
+      timezone:
+        BD_TIMEZONE
     });
   }
 );
@@ -3570,6 +4588,7 @@ app.get(
 app.use(
   '/api',
   (req, res) => {
+
     res.status(404).json({
       ok: false,
       message:
@@ -3583,7 +4602,13 @@ app.use(
 ======================================================= */
 
 app.use(
-  (error, req, res, next) => {
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
+
     console.error(
       'SERVER ERROR:',
       error
@@ -3629,6 +4654,7 @@ app.use(
 app.listen(
   PORT,
   () => {
+
     console.log(
       `Chef Sifat's Kitchen server running on port ${PORT}`
     );
@@ -3646,6 +4672,10 @@ app.listen(
     );
 
     console.log(
+      'Public menu API: ENABLED'
+    );
+
+    console.log(
       'Delivery base: Kahalthuri Hamidia High School'
     );
 
@@ -3655,6 +4685,26 @@ app.listen(
 
     console.log(
       'Maximum delivery radius: 4 km'
+    );
+
+    console.log(
+      'Delivery rate outside COD: ৳10 per started km'
+    );
+
+    console.log(
+      'Delivery timezone: Asia/Dhaka'
+    );
+
+    console.log(
+      'Delivery slots: 30 minutes'
+    );
+
+    console.log(
+      'Delivery window: Shop opening +1 hour to closing -1 hour'
+    );
+
+    console.log(
+      'Pizza pre-booking: DISABLED'
     );
   }
 );
