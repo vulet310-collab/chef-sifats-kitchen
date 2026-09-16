@@ -1908,6 +1908,27 @@ async function place() {
 
   /*
     =========================
+    PRE-ORDER VALIDATION
+    =========================
+  */
+
+  const hasPrebook =
+    pre();
+
+  const prebookValidation =
+    validatePrebookTime();
+
+  if (!prebookValidation.ok) {
+
+    alert(
+      prebookValidation.message
+    );
+
+    return;
+  }
+
+  /*
+    =========================
     PAYMENT VALIDATION
     =========================
   */
