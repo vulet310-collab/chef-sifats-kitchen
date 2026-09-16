@@ -2,11 +2,12 @@
 <html lang="en">
 
 <head>
+
   <meta charset="utf-8">
 
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1"
+    content="width=device-width,initial-scale=1"
   >
 
   <meta
@@ -14,385 +15,414 @@
     content="#080808"
   >
 
-  <meta
-    name="robots"
-    content="noindex,nofollow"
-  >
+  <title>
+    Chef Sifat's Kitchen — Admin
+  </title>
 
-  <title>CSK Admin — Chef Sifat's Kitchen</title>
-
-  <link
-    rel="stylesheet"
-    href="/admin.css"
-  >
 
   <style>
-    /* =====================================================
-       ADMIN PAGE BASE
-       ===================================================== */
 
     * {
       box-sizing: border-box;
     }
 
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-    }
 
     body {
-      background: #080808;
-      color: #f5f5f5;
-      font-family:
-        Inter,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #111;
     }
+
 
     button,
     input,
-    select,
-    textarea {
+    textarea,
+    select {
       font: inherit;
     }
+
 
     button {
       cursor: pointer;
     }
 
-    /* =====================================================
-       LOGIN
-       ===================================================== */
 
-    #login {
+    .login-screen {
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 25px;
-      background:
-        radial-gradient(
-          circle at top,
-          rgba(255, 255, 255, .08),
-          transparent 45%
-        ),
-        #080808;
+      padding: 20px;
     }
 
-    #login .panel {
+
+    .login-box {
       width: 100%;
       max-width: 420px;
-      padding: 35px;
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,.12);
-      background: rgba(255,255,255,.04);
+      background: #fff;
+      padding: 30px;
+      border-radius: 18px;
       box-shadow:
-        0 25px 80px rgba(0,0,0,.5);
+        0 15px 50px rgba(0,0,0,.12);
     }
 
-    #login h1 {
-      margin: 0 0 8px;
-      font-size: 30px;
-      letter-spacing: -.5px;
+
+    .login-box h1 {
+      margin-top: 0;
     }
 
-    #login .panel::before {
-      content:
-        "CHEF SIFAT'S KITCHEN";
-      display: block;
-      margin-bottom: 10px;
-      font-size: 11px;
-      letter-spacing: 2px;
-      opacity: .55;
-    }
 
-    #login input {
+    .login-box input {
       width: 100%;
-      margin-top: 12px;
-      padding: 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.15);
-      outline: none;
-      background: rgba(255,255,255,.06);
+      padding: 13px;
+      margin: 7px 0;
+      border: 1px solid #ccc;
+      border-radius: 9px;
+    }
+
+
+    .login-box button {
+      width: 100%;
+      padding: 13px;
+      margin-top: 10px;
+      border: 0;
+      border-radius: 9px;
+      background: #111;
       color: #fff;
     }
 
-    #login input:focus {
-      border-color: rgba(255,255,255,.45);
-    }
-
-    #login button {
-      width: 100%;
-      margin-top: 16px;
-      padding: 14px;
-      border: 0;
-      border-radius: 10px;
-      background: #fff;
-      color: #080808;
-      font-weight: 800;
-    }
-
-    #login #e {
-      min-height: 20px;
-      margin-top: 12px;
-      color: #ff7777;
-      font-size: 14px;
-    }
-
-    /* =====================================================
-       APP LAYOUT
-       ===================================================== */
 
     #app {
+      display: none;
       min-height: 100vh;
-      display: flex;
     }
 
-    #app aside {
-      width: 245px;
-      flex-shrink: 0;
-      min-height: 100vh;
-      padding: 24px 16px;
-      border-right: 1px solid rgba(255,255,255,.1);
-      background: #0d0d0d;
-      position: sticky;
+
+    .sidebar {
+      position: fixed;
+      left: 0;
       top: 0;
-      align-self: flex-start;
+      bottom: 0;
+      width: 250px;
+      background: #111;
+      color: #fff;
+      padding: 22px;
+      z-index: 100;
     }
 
-    #app aside h2 {
-      margin: 0 10px 25px;
-      font-size: 20px;
+
+    .sidebar h2 {
+      margin-top: 0;
     }
 
-    #app aside h2::after {
-      content:
-        "ADMIN PANEL";
+
+    .sidebar button {
       display: block;
-      margin-top: 5px;
-      font-size: 9px;
-      letter-spacing: 2px;
-      opacity: .45;
-    }
-
-    #app aside button {
       width: 100%;
-      display: block;
-      margin: 5px 0;
-      padding: 12px 14px;
-      border: 1px solid transparent;
-      border-radius: 9px;
-      background: transparent;
-      color: #ddd;
       text-align: left;
-      transition: .2s ease;
+      border: 0;
+      background: transparent;
+      color: #fff;
+      padding: 13px;
+      margin: 4px 0;
+      border-radius: 8px;
     }
 
-    #app aside button:hover {
-      background: rgba(255,255,255,.07);
-      border-color: rgba(255,255,255,.08);
+
+    .sidebar button:hover {
+      background: #333;
     }
 
-    #app aside button:last-child {
+
+    .sidebar .logout {
       margin-top: 25px;
-      color: #ff8c8c;
+      background: #a00;
     }
 
-    #app main {
-      flex: 1;
-      min-width: 0;
-      padding: 35px;
+
+    .admin-main {
+      margin-left: 250px;
+      padding: 25px;
     }
+
+
+    .topbar {
+      background: #fff;
+      padding: 18px;
+      border-radius: 14px;
+      margin-bottom: 20px;
+    }
+
 
     #view {
-      width: 100%;
+      background: #fff;
+      padding: 22px;
+      border-radius: 14px;
+      min-height: 500px;
     }
 
-    /* =====================================================
-       MOBILE
-       ===================================================== */
 
-    @media (max-width: 800px) {
+    .grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit,minmax(220px,1fr));
+      gap: 15px;
+    }
 
-      #app {
-        display: block;
-      }
 
-      #app aside {
+    .card {
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+
+    .card img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+
+
+    .form-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(auto-fit,minmax(220px,1fr));
+      gap: 10px;
+    }
+
+
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea,
+    .admin-input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+
+    .admin-btn {
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 8px;
+      background: #111;
+      color: #fff;
+      margin: 4px;
+    }
+
+
+    .danger {
+      background: #a00;
+      color: #fff;
+    }
+
+
+    .success {
+      background: #16733b;
+      color: #fff;
+    }
+
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+
+    th,
+    td {
+      border-bottom: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+
+
+    @media(max-width:800px) {
+
+      .sidebar {
+        position: relative;
         width: 100%;
         min-height: auto;
-        position: relative;
-        padding: 15px;
-        border-right: 0;
-        border-bottom: 1px solid rgba(255,255,255,.1);
       }
 
-      #app aside h2 {
-        margin-bottom: 12px;
+
+      .admin-main {
+        margin-left: 0;
+        padding: 12px;
       }
 
-      #app aside button {
+
+      .sidebar button {
         display: inline-block;
         width: auto;
-        margin: 3px;
-        padding: 9px 12px;
       }
 
-      #app aside button:last-child {
-        margin-top: 3px;
-      }
-
-      #app main {
-        padding: 18px;
-      }
     }
+
   </style>
+
 </head>
 
 
 <body>
 
-  <!-- =====================================================
-       ADMIN LOGIN
-       ===================================================== -->
 
-  <div id="login">
+<!-- =====================================================
+     LOGIN
+====================================================== -->
 
-    <div class="panel">
+<section
+  id="login"
+  class="login-screen"
+>
 
-      <h1>CSK Admin</h1>
+  <div class="login-box">
 
-      <p style="opacity:.65;margin-top:0;">
-        Sign in to manage Chef Sifat's Kitchen.
-      </p>
+    <h1>
+      Chef Sifat's Kitchen
+    </h1>
 
-      <input
-        id="u"
-        type="text"
-        autocomplete="username"
-        placeholder="Admin Username"
-      >
+    <h3>
+      Admin Panel
+    </h3>
 
-      <input
-        id="p"
-        type="password"
-        autocomplete="current-password"
-        placeholder="Admin Password"
-      >
 
-      <button
-        type="button"
-        onclick="login()"
-      >
-        Sign In
-      </button>
+    <input
+      id="adminUsername"
+      type="text"
+      placeholder="Username"
+      autocomplete="username"
+    >
 
-      <p id="e"></p>
+
+    <input
+      id="adminPassword"
+      type="password"
+      placeholder="Password"
+      autocomplete="current-password"
+    >
+
+
+    <button
+      type="button"
+      onclick="adminLogin()"
+    >
+      Login
+    </button>
+
+
+    <p id="loginMessage"></p>
+
+  </div>
+
+</section>
+
+
+
+<!-- =====================================================
+     APP
+====================================================== -->
+
+<div id="app">
+
+
+  <aside class="sidebar">
+
+    <h2>
+      CSK Admin
+    </h2>
+
+
+    <button
+      type="button"
+      onclick="dash()"
+    >
+      📊 Dashboard
+    </button>
+
+
+    <button
+      type="button"
+      onclick="orders()"
+    >
+      📦 Orders
+    </button>
+
+
+    <button
+      type="button"
+      onclick="menu()"
+    >
+      🍕 Menu
+    </button>
+
+
+    <button
+      type="button"
+      onclick="reviews()"
+    >
+      ⭐ Reviews
+    </button>
+
+
+    <button
+      type="button"
+      onclick="customers()"
+    >
+      👥 Customers
+    </button>
+
+
+    <button
+      type="button"
+      onclick="settings()"
+    >
+      🚚 Delivery & Settings
+    </button>
+
+
+    <button
+      type="button"
+      class="logout"
+      onclick="adminLogout()"
+    >
+      🚪 Logout
+    </button>
+
+  </aside>
+
+
+
+  <main class="admin-main">
+
+    <div class="topbar">
+
+      <strong>
+        Chef Sifat's Kitchen — Administration
+      </strong>
 
     </div>
 
-  </div>
+
+    <div id="view"></div>
+
+  </main>
+
+</div>
 
 
-  <!-- =====================================================
-       ADMIN APPLICATION
-       ===================================================== -->
 
-  <div id="app" style="display:none;">
-
-    <!-- ===================================================
-         SIDEBAR
-         =================================================== -->
-
-    <aside>
-
-      <h2>
-        Chef Sifat's Kitchen
-      </h2>
-
-
-      <button
-        type="button"
-        onclick="dash()"
-      >
-        🏠 Dashboard
-      </button>
-
-
-      <button
-        type="button"
-        onclick="orders()"
-      >
-        📦 Orders
-      </button>
-
-
-      <button
-        type="button"
-        onclick="menu()"
-      >
-        🍕 Menu
-      </button>
-
-
-      <button
-        type="button"
-        onclick="reviews()"
-      >
-        ⭐ Reviews
-      </button>
-
-
-      <button
-        type="button"
-        onclick="customers()"
-      >
-        👥 Customers
-      </button>
-
-
-      <button
-        type="button"
-        onclick="settings()"
-      >
-        ⚙️ Delivery & Settings
-      </button>
-
-
-      <button
-        type="button"
-        onclick="logout()"
-      >
-        🚪 Logout
-      </button>
-
-    </aside>
-
-
-    <!-- ===================================================
-         MAIN CONTENT
-         =================================================== -->
-
-    <main>
-
-      <div id="view"></div>
-
-    </main>
-
-  </div>
-
-
-  <!-- =====================================================
-       ADMIN JAVASCRIPT
-       ===================================================== -->
-
-  <script src="/admin.js"></script>
+<script src="/admin.js"></script>
 
 </body>
-
 </html>
